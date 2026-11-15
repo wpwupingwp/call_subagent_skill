@@ -27,6 +27,7 @@ skill/SKILL.md              规范与流程（模型读这个）
 skill/references/probe.md   三层探测：首次换环境/换模型时读
 skill/scripts/              doctor / envcheck / preflight / postflight
 skill/templates/            brief / probe / review
+usage_of.sh                 读取子代理会话用量（环境相关）
 usage_stats.sh              汇总消耗记录（不属于技能本体）
 subagent_test.md            实测记录与设计决策
 ```
@@ -119,7 +120,22 @@ time  task  model  verdict  steps  in  out  cache
 
 **skill 不负责采集这些数字**：子代理的 token 用量怎么拿，取决于运行环境（会话日志、API 返回、网关统计等），不属于本技能职责。父代理在调用时把已知值传进来即可；不传就完全不记录，也没有额外开销。
 
-汇总用同级的脚本：
+### 自动读取（本环境可用）
+
+子代理的用量就在磁盘上的会话日志里，`usage_of.sh` 能直接读出来：
+
+```bash
+postflight.sh --task t1 --stop completed \
+  --usage "$(./usage_of.sh <子代理 session id>)"
+```
+
+`session id` 来自 `subagent` 调用的返回（`started subagent <id>`）。脚本输出形如
+`steps=11,in=2231,out=1794,cache=122922`，正好是 `--usage` 接受的格式。
+
+它**依赖 DSH 的会话目录与 zstd 解压**，所以放在技能之外——技能本身只接受一个字符串，不关心它从哪来。
+换个运行环境（没有这些日志）时，手工传数字或跳过即可。
+
+### 汇总
 
 ```bash
 ./usage_stats.sh --root <工作区>          # 自动发现 */repo/tasks/usage.tsv
