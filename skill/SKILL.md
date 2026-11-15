@@ -1,0 +1,215 @@
+---
+name: git-task-bus
+description: 用 git 仓库作为父代理与子代理之间的协作介质：每个任务建立专属仓库，父代理冻结 BASE 与路径白名单，子代理在 work/<task> 分支工作并提交，父代理用 diff、路径核对与测试退出码做机械验收并产出 patch。当需要把编码或改文件类任务派给子代理、要求过程可归因、结果可回滚、交付可复现时使用。仅适用于一次只派一个子代理的串行任务；需要多个子代理并发协作时不适用。要求子代理模型廉价且能稳定遵守提交与白名单约定，首次使用前先跑 probe。
+whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不依赖子代理自述时；需要为某次对话建立可回滚、可审查的任务工作区时。不适用于并发编排（本技能无并发能力）。
+---
+
+# git-task-bus
+
+父代理与子代理通过**同一个 git 仓库**交换信息。仓库是协作介质，不是沙箱：它承载任务上下文、分支分工、审查单元（diff）和历史记忆。
+
+> `<本技能目录>` 指本文件所在目录。常规任务只需本文件；换环境或换模型时读 `references/probe.md`。
+> 成本与实验记录不随技能分发，见本仓库根目录的 `subagent_test.md`。
+
+## 前提与平台
+
+| 前提 | 要求 | 缺了会怎样 |
+|---|---|---|
+| **git** | 可执行，版本 >= 2.23（需要 `git switch`） | 无法建仓、分支、diff、patch |
+| **可写工作区** | 能建目录、复制源文件、导出 patch | 建仓即失败 |
+| **依赖命令** | `sed grep cp tar date tr dirname basename head tail` | 脚本中途报错，信息晦涩 |
+
+体检：`bash <本技能目录>/scripts/doctor.sh --root <任务根>`（`0` 通过 · `3` 不满足）。`preflight` 会独立复查 git 版本与目录可写性，失败即退出 3。
+
+脚本只允许 POSIX 基本工具：**不得引入 `sort -V`、`date -Iseconds`、`sha256sum`**（BSD/macOS 没有）。内容哈希用 `git hash-object`，字段名 `contentHash`，仅用于相等性比对。
+
+| 平台 | 所需 |
+|---|---|
+| Linux | bash + git + coreutils |
+| macOS | 系统自带 bash 3.2 + git |
+| Windows | **Git Bash**（Git for Windows 自带）或 WSL；PowerShell / cmd 不能直接运行 |
+
+Windows 两个坑：脚本须以 **LF** 保存（`.gitattributes` 写 `*.sh text eol=lf`，或设 `core.autocrlf=false`）；路径用 POSIX 风格（`/c/work/...`），不要传 `C:\...`。
+
+## 核心分工
+
+| 角色 | 只写 | 职责 |
+|---|---|---|
+| 子代理 | `ALLOWED` 白名单内的路径，分支 `work/<task>` | 实现并提交 |
+| 父代理 | `briefs/`、`reviews/`，分支 `main` | 冻结 BASE、核对、验收、产出 patch |
+
+## 约束的分工
+
+每种机制约束的对象不同，别把它们混着记：
+
+| 机制 | 约束谁 | 性质 | 靠什么生效 |
+|---|---|---|---|
+| **回合边界** | 父代理 | 流程纪律 | 派发后结束回合，不与子代理并发写 |
+| **白名单 `ALLOWED`** | 子代理 | 事后判据 | `postflight` 用 `--name-only` 比对，不依赖它配合 |
+| **必须已提交** | 子代理 | 交付前提 | `postflight` 只读 `BASE..HEAD`，不碰索引 |
+| **只追加** | 子代理 | 可探测 | patch 副本使历史改写失去意义 |
+
+### 白名单是判据，不是纪律
+
+简报里的「只允许改动 X」是给子代理的**指令**——它需要配合才能生效。真正的约束在 `postflight`：把 `BASE..HEAD` 的每个文件名与白名单比对，越界即拒绝。**这一步不依赖子代理是否听话。**
+
+### 交付必须已提交，否则自动丢弃
+
+`postflight` 只读 `BASE..HEAD`，不执行 `git add`（那会改动被审对象的索引）。工作树脏即交付未完成，退出码 2。规则无例外：
+
+> **判定不通过 → 自动丢弃。**
+
+丢弃顺序不可调换：`git add -A` → 导出 patch → `git reset --hard <BASE>` → `git clean -fd` → 写 `ABANDONED`（释放路径占用）。裸手 `reset --hard` 不会保留未跟踪文件。
+
+## 选模型：由调用方指定，不由 skill 猜
+
+skill **不判断模型价格**，也不替调用方选择。它只做两件事：
+
+1. `--model <provider/model>` 把选择固定下来，写进 `dispatch.env`、`MANIFEST.json`，并在 `--quiet` 输出里给出 `MODEL=` 行；
+2. 派发时把这个值原样填进 `subagent` 的 `provider` / `model` 参数。
+
+skill 无法得知模型价格，因此不代为选择。可用模型由 profile 的 `allowedModels` 决定，调用方用 `--model` 显式指定最便宜的那个。
+
+推荐做法：在 profile 里只保留确实需要的模型，调用方每次都显式 `--model` 指定最便宜的那个。省下的推理不是重点，重点是**这个决定有记录、可归因**——`MANIFEST.json` 里能查到每次任务用了哪个模型。
+
+## 流程
+
+### 0. 首次使用：跑一次探测
+
+换机器、换环境、或第一次用某个子代理模型时，先按 `references/probe.md` 跑三层探测（doctor / envcheck / probe）。环境不合格时，任何编排都不会成功。
+
+### 1. 先写简报（父代理）
+
+规格只有一份，就是简报。写清四件事：目标、允许改动的范围、验收命令、交付要求。
+
+```bash
+mkdir -p .tasks/<task>/briefs
+$EDITOR .tasks/<task>/briefs/brief.md
+```
+
+### 2. preflight（父代理执行，一次）
+
+```bash
+SKILL=<本技能目录>
+bash "$SKILL/scripts/preflight.sh" \
+  --task  2026-11-16-arg-validation \
+  --import src/result_io.py \
+  --allow  src/result_io.py \
+  --tests  'python3 -m pytest -q tests/test_result_io.py' \
+  --title  '给 result_io 增加参数校验' \
+  --quiet
+```
+
+`--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，改用 `git worktree` 更优。
+
+脚本会：校验简报 → 建仓、导入、提交 bootstrap → 要求工作树干净 → 记录 `BASE` → 创建并切到 `work/<task>` → 写 `dispatch.env` 与 `dispatch.prompt`。
+
+`--quiet` 让 stdout 只剩两行（诊断信息走 stderr）：
+
+```
+PROMPT=/path/to/.tasks/<task>/dispatch.prompt
+POINTER=读 /path/to/.tasks/<task>/dispatch.prompt 并按其执行
+MODEL=llama/LLaMA
+```
+
+给了 `--model` 才会出现第三行；它同时写进 `dispatch.env` 与 `MANIFEST.json`，便于事后按模型归因成本。
+
+#### 简报必须通过三项机械校验
+
+缺任一项直接退出 3，不建仓：
+
+| 校验 | 判据 |
+|---|---|
+| 含验收命令 | 简报正文包含 `--tests` 的字面文本 |
+| 含交付要求 | 出现「提交」 |
+| 含改动范围 | 出现「白名单」或「只允许改动」 |
+
+这三项替代了 prompt 里的复述：**规格写错就发不出去**，而不是靠第二份副本掩盖。
+
+### 3. dispatch（父代理 → 子代理）
+
+`subagent` 的 `prompt` 参数**只填 `POINTER` 那一行**，不要再粘贴或改写：
+
+```
+读 /path/to/.tasks/<task>/dispatch.prompt 并按其执行
+```
+
+配上 `provider` / `model` / `cwd`（`cwd` = 仓库路径）即可。子代理会自己读 `dispatch.prompt`，再顺着它读简报。
+
+派发只填一行指针，不要把简报内容复述进 prompt。
+
+省约 70%。更关键的是：规格只存在于简报一处，prompt 不再有第二份副本可以掩盖简报的错误。
+
+### 4. postflight（父代理执行）
+
+```bash
+bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation --quiet
+```
+
+`--quiet` 只输出一行，用于常规验收：
+
+```
+verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
+```
+
+需要细节（变更清单、越界文件、测试摘要）时去掉 `--quiet` 重跑即可——它不改变任何判定，只改变输出量。
+
+非 quiet 模式依次产出：
+
+- `git status` 快照（工作树脏则判交付违规，退出码 2）
+- 变更文件清单与**越界违规清单**
+- 测试执行结果（完整日志落盘，不占父代理上下文）
+- 净 diff 生成的 patch：`deliveries/<task>.patch`
+- `MANIFEST.json`：BASE、head、文件与 contentHash、测试退出码、verdict
+
+退出码：`0` 通过 · `1` 测试失败或 stopReason 异常 · `2` 违规（越界/改写历史/未提交交付）· `3` 配置或环境错误（含 MANIFEST 生成失败）。
+
+### 5. 验收（父代理）
+
+- 层级 0：退出码 + 违规清单（近零成本，每次）
+- 层级 1：`git diff --stat`（体量是否与需求匹配）
+- 层级 2：仅在触发时读净 diff——测试红、越界、体量失衡、触及权限/并发/IO/exec、新增依赖、断言明显弱于改动
+- 层级 3：安全与数据破坏类任务全量细读
+
+**父代理必须自己重跑一次测试**：子代理的报告是自述，重跑是唯一不经过转述的事实。重跑一次，不重复跑。
+
+### 6. 交付
+
+`deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
+
+合并确认后在任务目录执行 `touch MERGED`，否则该任务的路径会一直占着，阻塞后续同路径任务。
+
+## 关键判定
+
+- **历史被改写不是“细读代码”的触发条件**，是“拒绝交付”的触发条件。patch 副本在手，重建即可。
+- 真正需要细读的是“机械检查全绿但测试覆盖不到”的改动。
+- `ALLOWED` 为空时脚本拒绝执行，不允许默认全量——13G 工作区上默认全量会直接变成事故。
+- 子代理的工作树若脏，仍可验收（父代理直接取工作树 diff），但必须记录在案。
+
+## 目录布局
+
+```
+.tasks/<task>/
+  dispatch.env          # BASE / BRANCH / ALLOW / TESTS
+  dispatch.prompt       # 三行任务卡，由 POINTER 一行引用（勿粘贴正文）
+  briefs/brief.md       # 规格唯一来源，preflight 会校验
+  allow.txt             # 白名单原文，供重叠检测读取
+  MERGED                # 已落地标记（手工创建，释放路径占用）
+  ABANDONED             # 已废弃标记（postflight 判定不通过时自动写入）
+  provenance.tsv        # 导入来源与 contentHash
+  test.log              # 完整测试输出
+  MANIFEST.json
+  deliveries/<task>.patch
+  briefs/  reviews/     # 父代理的文件放在这里（在仓库之外）
+  repo/                 # 任务专属仓库，diff 里只有子代理的改动
+```
+
+## 已知限制
+
+- **一次一个子代理**：无并发编排，多任务串行，且前一个必须先合并或废弃。
+- **无任务依赖**：不能声明「B 依赖 A 的产出」，只能人工安排顺序。
+- **`ALLOW` 逗号分隔**：路径本身含逗号无法表达。
+- **纯产出型任务可用**：无 `--import` 时 bootstrap 走空提交，仓库从零开始。
+- **子代理必须显式以 `<repo>` 为 cwd**：派发时传 `cwd` 参数，不要依赖继承的目录。
+- **交付必须已提交**：`postflight` 不代为暂存；漏提交判违规并自动丢弃。
+- **`doctor.sh` 不检查**：磁盘空间、网络、全局 git 配置、git hook 干扰。
