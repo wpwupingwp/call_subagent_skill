@@ -7,7 +7,7 @@ usage() {
 用法:
   preflight.sh --task <id> --allow <path[,path...]> [--import <path[,path...]>]
                [--tests '<命令>'] [--root <任务根目录>]
-               [--brief <路径>] [--model <provider/model>]
+               [--brief <路径>] [--model <provider/model>] [--save-model]
                [--allow-dirty] [--allow-overlap] [--quiet]
 
 说明:
@@ -21,12 +21,13 @@ usage() {
   --allow-overlap   允许与其他未合并任务的白名单重叠（默认拒绝）
   --model           子代理模型（provider/model），记录进 dispatch.env 与 MANIFEST，
                     并在 --quiet 输出里给出 MODEL= 行，避免派发时临时决定
+  --save-model      把 --model 的值写进对话级配置仓库 <root>/sessions/<conv>/model
   --quiet           只打印 PROMPT/POINTER/MODEL，不打印 prompt 内容
 EOF
   exit 3
 }
 
-TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}/.tasks" BRIEF="" MODEL="" ALLOW_DIRTY=0 ALLOW_OVERLAP=0 QUIET=0
+TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}/.tasks" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 ALLOW_OVERLAP=0 QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -38,6 +39,7 @@ while [ $# -gt 0 ]; do
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     --brief)         BRIEF="${2:-}"; shift 2 ;;
     --model)         MODEL="${2:-}"; shift 2 ;;
+    --save-model)    SAVE_MODEL=1; shift ;;
     --quiet)         QUIET=1; shift ;;
     --allow-overlap) ALLOW_OVERLAP=1; shift ;;
     -h|--help)     usage ;;
@@ -67,12 +69,34 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 
 [ -n "$TASK" ] || { echo "preflight: 必须指定 --task" >&2; usage; }
 
-# 模型：--model 优先，其次读取任务根目录下的 model 文件（首次由父代理询问用户后写入）
+TDIR="$ROOT/$TASK"
+REPO="$TDIR/repo"
+CONV="${DSH_SESSION_ID:-unknown}"
+BRANCH="work/$TASK"
+
+# 模型解析顺序：--model > 对话级配置 > 任务根目录配置
+SESS_DIR="$ROOT/sessions/$CONV"
+if [ -z "$MODEL" ] && [ -f "$SESS_DIR/model" ]; then
+  MODEL=$(head -1 "$SESS_DIR/model" | tr -d '[:space:]')
+fi
 if [ -z "$MODEL" ] && [ -f "$ROOT/model" ]; then
   MODEL=$(head -1 "$ROOT/model" | tr -d '[:space:]')
 fi
 if [ -z "$MODEL" ]; then
-  echo "preflight: 未指定模型（--model 或 $ROOT/model），将沿用子代理默认模型" >&2
+  echo "preflight: 未指定模型（--model / $SESS_DIR/model / $ROOT/model），将沿用子代理默认模型" >&2
+fi
+
+if [ "$SAVE_MODEL" -eq 1 ]; then
+  [ -n "$MODEL" ] || die "--save-model 需要同时给出 --model"
+  mkdir -p "$SESS_DIR"
+  [ -d "$SESS_DIR/.git" ] || git -C "$SESS_DIR" init -q -b config
+  git -C "$SESS_DIR" config user.name  "task-bus" 2>/dev/null || true
+  git -C "$SESS_DIR" config user.email "task-bus@localhost" 2>/dev/null || true
+  printf '%s\n' "$MODEL" > "$SESS_DIR/model"
+  git -C "$SESS_DIR" add model
+  git -C "$SESS_DIR" diff --cached --quiet || \
+    git -C "$SESS_DIR" commit -q -m "model=$MODEL"
+  echo "preflight: 已写入对话级配置 $SESS_DIR/model = $MODEL" >&2
 fi
 [ -n "$ALLOW" ] || die "--allow 不能为空。白名单是硬约束，不允许默认全量。"
 
@@ -81,10 +105,6 @@ case "$TASK" in
   *[!A-Za-z0-9._-]*) die "任务 id 只允许字母数字与 . _ -，实际: $TASK" ;;
 esac
 
-TDIR="$ROOT/$TASK"
-REPO="$TDIR/repo"
-CONV="${DSH_SESSION_ID:-unknown}"
-BRANCH="work/$TASK"
 
 # 前置条件：本技能全部机制都依赖 git 与可写目录，缺任一项立即给出明确原因
 command -v git >/dev/null 2>&1 || die "git 不可用（PATH 中找不到）。本技能无法工作，先跑 doctor.sh。"

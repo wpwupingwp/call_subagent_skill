@@ -75,18 +75,18 @@ subagent_test.md            实测记录与设计决策
 
 skill **不判断模型价格，也不代为选择**——价格信息不在它的可见范围内，让它猜只会制造一个无法验证的假设。
 
-可用模型由 profile 的 `allowedModels` 决定。首次使用时由父代理列出候选、**询问用户选哪个**，然后把选择写进任务根目录的 `model` 文件：
+可用模型由 profile 的 `allowedModels` 决定。首次使用时由父代理列出候选、**询问用户选哪个**，然后用 `--save-model` 落盘：
 
 ```bash
-echo 'llama/LLaMA' > /tmp/exp/tasks/model
+preflight.sh ... --model llama/LLaMA --save-model
 ```
 
-之后 `preflight` 自动读取它，`--model` 可省略；显式 `--model` 仍可覆盖。选择会写进 `dispatch.env` 与 `MANIFEST.json`，成本可按模型归因。
+选择写入**对话级配置仓库** `<任务根>/sessions/<会话 id>/model` 并提交一次。之后 `preflight` 自动读取它，`--model` 可省略。
 
-这样决策权在用户、每次任务不需要重复确认，也不需要把模型名硬编码进 skill。
+解析顺序：`--model` > 对话级 `sessions/<conv>/model` > 工作区级 `<任务根>/model`。
 
-**影响范围仅限该任务根目录**：文件是 `<任务根>/model`，不写 `~/.dsh`、不改 profile、不设环境变量。
-同一工作区的多个对话共用它（即“项目统一”），不同工作区互不影响，用 `--root` 指定别的目录则完全隔离。
+**影响范围**：不同对话各用各的 `sessions/<conv>/`；不写 `~/.dsh`、不改 profile、不设环境变量；用 `--root` 指定别的目录则完全隔离。
+任务仓库不放进这个配置仓库，仍是同级目录，避免嵌套 git。
 
 ## 环境检查
 

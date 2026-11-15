@@ -97,10 +97,11 @@ MODEL=llama/LLaMA
 **首次使用要问用户，不是替用户决定**：
 
 1. 若能列举可用模型（例如 `list_subagent_models`），把候选交给用户选；
-2. 把选择写进 `<任务根>/model`（一行，如 `llama/LLaMA`）；
-3. 之后 `--model` 可省略，`preflight` 会自动读取它；显式 `--model` 仍可覆盖。
+2. 用 `--model <选择> --save-model` 派发一次，选择会写进**对话级配置仓库** `<任务根>/sessions/<会话 id>/model` 并提交；
+3. 之后 `--model` 可省略，`preflight` 按此顺序解析：`--model` > 对话级 `sessions/<conv>/model` > 工作区级 `<任务根>/model`。
 
-该文件在任务根目录内（默认 `<工作区>/.tasks/model`），只影响该目录下的任务，不写全局配置。
+配置仓库只存模型选择这类少量配置，**不存放任务仓库**（任务仓库仍是同级目录，避免嵌套 git）。
+它不影响其他对话：不同 `DSH_SESSION_ID` 各用各的目录。
 
 skill 不猜价格——价格不在它的可见范围内，猜就是一个无法验证的假设。
 
