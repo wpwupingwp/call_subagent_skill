@@ -191,7 +191,39 @@ with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:
     fh.write("\n")
 PYEOF
 
-# ---- 10. 消耗记录（可选）：逐行追加，便于事后统计 ----
+# ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
+read_child_usage() {
+  [ -n "$CHILD" ] || return 1
+  command -v zstd >/dev/null 2>&1 || return 1
+  local home="${DSH_HOME:-$HOME/.dsh}"
+  local log
+  log=$(find "$home/sessions" -type f -path "*/$CHILD/session.v4.jsonl.zstd" 2>/dev/null | head -1)
+  [ -n "$log" ] || return 1
+  local out
+  out=$(zstd -dc "$log" 2>/dev/null | python3 -c '
+import json, sys
+steps=ti=to=tc=0
+for line in sys.stdin:
+    try: ev=json.loads(line)
+    except Exception: continue
+    if ev.get("type")!="assistant/message": continue
+    u=(ev.get("data") or {}).get("usage") or {}
+    if not u: continue
+    steps+=1; ti+=u.get("inputTokens",0); to+=u.get("outputTokens",0); tc+=u.get("cacheReadTokens",0)
+if steps==0: raise SystemExit(2)
+print(f"steps={steps},in={ti},out={to},cache={tc}")
+' 2>/dev/null) || return 1
+  [ -n "$out" ] || return 1
+  USAGE="$out"
+  return 0
+}
+
+if [ -z "$USAGE" ] && [ -n "$CHILD" ]; then
+  if ! read_child_usage; then
+    echo "postflight: 无法从会话日志读取 $CHILD 的用量（环境不同或日志缺失），本次不记录" >&2
+  fi
+fi
+
 if [ -n "$USAGE" ]; then
   USAGE_FILE="$REPO/tasks/usage.tsv"
   mkdir -p "$REPO/tasks"

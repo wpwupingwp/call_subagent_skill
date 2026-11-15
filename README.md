@@ -126,13 +126,20 @@ time  task  model  verdict  steps  in  out  cache
 
 ```bash
 CHILD=<子代理 session id>          # 来自 subagent 返回的 "started subagent <id>"
-postflight.sh --task t1 --stop completed \
-  --child "$CHILD" \
-  --usage "$(./usage_of.sh "$CHILD")"
+postflight.sh --task t1 --stop completed --child "$CHILD"
 ```
 
-`--child` 只把 id 记进 `MANIFEST.json`（字段 `childSession`），让 `usage.tsv` 里的数字能回指到具体那次运行；
-它不会去解析或查询任何东西。脚本输出形如
+`--child` 做两件事：把 id 记进 `MANIFEST.json`（字段 `childSession`），并**尽力从会话日志读取用量**
+追加到 `tasks/usage.tsv`。读取失败（换环境、没有日志、没有 zstd）时只警告、不记录，不影响判定。
+
+需要覆盖时显式给数字：
+
+```bash
+--usage 'steps=11,in=2231,out=1794,cache=122922'
+```
+
+> 读取逻辑依赖 DSH 的会话目录（`$DSH_HOME/sessions`）与 zstd。这是**唯一一处环境相关**的代码，
+> 因此写成“尽力而为”：读不到就跳过，技能在没有这些日志的环境里仍能正常工作。脚本输出形如
 `steps=11,in=2231,out=1794,cache=122922`，正好是 `--usage` 接受的格式。
 
 它**依赖 DSH 的会话目录与 zstd 解压**，所以放在技能之外——技能本身只接受一个字符串，不关心它从哪来。
