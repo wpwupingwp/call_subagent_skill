@@ -135,6 +135,9 @@ postflight.sh --task t1 --stop completed --child auto
 postflight.sh --task t1 --stop completed --child <子代理 session id>
 ```
 
+**一个 task 通常对应一次派发，但失败重派会产生新的 child 会话。** `usage.tsv` 按每次 postflight
+调用逐行记录，所以同一个 task 可能出现多行——那正是重派的历史，不是重复计数。
+
 `--child` 做两件事：把 id 记进 `MANIFEST.json`（字段 `childSession`），并**尽力从会话日志读取用量**
 追加到 `tasks/usage.tsv`。读取失败（换环境、没有日志、没有 zstd）时只警告、不记录，不影响判定。
 
