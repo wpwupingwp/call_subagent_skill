@@ -82,6 +82,8 @@ bash "$SKILL/scripts/preflight.sh" \
 
 脚本会：校验简报 → 建仓、导入、提交 bootstrap（提交信息记录 `brief=<简报内容哈希>`）→ 要求工作树干净 → 记录 `BASE` → 切到 `work/<task>` → 写 `dispatch.env` 与 `dispatch.prompt`。
 
+**父代理不手工 `git init`**：仓库由本脚本创建，每任务一个，位于 `<任务目录>/repo`；任务废弃时随任务目录一起丢弃。
+
 `--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
 
 ```
