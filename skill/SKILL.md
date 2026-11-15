@@ -104,6 +104,8 @@ MODEL=llama/LLaMA
 
 配上 `provider` / `model` / `cwd`（`cwd` = 仓库路径）即可。子代理会自己读 `dispatch.prompt`，再顺着它读简报。
 
+**派发后结束回合**：等待期间不写任何文件，否则与子代理并发写同一棵树。
+
 
 ### 4. postflight（父代理执行）
 
@@ -138,6 +140,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 **父代理必须自己重跑一次测试**：子代理的报告是自述，重跑是唯一不经过转述的事实。重跑一次，不重复跑。
 
+不通过时任务已被自动丢弃，仓库回到 `BASE`。重派之前先看失败类型：**连续两次同类失败通常说明简报不清，应当改简报，而不是再派第三次**。
+
 ### 6. 交付
 
 `deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
@@ -145,6 +149,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 **父代理不在任务仓库里提交任何东西**——它的文件（简报、审查记录）都在任务目录，位于仓库之外。仓库只有一个分支 `work/<task>`，`BASE` 是它的起始提交；交付物是 patch，不是一次合并。
 
 合并确认后在任务目录执行 `touch MERGED`，否则该任务的路径会一直占着，阻塞后续同路径任务。
+
+验收结论写进 `reviews/<task>.md`（模板 `templates/review.md`），一行即可——下次接手的人靠它判断当时为什么放行。
 
 ## 关键判定
 
