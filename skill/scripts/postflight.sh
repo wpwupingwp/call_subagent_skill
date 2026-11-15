@@ -244,9 +244,6 @@ with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:
 PYEOF
 
 # ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
-# ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
-# ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
-# ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
 
 if [ -z "$USAGE" ] && [ -n "$CHILD" ]; then
   if ! read_child_usage; then
@@ -285,7 +282,7 @@ if [ ! -s "$TDIR/MANIFEST.json" ]; then
   VERDICT="error"; EXIT=3
 fi
 
-# ---- 10. 摘要 ----
+# ---- 12. 摘要 ----
 if [ "$QUIET" -eq 1 ]; then
   printf 'verdict=%s changed=%s violations=%s history=%s dirty=%s testexit=%s patch=%s\n' \
     "$VERDICT" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_EXIT" "$PATCH"
