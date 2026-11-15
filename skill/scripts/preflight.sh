@@ -6,7 +6,7 @@ usage() {
   cat <<'EOF'
 用法:
   preflight.sh --task <id> --allow <path[,path...]> [--import <path[,path...]>]
-               [--tests '<命令>'] [--root <任务根目录>]
+               [--tests '<命令>'] [--root <工作区根目录>]
                [--brief <路径>] [--model <provider/model>] [--save-model]
                [--allow-dirty] [--quiet]
 
