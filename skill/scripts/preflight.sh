@@ -66,6 +66,14 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 
 
 [ -n "$TASK" ] || { echo "preflight: 必须指定 --task" >&2; usage; }
+
+# 模型：--model 优先，其次读取任务根目录下的 model 文件（首次由父代理询问用户后写入）
+if [ -z "$MODEL" ] && [ -f "$ROOT/model" ]; then
+  MODEL=$(head -1 "$ROOT/model" | tr -d '[:space:]')
+fi
+if [ -z "$MODEL" ]; then
+  echo "preflight: 未指定模型（--model 或 $ROOT/model），将沿用子代理默认模型" >&2
+fi
 [ -n "$ALLOW" ] || die "--allow 不能为空。白名单是硬约束，不允许默认全量。"
 
 # 任务 id 只允许安全字符，因为它进入分支名与路径

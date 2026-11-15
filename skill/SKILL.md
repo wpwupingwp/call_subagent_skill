@@ -90,7 +90,15 @@ POINTER=读 /path/to/.tasks/<task>/dispatch.prompt 并按其执行
 MODEL=llama/LLaMA
 ```
 
-`--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。skill 不代选模型。
+`--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。
+
+**首次使用要问用户，不是替用户决定**：
+
+1. 若能列举可用模型（例如 `list_subagent_models`），把候选交给用户选；
+2. 把选择写进 `<任务根>/model`（一行，如 `llama/LLaMA`）；
+3. 之后 `--model` 可省略，`preflight` 会自动读取它；显式 `--model` 仍可覆盖。
+
+skill 不猜价格——价格不在它的可见范围内，猜就是一个无法验证的假设。
 
 #### 简报必须通过三项机械校验
 

@@ -75,12 +75,15 @@ subagent_test.md            实测记录与设计决策
 
 skill **不判断模型价格，也不代为选择**——价格信息不在它的可见范围内，让它猜只会制造一个无法验证的假设。
 
-可用模型由 profile 的 `allowedModels` 决定，调用方用 `--model <provider/model>` 显式指定最便宜的那个：
+可用模型由 profile 的 `allowedModels` 决定。首次使用时由父代理列出候选、**询问用户选哪个**，然后把选择写进任务根目录的 `model` 文件：
 
-- `--model` 会写进 `dispatch.env` 与 `MANIFEST.json`；
-- `preflight --quiet` 的输出里会多一行 `MODEL=...`，派发时把它原样填进 `subagent` 的 `provider` / `model`。
+```bash
+echo 'llama/LLaMA' > /tmp/exp/tasks/model
+```
 
-推荐在 profile 里只保留确实需要的模型，每次任务显式指定。这样成本可按模型归因。
+之后 `preflight` 自动读取它，`--model` 可省略；显式 `--model` 仍可覆盖。选择会写进 `dispatch.env` 与 `MANIFEST.json`，成本可按模型归因。
+
+这样决策权在用户、每次任务不需要重复确认，也不需要把模型名硬编码进 skill。
 
 ## 环境检查
 
