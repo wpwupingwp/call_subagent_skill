@@ -20,13 +20,13 @@ usage() {
                     验收命令、白名单、交付要求，否则拒绝派发
   --model           子代理模型（provider/model），记录进 dispatch.env 与 MANIFEST，
                     并在 --quiet 输出里给出 MODEL= 行，避免派发时临时决定
-  --save-model      把 --model 的值写进对话级配置仓库 <root>/sessions/<conv>/model
+  --save-model      把 --model 的值写进会话仓库 <root>/<session>/repo/model
   --quiet           只打印 PROMPT/POINTER/MODEL，不打印 prompt 内容
 EOF
   exit 3
 }
 
-TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}/.tasks" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 QUIET=0
+TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -69,7 +69,7 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 
 TDIR="$ROOT/$TASK"
 SESSION="${DSH_SESSION_ID:-unknown}"
-SESS_DIR="$ROOT/sessions/$SESSION"
+SESS_DIR="$ROOT/$SESSION"
 REPO="$SESS_DIR/repo"
 
 # 模型解析顺序：--model > 仓库内 model > 会话目录 model > 任务根 model

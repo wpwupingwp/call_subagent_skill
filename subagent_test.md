@@ -189,7 +189,7 @@ SKILL.md 常驻上下文：一次性全价、之后每步按 0.02 重读。拆�
 任务之间没有共同基线、`model` 只能放在仓库外、`git log` 不再是对话记忆，
 并且为了串行安全额外发明了 `MERGED` / `ABANDONED` 标记与路径重叠检测。
 
-回到会话级（`<root>/sessions/<session>/repo`）后，配合**单分支线性历史**：
+回到会话级（`<workspace>/<session>/repo`）后，配合**单分支线性历史**：
 
 - `BASE` 只是本次任务的起点，之前的提交是已完成的工作；
 - 丢弃 = `reset --hard BASE`，天然只删本次任务；

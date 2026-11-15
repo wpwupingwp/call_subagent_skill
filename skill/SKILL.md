@@ -80,9 +80,9 @@ bash "$SKILL/scripts/preflight.sh" \
 
 `--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，改用 `git worktree` 更优。
 
-脚本会：校验简报 → 建/复用**会话仓库**（`<任务根>/sessions/<会话 id>/repo`）→ 导入新文件并提交 → 要求工作树干净 → 记录 `BASE`（= `main` 当前 HEAD）→ 写 `dispatch.env` 与 `dispatch.prompt`。
+脚本会：校验简报 → 建/复用**会话仓库**（`<工作区>/<会话 id>/repo`）→ 导入新文件并提交 → 要求工作树干净 → 记录 `BASE`（= `main` 当前 HEAD）→ 写 `dispatch.env` 与 `dispatch.prompt`。
 
-**父代理不手工 `git init`**：仓库由脚本创建，每个对话一个，位于 `<任务根>/sessions/<会话 id>/repo`，从头到尾只有 `main` 一条分支。任务不单独建仓、不建分支。
+**父代理不手工 `git init`**：仓库由脚本创建，每个对话一个，位于 `<工作区>/<会话 id>/repo`，从头到尾只有 `main` 一条分支。任务不单独建仓、不建分支。
 
 `--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
 
@@ -97,8 +97,8 @@ MODEL=llama/LLaMA
 **首次使用要问用户，不是替用户决定**：
 
 1. 若能列举可用模型（例如 `list_subagent_models`），把候选交给用户选；
-2. 用 `--model <选择> --save-model` 派发一次，选择会写进**对话级配置仓库** `<任务根>/sessions/<会话 id>/model` 并提交；
-3. 之后 `--model` 可省略，`preflight` 按此顺序解析：`--model` > 对话级 `sessions/<conv>/model` > 工作区级 `<任务根>/model`。
+2. 用 `--model <选择> --save-model` 派发一次，选择会写进**对话级配置仓库** `<工作区>/<会话 id>/repo/model` 并提交；
+3. 之后 `--model` 可省略，`preflight` 按此顺序解析：`--model` > 对话级 `<会话 id>/model` > 工作区级 `<工作区>/model`。
 
 配置仓库只存模型选择这类少量配置，**不存放任务仓库**（任务仓库仍是同级目录，避免嵌套 git）。
 它不影响其他对话：不同 `DSH_SESSION_ID` 各用各的目录。
@@ -182,8 +182,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ## 目录布局
 
 ```
-<任务根>/
-  sessions/<会话 id>/repo/     # 会话仓库：单分支 main，所有任务共用
+<工作区>/
+  <会话 id>/repo/              # 会话仓库：单分支 main，所有任务共用
     model                      # 会话级模型选择（在仓库内，被版本管理）
   <task>/                      # 任务目录：父代理的产物，不在仓库里
     dispatch.env               # BASE / SESSION / ALLOW / TESTS / MODEL

@@ -81,11 +81,11 @@ skill **不判断模型价格，也不代为选择**——价格信息不在它�
 preflight.sh ... --model llama/LLaMA --save-model
 ```
 
-选择写入**会话仓库** `<任务根>/sessions/<会话 id>/repo/model` 并提交一次。之后 `preflight` 自动读取它，`--model` 可省略。
+选择写入**会话仓库** `<工作区>/<会话 id>/repo/model` 并提交一次。之后 `preflight` 自动读取它，`--model` 可省略。
 
-解析顺序：`--model` > 会话仓库内的 `repo/model` > 工作区级 `<任务根>/model`。
+解析顺序：`--model` > 会话仓库内的 `repo/model` > `<工作区>/model`。
 
-**影响范围**：不同对话各用各的 `sessions/<session>/repo`；不写 `~/.dsh`、不改 profile、不设环境变量；用 `--root` 指定别的目录则完全隔离。
+**影响范围**：不同对话各用各的 `<session>/repo`；不写 `~/.dsh`、不改 profile、不设环境变量；用 `--root` 指定别的目录则完全隔离。
 一个对话只有一个仓库，从 `bootstrap` 到每个任务的提交连成一条线性历史；任务不另建仓库或分支。
 
 ## 环境检查
