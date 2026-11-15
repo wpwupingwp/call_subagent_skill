@@ -24,6 +24,7 @@ while [ $# -gt 0 ]; do
     --task) TASK="${2:-}"; shift 2 ;;
     --stop) STOP="${2:-}"; shift 2 ;;
     --quiet) QUIET=1; shift ;;
+    --root)  TASK_ROOT="${2:-}"; shift 2 ;;
     -h|--help) usage ;;
     *) echo "未知参数: $1" >&2; usage ;;
   esac
@@ -118,7 +119,7 @@ fi
 
 # ---- 9. manifest ----
 export MODEL
-python3 - "$TDIR" "$TASK" "$CONV" "$BASE" "$HEAD_SHA" "$BRANCH" "$ALLOW" \
+python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" "$ALLOW" \
          "$STOP" "$TEST_EXIT" "$VERDICT" "$PATCH_SHA" "$PATCH_LINES" \
          "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" \
          "$PROTO_VIOLATION" "$DISCARDED" \
@@ -176,7 +177,6 @@ if [ "$VERDICT" != "pass" ]; then
     > "$TDIR/deliveries/$TASK.abandoned.patch"
   git reset -q --hard "$BASE"
   git clean -qfd
-  : > "$TDIR/ABANDONED"
   DISCARDED=yes
 fi
 
@@ -195,7 +195,7 @@ fi
 
 echo "──────── postflight: $TASK ────────"
 printf 'BASE        %s\n' "${BASE:0:12}"
-printf 'HEAD        %s (%s)\n' "${HEAD_SHA:0:12}" "$BRANCH"
+printf 'HEAD        %s (%s)\n' "${HEAD_SHA:0:12}" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
 printf 'stopReason  %s\n' "$STOP"
 printf '变更文件    %s\n' "$CHANGED_COUNT"
 printf '越界违规    %s\n' "$VIOLATION_COUNT"

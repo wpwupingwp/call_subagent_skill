@@ -1,12 +1,12 @@
 ---
 name: git-task-bus
-description: 用 git 仓库作为父代理与子代理之间的协作介质：每个任务建立专属仓库，父代理冻结 BASE 与路径白名单，子代理在 work/<task> 分支工作并提交，父代理用 diff、路径核对与测试退出码做机械验收并产出 patch。当需要把编码或改文件类任务派给子代理、要求过程可归因、结果可回滚、交付可复现时使用。仅适用于一次只派一个子代理的串行任务；需要多个子代理并发协作时不适用。要求子代理模型廉价且能稳定遵守提交与白名单约定，首次使用前先跑 probe。
+description: 用 git 仓库作为父代理与子代理之间的协作介质：每个对话建立专属仓库，父代理冻结 BASE 与路径白名单，子代理直接在 main 上工作并提交，父代理用 diff、路径核对与测试退出码做机械验收并产出 patch。当需要把编码或改文件类任务派给子代理、要求过程可归因、结果可回滚、交付可复现时使用。仅适用于一次只派一个子代理的串行任务；需要多个子代理并发协作时不适用。要求子代理模型廉价且能稳定遵守提交与白名单约定，首次使用前先跑 probe。
 whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不依赖子代理自述时；需要为某次对话建立可回滚、可审查的任务工作区时。不适用于并发编排（本技能无并发能力）。
 ---
 
 # git-task-bus
 
-父代理与子代理通过**同一个 git 仓库**交换信息。仓库是协作介质，不是沙箱：它承载任务上下文、分支分工、审查单元（diff）和历史记忆。
+父代理与子代理通过**同一个 git 仓库**交换信息。仓库是协作介质，不是沙箱：它承载任务上下文、审查单元（diff）和历史记忆。一个对话一个仓库，单分支线性历史。
 
 > `<本技能目录>` 指本文件所在目录。常规任务只需本文件；换环境或换模型时读 `references/probe.md`。
 
@@ -14,7 +14,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 | 角色 | 只写 | 职责 |
 |---|---|---|
-| 子代理 | `ALLOWED` 白名单内的路径，分支 `work/<task>` | 实现并提交 |
+| 子代理 | `ALLOWED` 白名单内的路径，在 `main` 上 | 实现并提交 |
 | 父代理 | 任务目录里的 `briefs/`、`reviews/`（不在仓库内） | 冻结 BASE、核对、验收、产出 patch |
 
 ## 约束的分工
@@ -38,7 +38,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 > **判定不通过 → 自动丢弃。**
 
-丢弃顺序不可调换：`git add -A` → 导出 patch → `git reset --hard <BASE>` → `git clean -fd` → 写 `ABANDONED`（释放路径占用）。裸手 `reset --hard` 不会保留未跟踪文件。
+丢弃顺序不可调换：`git add -A` → 导出 patch → `git reset --hard <BASE>` → `git clean -fd`。因为 `BASE` 之前是已完成的工作，`reset` 只会抹掉本次任务的提交；裸手 `reset --hard` 不会保留未跟踪文件，所以归档必须在还原之前。
 
 ## 流程
 
@@ -80,9 +80,9 @@ bash "$SKILL/scripts/preflight.sh" \
 
 `--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，改用 `git worktree` 更优。
 
-脚本会：校验简报 → 建仓、导入、提交 bootstrap（提交信息记录 `brief=<简报内容哈希>`）→ 要求工作树干净 → 记录 `BASE` → 切到 `work/<task>` → 写 `dispatch.env` 与 `dispatch.prompt`。
+脚本会：校验简报 → 建/复用**会话仓库**（`<任务根>/sessions/<会话 id>/repo`）→ 导入新文件并提交 → 要求工作树干净 → 记录 `BASE`（= `main` 当前 HEAD）→ 写 `dispatch.env` 与 `dispatch.prompt`。
 
-**父代理不手工 `git init`**：仓库由本脚本创建，每任务一个，位于 `<任务目录>/repo`；任务废弃时随任务目录一起丢弃。
+**父代理不手工 `git init`**：仓库由脚本创建，每个对话一个，位于 `<任务根>/sessions/<会话 id>/repo`，从头到尾只有 `main` 一条分支。任务不单独建仓、不建分支。
 
 `--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
 
@@ -167,9 +167,9 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 `deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
 
-**父代理不在任务仓库里提交任何东西**——它的文件（简报、审查记录）都在任务目录，位于仓库之外。仓库只有一个分支 `work/<task>`，`BASE` 是它的起始提交；交付物是 patch，不是一次合并。
+**父代理不为任务提交任何东西**——它的文件（简报、审查记录）在任务目录，位于仓库之外。`BASE` 只是本次任务的起点：它之前的提交是此前已完成的工作，`BASE..HEAD` 就是本次任务。
 
-合并确认后在任务目录执行 `touch MERGED`，否则该任务的路径会一直占着，阻塞后续同路径任务。
+下一个任务自动从新的 `HEAD` 起步（`BASE` 重新取值），所以**不需要合并动作**：已验收的提交就是 `main` 的最新状态，任务之间没有分叉。
 
 验收结论写进 `reviews/<task>.md`（模板 `templates/review.md`），一行即可——下次接手的人靠它判断当时为什么放行。
 
@@ -182,19 +182,18 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ## 目录布局
 
 ```
-.tasks/<task>/
-  dispatch.env          # BASE / BRANCH / ALLOW / TESTS
-  dispatch.prompt       # 三行任务卡，由 POINTER 一行引用（勿粘贴正文）
-  briefs/brief.md       # 规格唯一来源，preflight 校验
-  reviews/              # 父代理的审查记录
-  allow.txt             # 白名单原文，供重叠检测读取
-  MERGED                # 已落地标记（手工创建，释放路径占用）
-  ABANDONED             # 已废弃标记（postflight 判定不通过时自动写入）
-  provenance.tsv        # 导入来源与 contentHash
-  test.log              # 完整测试输出
-  MANIFEST.json
-  deliveries/<task>.patch
-  repo/                 # 任务专属仓库，diff 里只有子代理的改动
+<任务根>/
+  sessions/<会话 id>/repo/     # 会话仓库：单分支 main，所有任务共用
+    model                      # 会话级模型选择（在仓库内，被版本管理）
+  <task>/                      # 任务目录：父代理的产物，不在仓库里
+    dispatch.env               # BASE / SESSION / ALLOW / TESTS / MODEL
+    dispatch.prompt            # 三行任务卡，由 POINTER 一行引用
+    briefs/brief.md            # 规格唯一来源，preflight 校验
+    reviews/                   # 审查记录
+    provenance.tsv             # 导入来源与 contentHash
+    test.log                   # 完整测试输出
+    MANIFEST.json
+    deliveries/<task>.patch
 ```
 
 ## 环境与限制
@@ -203,9 +202,10 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 限制：
 
-- **一次只派一个子代理**：无并发编排，多任务串行，前一个必须先合并或废弃。
+- **一次只派一个子代理**：单分支线性历史，两个任务同时写同一棵树没有意义。
 - **无任务依赖**：不能声明「B 依赖 A 的产出」，只能人工安排顺序。
 - **`ALLOW` 用逗号分隔**：路径本身含逗号无法表达。
+- **任务不可并行**：后一个任务看到的是前一个已提交的结果，这既是优点也是限制。
 
 ## 何时用、何时不用
 

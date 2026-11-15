@@ -8,7 +8,7 @@ usage() {
   preflight.sh --task <id> --allow <path[,path...]> [--import <path[,path...]>]
                [--tests '<命令>'] [--root <任务根目录>]
                [--brief <路径>] [--model <provider/model>] [--save-model]
-               [--allow-dirty] [--allow-overlap] [--quiet]
+               [--allow-dirty] [--quiet]
 
 说明:
   --task         任务标识，会成为分支名 work/<id> 与目录名
@@ -18,7 +18,6 @@ usage() {
   --allow-dirty     允许工作树不干净（会把脏文件清单记录进 dispatch.env）
   --brief           简报路径，默认 <任务目录>/briefs/brief.md；必须存在且含
                     验收命令、白名单、交付要求，否则拒绝派发
-  --allow-overlap   允许与其他未合并任务的白名单重叠（默认拒绝）
   --model           子代理模型（provider/model），记录进 dispatch.env 与 MANIFEST，
                     并在 --quiet 输出里给出 MODEL= 行，避免派发时临时决定
   --save-model      把 --model 的值写进对话级配置仓库 <root>/sessions/<conv>/model
@@ -27,7 +26,7 @@ EOF
   exit 3
 }
 
-TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}/.tasks" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 ALLOW_OVERLAP=0 QUIET=0
+TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}/.tasks" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -41,7 +40,6 @@ while [ $# -gt 0 ]; do
     --model)         MODEL="${2:-}"; shift 2 ;;
     --save-model)    SAVE_MODEL=1; shift ;;
     --quiet)         QUIET=1; shift ;;
-    --allow-overlap) ALLOW_OVERLAP=1; shift ;;
     -h|--help)     usage ;;
     *) echo "未知参数: $1" >&2; usage ;;
   esac
@@ -70,34 +68,21 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 [ -n "$TASK" ] || { echo "preflight: 必须指定 --task" >&2; usage; }
 
 TDIR="$ROOT/$TASK"
-REPO="$TDIR/repo"
-CONV="${DSH_SESSION_ID:-unknown}"
-BRANCH="work/$TASK"
+SESSION="${DSH_SESSION_ID:-unknown}"
+SESS_DIR="$ROOT/sessions/$SESSION"
+REPO="$SESS_DIR/repo"
 
-# 模型解析顺序：--model > 对话级配置 > 任务根目录配置
-SESS_DIR="$ROOT/sessions/$CONV"
-if [ -z "$MODEL" ] && [ -f "$SESS_DIR/model" ]; then
-  MODEL=$(head -1 "$SESS_DIR/model" | tr -d '[:space:]')
-fi
-if [ -z "$MODEL" ] && [ -f "$ROOT/model" ]; then
-  MODEL=$(head -1 "$ROOT/model" | tr -d '[:space:]')
-fi
-if [ -z "$MODEL" ]; then
-  echo "preflight: 未指定模型（--model / $SESS_DIR/model / $ROOT/model），将沿用子代理默认模型" >&2
-fi
+# 模型解析顺序：--model > 仓库内 model > 会话目录 model > 任务根 model
+resolve_model() {
+  [ -n "$MODEL" ] && return 0
+  local f
+  for f in "$REPO/model" "$SESS_DIR/model" "$ROOT/model"; do
+    if [ -f "$f" ]; then MODEL=$(head -1 "$f" | tr -d '[:space:]'); return 0; fi
+  done
+}
+resolve_model
+[ -n "$MODEL" ] || echo "preflight: 未指定模型（--model / $REPO/model），将沿用子代理默认模型" >&2
 
-if [ "$SAVE_MODEL" -eq 1 ]; then
-  [ -n "$MODEL" ] || die "--save-model 需要同时给出 --model"
-  mkdir -p "$SESS_DIR"
-  [ -d "$SESS_DIR/.git" ] || git -C "$SESS_DIR" init -q -b config
-  git -C "$SESS_DIR" config user.name  "task-bus" 2>/dev/null || true
-  git -C "$SESS_DIR" config user.email "task-bus@localhost" 2>/dev/null || true
-  printf '%s\n' "$MODEL" > "$SESS_DIR/model"
-  git -C "$SESS_DIR" add model
-  git -C "$SESS_DIR" diff --cached --quiet || \
-    git -C "$SESS_DIR" commit -q -m "model=$MODEL"
-  echo "preflight: 已写入对话级配置 $SESS_DIR/model = $MODEL" >&2
-fi
 [ -n "$ALLOW" ] || die "--allow 不能为空。白名单是硬约束，不允许默认全量。"
 
 # 任务 id 只允许安全字符，因为它进入分支名与路径
@@ -111,49 +96,8 @@ command -v git >/dev/null 2>&1 || die "git 不可用（PATH 中找不到）。�
 GV=$(git --version 2>/dev/null); GV=${GV#git version }
 version_ge "$GV" 2.23 || die "git 版本过低: ${GV:-未知}，需要 >= 2.23（git switch）。先跑 doctor.sh。"
 
-overlaps() {
-  local a="${1%/}" b="${2%/}"
-  [ -z "$a" ] || [ -z "$b" ] && return 1
-  [ "$a" = "$b" ] && return 0
-  case "$a" in "$b"/*) return 0 ;; esac
-  case "$b" in "$a"/*) return 0 ;; esac
-  return 1
-}
-
-# 路径重叠检测：同一路径被两个未合并任务同时占用，会产生无法三方合并的 patch
-if [ "$ALLOW_OVERLAP" -eq 0 ] && [ -d "$ROOT" ]; then
-  CONFLICTS=""
-  for d in "$ROOT"/*/; do
-    [ -d "$d" ] || continue
-    other=$(basename "$d")
-    [ "$other" = "$TASK" ] && continue
-    { [ -f "$d/MERGED" ] || [ -f "$d/ABANDONED" ]; } && continue
-    [ -f "$d/allow.txt" ] || continue
-    while IFS= read -r mine; do
-      [ -z "$mine" ] && continue
-      while IFS= read -r theirs; do
-        [ -z "$theirs" ] && continue
-        if overlaps "$mine" "$theirs"; then
-          CONFLICTS="${CONFLICTS}  路径 ${mine} 与任务 ${other} 的 ${theirs} 重叠\n"
-        fi
-      done < "$d/allow.txt"
-    done < <(printf '%s\n' "$ALLOW" | tr ',' '\n')
-  done
-  if [ -n "$CONFLICTS" ]; then
-    echo "preflight: 白名单与其他未合并任务重叠，拒绝派发：" >&2
-    printf '%b' "$CONFLICTS" >&2
-    echo "preflight: 先合并前一个任务的 patch 并在其任务目录创建 MERGED 标记，" >&2
-    echo "           或显式 --allow-overlap 承担手工合并的代价。" >&2
-    exit 3
-  fi
-fi
-
 mkdir -p "$TDIR" 2>/dev/null || die "无法创建任务目录: $TDIR（权限或路径问题）。先跑 doctor.sh。"
 mkdir -p "$TDIR/briefs" "$TDIR/reviews"   # 父代理文件放在任务目录，不进仓库
-if [ -f "$TDIR/ABANDONED" ]; then
-  rm -f "$TDIR/ABANDONED"
-  echo "preflight: 清除旧的 ABANDONED 标记，重新开始该任务" >&2
-fi
 
 # ---- 简报校验：规格只有一份，缺项即拒绝，用校验替代 prompt 里的复述 ----
 BRIEF="${BRIEF:-$TDIR/briefs/brief.md}"
@@ -168,64 +112,80 @@ CREATED=0
 if [ ! -d "$REPO/.git" ]; then
   CREATED=1
   mkdir -p "$REPO"
-  git -C "$REPO" init -q -b "$BRANCH"
+  git -C "$REPO" init -q -b main
   git -C "$REPO" config user.name  "task-bus"
   git -C "$REPO" config user.email "task-bus@localhost"
-  : > "$TDIR/provenance.tsv"
-  printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"
-
-  if [ -n "$IMPORT" ]; then
-    IFS=',' read -ra items <<< "$IMPORT"
-    for it in "${items[@]}"; do
-      it="${it#./}"
-      [ -z "$it" ] && continue
-      [ -e "$it" ] || die "导入源不存在: $it"
-      mkdir -p "$REPO/$(dirname "$it")"
-      cp -a "$it" "$REPO/$it"
-      if [ -d "$it" ]; then
-        h=$(tar -C "$it" -cf - . 2>/dev/null | hash_stdin)
-      else
-        h=$(hash_file "$it")
-      fi
-      printf '%s\t%s\t%s\n' "$it" "$h" "$(now_utc)" >> "$TDIR/provenance.tsv"
-    done
-  fi
-
-  git -C "$REPO" add -A
-  # --allow-empty：纯产出型任务（无 --import）也需要一个 BASE 提交
-  git -C "$REPO" commit -q --allow-empty \
-    -m "bootstrap task=$TASK conv=$CONV brief=$(hash_file "$BRIEF")"
-  echo "preflight: 已创建仓库 $REPO（分支 $BRANCH）" >&2
+  printf '__pycache__/\n*.pyc\n.pytest_cache/\n.venv/\n' > "$REPO/.gitignore"
 else
-  echo "preflight: 复用已有仓库 $REPO " >&2
-fi
-
-# 干净性检查：BASE 必须等于子代理实际看到的树
-DIRTY=$(git -C "$REPO" status --porcelain)
-if [ -n "$DIRTY" ]; then
-  if [ "$ALLOW_DIRTY" -eq 1 ]; then
-    echo "preflight: 警告 —— 工作树不干净，已按 --allow-dirty 放行：" >&2
-    printf '%s\n' "$DIRTY" >&2
-  else
-    echo "preflight: 工作树不干净，拒绝派发（BASE 将不等于实际树）。脏文件：" >&2
-    printf '%s\n' "$DIRTY" >&2
-    echo "preflight: 先提交/清理，或显式 --allow-dirty。" >&2
-    exit 3
+  # 复用仓库：先确认树干净，否则 BASE 不等于子代理实际看到的树
+  DIRTY=$(git -C "$REPO" status --porcelain)
+  if [ -n "$DIRTY" ]; then
+    if [ "$ALLOW_DIRTY" -eq 1 ]; then
+      echo "preflight: 警告 —— 工作树不干净，已按 --allow-dirty 放行：" >&2
+      printf '%s\n' "$DIRTY" >&2
+    else
+      echo "preflight: 工作树不干净，拒绝派发（BASE 将不等于实际树）。脏文件：" >&2
+      printf '%s\n' "$DIRTY" >&2
+      echo "preflight: 先提交/清理，或显式 --allow-dirty。" >&2
+      exit 3
+    fi
   fi
 fi
 
+: > "$TDIR/provenance.tsv"
+printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"
+
+ADDED=()
+if [ -n "$IMPORT" ]; then
+  IFS=',' read -ra items <<< "$IMPORT"
+  for it in "${items[@]}"; do
+    it="${it#./}"
+    [ -z "$it" ] && continue
+    [ -e "$it" ] || die "导入源不存在: $it"
+    if [ -e "$REPO/$it" ]; then
+      [ "$CREATED" -eq 0 ] && echo "preflight: 跳过已存在的导入路径 $it" >&2
+      continue
+    fi
+    mkdir -p "$REPO/$(dirname "$it")"
+    cp -a "$it" "$REPO/$it"
+    if [ -d "$it" ]; then
+      h=$(tar -C "$it" -cf - . 2>/dev/null | hash_stdin)
+    else
+      h=$(hash_file "$it")
+    fi
+    printf '%s\t%s\t%s\n' "$it" "$h" "$(now_utc)" >> "$TDIR/provenance.tsv"
+    ADDED+=("$it")
+  done
+fi
+
+if [ "$CREATED" -eq 1 ]; then
+  git -C "$REPO" add -A
+  git -C "$REPO" commit -q --allow-empty \
+    -m "bootstrap session=$SESSION brief=$(hash_file "$BRIEF")"
+  echo "preflight: 已创建会话仓库 $REPO（分支 main）" >&2
+elif [ "${#ADDED[@]}" -gt 0 ]; then
+  git -C "$REPO" add -- "${ADDED[@]}"
+  git -C "$REPO" commit -q -m "import task=$TASK"
+  echo "preflight: 已导入新增文件并提交到 main" >&2
+fi
+
+# 模型落盘：写进会话仓库并提交，先于 BASE
+if [ "$SAVE_MODEL" -eq 1 ]; then
+  [ -n "$MODEL" ] || die "--save-model 需要同时给出 --model"
+  printf '%s\n' "$MODEL" > "$REPO/model"
+  git -C "$REPO" add model
+  git -C "$REPO" diff --cached --quiet || git -C "$REPO" commit -q -m "model=$MODEL"
+  echo "preflight: 已写入会话配置 $REPO/model = $MODEL" >&2
+fi
+resolve_model
+
+# 单分支线性历史：必须停在 main 上，本次任务的 BASE 就是它的 HEAD
+CUR=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
+if [ "$CUR" != "main" ]; then
+  git -C "$REPO" switch -q main 2>/dev/null \
+    || die "会话仓库不在 main 分支（当前 $CUR），无法继续"
+fi
 BASE=$(git -C "$REPO" rev-parse HEAD)
-
-if [ "$CREATED" -eq 0 ]; then
-  # 复用仓库：切到任务分支；旧仓库可能没有该分支，则从 HEAD 补建
-  if git -C "$REPO" show-ref --verify --quiet "refs/heads/$BRANCH"; then
-    git -C "$REPO" switch -q "$BRANCH"
-    echo "preflight: 复用分支 $BRANCH " >&2
-  else
-    git -C "$REPO" switch -q -c "$BRANCH" "$BASE"
-    echo "preflight: 补建分支 $BRANCH @ ${BASE:0:12} " >&2
-  fi
-fi
 
 # 白名单里的路径不存在时给出警告（新建文件的任务属正常）
 IFS=',' read -ra allow_items <<< "$ALLOW"
@@ -237,10 +197,9 @@ done
 
 {
   printf 'TASK=%q\n'    "$TASK"
-  printf 'CONV=%q\n'    "$CONV"
+  printf 'SESSION=%q\n' "$SESSION"
   printf 'REPO=%q\n'    "$REPO"
   printf 'TDIR=%q\n'    "$TDIR"
-  printf 'BRANCH=%q\n'  "$BRANCH"
   printf 'BASE=%q\n'    "$BASE"
   printf 'ALLOW=%q\n'   "$ALLOW"
   printf 'TESTS=%q\n'   "$TESTS"
@@ -249,13 +208,10 @@ done
   printf 'CREATED=%q\n' "$(now_utc)"
 } > "$TDIR/dispatch.env"
 
-# 校验全部通过才占用路径：被拒的任务不该堵住后续任务
-printf '%s\n' "$ALLOW" | tr ',' '\n' | sed '/^$/d' > "$TDIR/allow.txt"
-
 # ---- 指针式派发 prompt：只给引用，不复述规格 ----
 PROMPT_FILE="$TDIR/dispatch.prompt"
 {
-  printf '仓库 %s（cwd 已给，勿切分支）· BASE %s · 白名单 %s\n' "$REPO" "$BASE" "$ALLOW"
+  printf '仓库 %s（cwd 已给，直接在 main 上提交，勿切分支）· BASE %s · 白名单 %s\n' "$REPO" "$BASE" "$ALLOW"
   printf '先读简报：%s\n' "$BRIEF"
   printf '交付：提交 + 测试输出写 %s/test.log + 回报 stop（completed / 未完成原因）\n' "$TDIR"
 } > "$PROMPT_FILE"
