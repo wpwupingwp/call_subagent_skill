@@ -11,25 +11,15 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 > `<本技能目录>` 指本文件所在目录。常规任务只需本文件；换环境或换模型时读 `references/probe.md`。
 > 成本与实验记录不随技能分发，见本仓库根目录的 `subagent_test.md`。
 
-## 前提与平台
+## 何时用、何时不用
 
-| 前提 | 要求 | 缺了会怎样 |
-|---|---|---|
-| **git** | 可执行，版本 >= 2.23（需要 `git switch`） | 无法建仓、分支、diff、patch |
-| **可写工作区** | 能建目录、复制源文件、导出 patch | 建仓即失败 |
-| **依赖命令** | `sed grep cp tar date tr dirname basename head tail` | 脚本中途报错，信息晦涩 |
+三条同时满足才派：
 
-体检：`bash <本技能目录>/scripts/doctor.sh --root <任务根>`（`0` 通过 · `3` 不满足）。`preflight` 会独立复查 git 版本与目录可写性，失败即退出 3。
+1. **实现工作量远大于编排成本**——一次派发的固定开销约 500 加权单位，相当于直接跑 3–5 条命令。查状态、跑一次网络探测、读一个文件，都不值得派。
+2. **验收能机械判定**——有测试。选型、评审意见、架构取舍这类靠判断的，派出去父代理仍要重做。
+3. **需要可回滚、可归因**——这是本技能相对"直接改"的唯一增量价值。
 
-脚本只允许 POSIX 基本工具：**不得引入 `sort -V`、`date -Iseconds`、`sha256sum`**（BSD/macOS 没有）。内容哈希用 `git hash-object`，字段名 `contentHash`，仅用于相等性比对。
-
-| 平台 | 所需 |
-|---|---|
-| Linux | bash + git + coreutils |
-| macOS | 系统自带 bash 3.2 + git |
-| Windows | **Git Bash**（Git for Windows 自带）或 WSL；PowerShell / cmd 不能直接运行 |
-
-Windows 两个坑：脚本须以 **LF** 保存（`.gitattributes` 写 `*.sh text eol=lf`，或设 `core.autocrlf=false`）；路径用 POSIX 风格（`/c/work/...`），不要传 `C:\...`。
+只满足前两条、且改动很小（几十行以内）时，自己写更便宜。
 
 ## 核心分工
 
@@ -60,17 +50,6 @@ Windows 两个坑：脚本须以 **LF** 保存（`.gitattributes` 写 `*.sh text
 > **判定不通过 → 自动丢弃。**
 
 丢弃顺序不可调换：`git add -A` → 导出 patch → `git reset --hard <BASE>` → `git clean -fd` → 写 `ABANDONED`（释放路径占用）。裸手 `reset --hard` 不会保留未跟踪文件。
-
-## 选模型：由调用方指定，不由 skill 猜
-
-skill **不判断模型价格**，也不替调用方选择。它只做两件事：
-
-1. `--model <provider/model>` 把选择固定下来，写进 `dispatch.env`、`MANIFEST.json`，并在 `--quiet` 输出里给出 `MODEL=` 行；
-2. 派发时把这个值原样填进 `subagent` 的 `provider` / `model` 参数。
-
-skill 无法得知模型价格，因此不代为选择。可用模型由 profile 的 `allowedModels` 决定，调用方用 `--model` 显式指定最便宜的那个。
-
-推荐做法：在 profile 里只保留确实需要的模型，调用方每次都显式 `--model` 指定最便宜的那个。省下的推理不是重点，重点是**这个决定有记录、可归因**——`MANIFEST.json` 里能查到每次任务用了哪个模型。
 
 ## 流程
 
@@ -112,7 +91,7 @@ POINTER=读 /path/to/.tasks/<task>/dispatch.prompt 并按其执行
 MODEL=llama/LLaMA
 ```
 
-给了 `--model` 才会出现第三行；它同时写进 `dispatch.env` 与 `MANIFEST.json`，便于事后按模型归因成本。
+`--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。skill 不代选模型——见 README。
 
 #### 简报必须通过三项机械校验
 
@@ -136,9 +115,7 @@ MODEL=llama/LLaMA
 
 配上 `provider` / `model` / `cwd`（`cwd` = 仓库路径）即可。子代理会自己读 `dispatch.prompt`，再顺着它读简报。
 
-派发只填一行指针，不要把简报内容复述进 prompt。
-
-省约 70%。更关键的是：规格只存在于简报一处，prompt 不再有第二份副本可以掩盖简报的错误。
+规格只存在于简报一处：prompt 里没有第二份副本可以掩盖简报的错误。
 
 ### 4. postflight（父代理执行）
 
@@ -204,12 +181,12 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
   repo/                 # 任务专属仓库，diff 里只有子代理的改动
 ```
 
-## 已知限制
+## 环境与限制
 
-- **一次一个子代理**：无并发编排，多任务串行，且前一个必须先合并或废弃。
+环境要求：`git >= 2.23`、可写工作区、POSIX 基本工具。首次使用跑 `scripts/doctor.sh`（`0` 通过 · `3` 不满足）——**失败要报告为环境问题，不是模型问题**。Windows 用 Git Bash 或 WSL，脚本须以 LF 保存。完整要求见 README。
+
+限制：
+
+- **一次只派一个子代理**：无并发编排，多任务串行，前一个必须先合并或废弃。
 - **无任务依赖**：不能声明「B 依赖 A 的产出」，只能人工安排顺序。
-- **`ALLOW` 逗号分隔**：路径本身含逗号无法表达。
-- **纯产出型任务可用**：无 `--import` 时 bootstrap 走空提交，仓库从零开始。
-- **子代理必须显式以 `<repo>` 为 cwd**：派发时传 `cwd` 参数，不要依赖继承的目录。
-- **交付必须已提交**：`postflight` 不代为暂存；漏提交判违规并自动丢弃。
-- **`doctor.sh` 不检查**：磁盘空间、网络、全局 git 配置、git hook 干扰。
+- **`ALLOW` 用逗号分隔**：路径本身含逗号无法表达。
