@@ -77,6 +77,7 @@ esac
 TDIR="$ROOT/$TASK"
 REPO="$TDIR/repo"
 CONV="${DSH_SESSION_ID:-unknown}"
+BRANCH="work/$TASK"
 
 # 前置条件：本技能全部机制都依赖 git 与可写目录，缺任一项立即给出明确原因
 command -v git >/dev/null 2>&1 || die "git 不可用（PATH 中找不到）。本技能无法工作，先跑 doctor.sh。"
@@ -127,9 +128,11 @@ if [ -f "$TDIR/ABANDONED" ]; then
   echo "preflight: 清除旧的 ABANDONED 标记，重新开始该任务" >&2
 fi
 
+CREATED=0
 if [ ! -d "$REPO/.git" ]; then
+  CREATED=1
   mkdir -p "$REPO"
-  git -C "$REPO" init -q -b main
+  git -C "$REPO" init -q -b "$BRANCH"
   git -C "$REPO" config user.name  "task-bus"
   git -C "$REPO" config user.email "task-bus@localhost"
   : > "$TDIR/provenance.tsv"
@@ -155,7 +158,7 @@ if [ ! -d "$REPO/.git" ]; then
   git -C "$REPO" add -A
   # --allow-empty：纯产出型任务（无 --import）也需要一个 BASE 提交
   git -C "$REPO" commit -q --allow-empty -m "bootstrap task=$TASK conv=$CONV title=${TITLE:-（无）}"
-  echo "preflight: 已创建仓库 $REPO " >&2
+  echo "preflight: 已创建仓库 $REPO（分支 $BRANCH）" >&2
 else
   echo "preflight: 复用已有仓库 $REPO " >&2
 fi
@@ -175,15 +178,16 @@ if [ -n "$DIRTY" ]; then
 fi
 
 BASE=$(git -C "$REPO" rev-parse HEAD)
-BRANCH="work/$TASK"
 
-# 分支已存在则复用（幂等），否则从 BASE 创建
-if git -C "$REPO" show-ref --verify --quiet "refs/heads/$BRANCH"; then
-  git -C "$REPO" switch -q "$BRANCH"
-  echo "preflight: 复用分支 $BRANCH " >&2
-else
-  git -C "$REPO" switch -q -c "$BRANCH" "$BASE"
-  echo "preflight: 创建分支 $BRANCH @ ${BASE:0:12} " >&2
+if [ "$CREATED" -eq 0 ]; then
+  # 复用仓库：切到任务分支；旧仓库可能没有该分支，则从 HEAD 补建
+  if git -C "$REPO" show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git -C "$REPO" switch -q "$BRANCH"
+    echo "preflight: 复用分支 $BRANCH " >&2
+  else
+    git -C "$REPO" switch -q -c "$BRANCH" "$BASE"
+    echo "preflight: 补建分支 $BRANCH @ ${BASE:0:12} " >&2
+  fi
 fi
 
 # 白名单里的路径不存在时给出警告（新建文件的任务属正常）
