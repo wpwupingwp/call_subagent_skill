@@ -27,8 +27,11 @@ skill/SKILL.md              规范与流程（模型读这个）
 skill/references/probe.md   三层探测：首次换环境/换模型时读
 skill/scripts/              doctor / envcheck / preflight / postflight
 skill/templates/            brief / probe / review
+usage_stats.sh              汇总消耗记录（不属于技能本体）
 subagent_test.md            实测记录与设计决策
 ```
+
+**产出归属**：子代理改的是仓库里的源码（白名单内）；`tasks/<task>/` 是父代理的文书（简报、MANIFEST、patch），子代理只读不写。
 
 ## 前提
 
@@ -115,6 +118,17 @@ time  task  model  verdict  steps  in  out  cache
 ```
 
 **skill 不负责采集这些数字**：子代理的 token 用量怎么拿，取决于运行环境（会话日志、API 返回、网关统计等），不属于本技能职责。父代理在调用时把已知值传进来即可；不传就完全不记录，也没有额外开销。
+
+汇总用同级的脚本：
+
+```bash
+./usage_stats.sh --root <工作区>          # 自动发现 */repo/tasks/usage.tsv
+./usage_stats.sh a.tsv b.tsv             # 或直接给文件
+```
+
+输出任务数、总步数、in/out/cache 与加权成本（`in + 2*out + 0.02*cache`），并按模型分组。
+
+传参本身约 20 tokens；**贵的是取数**（读会话日志、跑统计，一次工具调用 200–400 tokens）。所以统计适合攒几轮做一次，而不是每个任务都做。
 
 ## 测试与成本记录
 
