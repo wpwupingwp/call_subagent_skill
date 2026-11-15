@@ -106,6 +106,16 @@ preflight.sh ... --model llama/LLaMA --save-model
 - **纯产出型任务可用**：无 `--import` 时 bootstrap 走空提交，仓库从零开始。
 - **子代理步数方差与编排无关**：同任务 7 次实测为 11–86 步，成本尾部由「首版是否一次写对」决定，无法通过编排消除。
 
+## 记录子代理消耗（可选）
+
+`postflight --usage 'steps=12,in=2689,out=1926,cache=143545'` 会把一行追加到 `tasks/usage.tsv`，并随结果提交：
+
+```
+time  task  model  verdict  steps  in  out  cache
+```
+
+**skill 不负责采集这些数字**：子代理的 token 用量怎么拿，取决于运行环境（会话日志、API 返回、网关统计等），不属于本技能职责。父代理在调用时把已知值传进来即可；不传就完全不记录，也没有额外开销。
+
 ## 测试与成本记录
 
 见 `subagent_test.md`：各轮实测 token、方差、缓存成本、以及 9 条设计决策记录。

@@ -18,13 +18,14 @@ EOF
   exit 3
 }
 
-TASK="" STOP="unknown" QUIET=0
+TASK="" STOP="unknown" QUIET=0 USAGE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --task) TASK="${2:-}"; shift 2 ;;
     --stop) STOP="${2:-}"; shift 2 ;;
     --quiet) QUIET=1; shift ;;
     --root)  TASK_ROOT="${2:-}"; shift 2 ;;
+    --usage) USAGE="${2:-}"; shift 2 ;;
     -h|--help) usage ;;
     *) echo "未知参数: $1" >&2; usage ;;
   esac
@@ -44,6 +45,8 @@ TMPD="$TDIR/tmp"
 [ -d "$REPO/.git" ] || { echo "postflight: $REPO 不是 git 仓库" >&2; exit 3; }
 cd "$REPO" || exit 3
 mkdir -p "$TMPD"
+
+now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 count_lines() {
   local n
@@ -186,7 +189,28 @@ with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:
     fh.write("\n")
 PYEOF
 
-# ---- 10. 记录物入历史（无论判定如何）----
+# ---- 10. 消耗记录（可选）：逐行追加，便于事后统计 ----
+if [ -n "$USAGE" ]; then
+  USAGE_FILE="$REPO/tasks/usage.tsv"
+  mkdir -p "$REPO/tasks"
+  [ -f "$USAGE_FILE" ] || \
+    printf 'time\ttask\tmodel\tverdict\tsteps\tin\tout\tcache\n' > "$USAGE_FILE"
+  u_steps=""; u_in=""; u_out=""; u_cache=""
+  IFS=',' read -ra kv <<< "$USAGE"
+  for pair in "${kv[@]}"; do
+    case "$pair" in
+      steps=*) u_steps="${pair#steps=}" ;;
+      in=*)    u_in="${pair#in=}" ;;
+      out=*)   u_out="${pair#out=}" ;;
+      cache=*) u_cache="${pair#cache=}" ;;
+    esac
+  done
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(now_utc)" "$TASK" "${MODEL:-}" "$VERDICT" \
+    "$u_steps" "$u_in" "$u_out" "$u_cache" >> "$USAGE_FILE"
+fi
+
+# ---- 11. 记录物入历史（无论判定如何）----
 git -C "$REPO" add -A -- tasks 2>/dev/null || true
 git -C "$REPO" diff --cached --quiet || \
   git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"
