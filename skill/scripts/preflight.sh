@@ -6,7 +6,7 @@ usage() {
   cat <<'EOF'
 用法:
   preflight.sh --task <id> --allow <path[,path...]> [--import <path[,path...]>]
-               [--tests '<命令>'] [--title '<标题>'] [--root <任务根目录>]
+               [--tests '<命令>'] [--root <任务根目录>]
                [--brief <路径>] [--model <provider/model>]
                [--allow-dirty] [--allow-overlap] [--quiet]
 
@@ -26,7 +26,7 @@ EOF
   exit 3
 }
 
-TASK="" ALLOW="" IMPORT="" TESTS="" TITLE="" ROOT="${PWD}/.tasks" BRIEF="" MODEL="" ALLOW_DIRTY=0 ALLOW_OVERLAP=0 QUIET=0
+TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}/.tasks" BRIEF="" MODEL="" ALLOW_DIRTY=0 ALLOW_OVERLAP=0 QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -34,7 +34,6 @@ while [ $# -gt 0 ]; do
     --allow)       ALLOW="${2:-}"; shift 2 ;;
     --import)      IMPORT="${2:-}"; shift 2 ;;
     --tests)       TESTS="${2:-}"; shift 2 ;;
-    --title)       TITLE="${2:-}"; shift 2 ;;
     --root)        ROOT="${2:-}"; shift 2 ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     --brief)         BRIEF="${2:-}"; shift 2 ;;
@@ -128,6 +127,15 @@ if [ -f "$TDIR/ABANDONED" ]; then
   echo "preflight: 清除旧的 ABANDONED 标记，重新开始该任务" >&2
 fi
 
+# ---- 简报校验：规格只有一份，缺项即拒绝，用校验替代 prompt 里的复述 ----
+BRIEF="${BRIEF:-$TDIR/briefs/brief.md}"
+[ -f "$BRIEF" ] || die "缺少简报: $BRIEF。先写简报（含验收命令/白名单/交付要求）再派发。"
+if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$BRIEF"; then
+  die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
+fi
+grep -qF -- "提交" "$BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
+grep -qE "白名单|只允许改动|允许改动" "$BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
+
 CREATED=0
 if [ ! -d "$REPO/.git" ]; then
   CREATED=1
@@ -157,7 +165,8 @@ if [ ! -d "$REPO/.git" ]; then
 
   git -C "$REPO" add -A
   # --allow-empty：纯产出型任务（无 --import）也需要一个 BASE 提交
-  git -C "$REPO" commit -q --allow-empty -m "bootstrap task=$TASK conv=$CONV title=${TITLE:-（无）}"
+  git -C "$REPO" commit -q --allow-empty \
+    -m "bootstrap task=$TASK conv=$CONV brief=$(hash_file "$BRIEF")"
   echo "preflight: 已创建仓库 $REPO（分支 $BRANCH）" >&2
 else
   echo "preflight: 复用已有仓库 $REPO " >&2
@@ -211,15 +220,6 @@ done
   printf 'DIRTY=%q\n'   "$([ -n "$DIRTY" ] && echo yes || echo no)"
   printf 'CREATED=%q\n' "$(now_utc)"
 } > "$TDIR/dispatch.env"
-
-# ---- 简报校验：规格只有一份，缺项即拒绝，用校验替代 prompt 里的复述 ----
-BRIEF="${BRIEF:-$TDIR/briefs/brief.md}"
-[ -f "$BRIEF" ] || die "缺少简报: $BRIEF。先写简报（含验收命令/白名单/交付要求）再派发。"
-if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$BRIEF"; then
-  die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
-fi
-grep -qF -- "提交" "$BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
-grep -qE "白名单|只允许改动|允许改动" "$BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
 
 # 校验全部通过才占用路径：被拒的任务不该堵住后续任务
 printf '%s\n' "$ALLOW" | tr ',' '\n' | sed '/^$/d' > "$TDIR/allow.txt"

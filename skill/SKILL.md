@@ -64,13 +64,12 @@ bash "$SKILL/scripts/preflight.sh" \
   --import src/result_io.py \
   --allow  src/result_io.py \
   --tests  'python3 -m pytest -q tests/test_result_io.py' \
-  --title  '给 result_io 增加参数校验' \
   --quiet
 ```
 
 `--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，改用 `git worktree` 更优。
 
-脚本会：校验简报 → 建仓、导入、提交 bootstrap → 要求工作树干净 → 记录 `BASE` → 创建并切到 `work/<task>` → 写 `dispatch.env` 与 `dispatch.prompt`。
+脚本会：校验简报 → 建仓、导入、提交 bootstrap（提交信息记录 `brief=<简报内容哈希>`）→ 要求工作树干净 → 记录 `BASE` → 切到 `work/<task>` → 写 `dispatch.env` 与 `dispatch.prompt`。
 
 `--quiet` 让 stdout 只剩两行（诊断信息走 stderr）：
 
