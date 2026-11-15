@@ -103,12 +103,6 @@ DIRTY=""
 if [ ! -d "$REPO/.git" ]; then
   CREATED=1
   mkdir -p "$REPO"
-  git -C "$REPO" init -q -b main
-  git -C "$REPO" config user.name  "task-bus"
-  git -C "$REPO" config user.email "task-bus@localhost"
-  printf '%s\n' '__pycache__/' '*.pyc' '.pytest_cache/' '.venv/' \
-    'tasks/*/dispatch.env' 'tasks/*/dispatch.prompt' 'tasks/*/test.log' 'tasks/*/tmp/' \
-    > "$REPO/.gitignore"
 else
   # 复用仓库：先确认树干净，否则 BASE 不等于子代理实际看到的树
   DIRTY=$(git -C "$REPO" status --porcelain)
@@ -125,18 +119,38 @@ else
   fi
 fi
 
-# ---- 简报：可给外部路径，拷进仓库后作为唯一来源 ----
-mkdir -p "$TDIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
-if [ -n "$BRIEF" ] && [ "$BRIEF" != "$TDIR/brief.md" ] && [ -f "$BRIEF" ]; then
-  cp "$BRIEF" "$TDIR/brief.md"
-fi
-BRIEF="$TDIR/brief.md"
-[ -f "$BRIEF" ] || die "缺少简报: $BRIEF。先写简报（含验收命令/白名单/交付要求）再派发。"
-if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$BRIEF"; then
+# ---- 简报：先校验，再落盘（校验失败不留任何状态）----
+SRC_BRIEF="$BRIEF"
+[ -n "$SRC_BRIEF" ] || SRC_BRIEF="$TDIR/brief.md"
+[ -f "$SRC_BRIEF" ] || die "缺少简报: $SRC_BRIEF。先写简报（含验收命令/白名单/交付要求）再派发。"
+if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$SRC_BRIEF"; then
   die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
 fi
-grep -qF -- "提交" "$BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
-grep -qE "白名单|只允许改动|允许改动" "$BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
+grep -qF -- "提交" "$SRC_BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
+grep -qE "白名单|只允许改动|允许改动" "$SRC_BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
+
+if [ -n "$IMPORT" ]; then
+  IFS=',' read -ra _items <<< "$IMPORT"
+  for _it in "${_items[@]}"; do
+    _it="${_it#./}"
+    [ -z "$_it" ] && continue
+    [ -e "$_it" ] || die "导入源不存在: $_it"
+  done
+fi
+
+mkdir -p "$TDIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
+if [ "$SRC_BRIEF" != "$TDIR/brief.md" ]; then cp "$SRC_BRIEF" "$TDIR/brief.md"; fi
+BRIEF="$TDIR/brief.md"
+
+# 仓库不存在时现在才初始化（此前只做了只读校验）
+if [ "$CREATED" -eq 1 ]; then
+  git -C "$REPO" init -q -b main
+  git -C "$REPO" config user.name  "task-bus"
+  git -C "$REPO" config user.email "task-bus@localhost"
+  printf '%s\n' '__pycache__/' '*.pyc' '.pytest_cache/' '.venv/' \
+    'tasks/*/dispatch.env' 'tasks/*/dispatch.prompt' 'tasks/*/test.log' 'tasks/*/tmp/' \
+    > "$REPO/.gitignore"
+fi
 
 : > "$TDIR/provenance.tsv"
 printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"

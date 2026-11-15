@@ -194,6 +194,7 @@ fi
 PATCH_SHA=$(git hash-object -- "$PATCH")
 PATCH_LINES=$(count_lines "$PATCH")
 
+export MODEL
 python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" "$ALLOW" \
          "$STOP" "$TEST_EXIT" "$VERDICT" "$PATCH_SHA" "$PATCH_LINES" \
          "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" \
