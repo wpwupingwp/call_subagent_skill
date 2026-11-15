@@ -47,12 +47,64 @@ TMPD="$TDIR/tmp"
 cd "$REPO" || exit 3
 mkdir -p "$TMPD"
 
+# --child auto：按 parentSession + createdAt 找本次派发的子会话
+resolve_child() {
+  [ "$CHILD" = "auto" ] || return 0
+  local parent="${DSH_SESSION_ID:-}" best="" best_t=0
+  [ -n "$parent" ] || return 1
+  local home="${DSH_HOME:-$HOME/.dsh}"
+  local since
+  since=$(sed -n 's/^CREATED=//p' "$TDIR/dispatch.env" | tr -d "'\"" )
+  since=$(date -d "$since" +%s000 2>/dev/null || echo 0)
+  while IFS= read -r f; do
+    local first t
+    first=$(zstd -dc "$f" 2>/dev/null | head -1)
+    case "$first" in *"\"parentSession\":\"$parent\""*) ;; *) continue ;; esac
+    t=$(printf '%s' "$first" | sed -n 's/.*"createdAt":\([0-9]*\).*/\1/p')
+    [ -n "$t" ] && [ "$t" -ge "$since" ] && [ "$t" -gt "$best_t" ] && { best_t=$t; best=$f; }
+  done < <(find "$home/sessions" -type f -name 'session.v4.jsonl.zstd' -newermt "@$((since/1000))" 2>/dev/null)
+  [ -n "$best" ] || return 1
+  CHILD=$(basename "$(dirname "$best")")
+  echo "postflight: 自动匹配到子代理会话 $CHILD" >&2
+}
+
+read_child_usage() {
+  [ -n "$CHILD" ] || return 1
+  command -v zstd >/dev/null 2>&1 || return 1
+  local home="${DSH_HOME:-$HOME/.dsh}"
+  local log
+  log=$(find "$home/sessions" -type f -path "*/$CHILD/session.v4.jsonl.zstd" 2>/dev/null | head -1)
+  [ -n "$log" ] || return 1
+  local out
+  out=$(zstd -dc "$log" 2>/dev/null | python3 -c '
+import json, sys
+steps=ti=to=tc=0
+for line in sys.stdin:
+    try: ev=json.loads(line)
+    except Exception: continue
+    if ev.get("type")!="assistant/message": continue
+    u=(ev.get("data") or {}).get("usage") or {}
+    if not u: continue
+    steps+=1; ti+=u.get("inputTokens",0); to+=u.get("outputTokens",0); tc+=u.get("cacheReadTokens",0)
+if steps==0: raise SystemExit(2)
+print(f"steps={steps},in={ti},out={to},cache={tc}")
+' 2>/dev/null) || return 1
+  [ -n "$out" ] || return 1
+  USAGE="$out"
+  return 0
+}
+
+
+# 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
+resolve_child || true
+
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 count_lines() {
   local n
   n=$(grep -c . "$1" 2>/dev/null) && printf '%s' "$n" || printf '0'
 }
+
 
 is_allowed() {
   local f="$1" e
@@ -192,31 +244,9 @@ with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:
 PYEOF
 
 # ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
-read_child_usage() {
-  [ -n "$CHILD" ] || return 1
-  command -v zstd >/dev/null 2>&1 || return 1
-  local home="${DSH_HOME:-$HOME/.dsh}"
-  local log
-  log=$(find "$home/sessions" -type f -path "*/$CHILD/session.v4.jsonl.zstd" 2>/dev/null | head -1)
-  [ -n "$log" ] || return 1
-  local out
-  out=$(zstd -dc "$log" 2>/dev/null | python3 -c '
-import json, sys
-steps=ti=to=tc=0
-for line in sys.stdin:
-    try: ev=json.loads(line)
-    except Exception: continue
-    if ev.get("type")!="assistant/message": continue
-    u=(ev.get("data") or {}).get("usage") or {}
-    if not u: continue
-    steps+=1; ti+=u.get("inputTokens",0); to+=u.get("outputTokens",0); tc+=u.get("cacheReadTokens",0)
-if steps==0: raise SystemExit(2)
-print(f"steps={steps},in={ti},out={to},cache={tc}")
-' 2>/dev/null) || return 1
-  [ -n "$out" ] || return 1
-  USAGE="$out"
-  return 0
-}
+# ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
+# ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
+# ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
 
 if [ -z "$USAGE" ] && [ -n "$CHILD" ]; then
   if ! read_child_usage; then

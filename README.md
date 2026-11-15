@@ -125,8 +125,14 @@ time  task  model  verdict  steps  in  out  cache
 子代理的用量就在磁盘上的会话日志里，`usage_of.sh` 能直接读出来：
 
 ```bash
-CHILD=<子代理 session id>          # 来自 subagent 返回的 "started subagent <id>"
-postflight.sh --task t1 --stop completed --child "$CHILD"
+postflight.sh --task t1 --stop completed --child auto
+```
+
+`auto` 会按子代理会话头里的 `parentSession`（等于本会话 id）与创建时间，自动匹配本次派发产生的那个子会话；
+匹配成功则 `MANIFEST.json` 记录真实 id 并自动读用量。也可以直接给 id：
+
+```bash
+postflight.sh --task t1 --stop completed --child <子代理 session id>
 ```
 
 `--child` 做两件事：把 id 记进 `MANIFEST.json`（字段 `childSession`），并**尽力从会话日志读取用量**
