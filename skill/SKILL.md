@@ -9,14 +9,13 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 父代理与子代理通过**同一个 git 仓库**交换信息。仓库是协作介质，不是沙箱：它承载任务上下文、分支分工、审查单元（diff）和历史记忆。
 
 > `<本技能目录>` 指本文件所在目录。常规任务只需本文件；换环境或换模型时读 `references/probe.md`。
-> 成本与实验记录不随技能分发，见本仓库根目录的 `subagent_test.md`。
 
 ## 核心分工
 
 | 角色 | 只写 | 职责 |
 |---|---|---|
 | 子代理 | `ALLOWED` 白名单内的路径，分支 `work/<task>` | 实现并提交 |
-| 父代理 | `briefs/`、`reviews/`，分支 `main` | 冻结 BASE、核对、验收、产出 patch |
+| 父代理 | 任务目录里的 `briefs/`、`reviews/`（不在仓库内） | 冻结 BASE、核对、验收、产出 patch |
 
 ## 约束的分工
 
@@ -81,7 +80,7 @@ POINTER=读 /path/to/.tasks/<task>/dispatch.prompt 并按其执行
 MODEL=llama/LLaMA
 ```
 
-`--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。skill 不代选模型——见 README。
+`--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。skill 不代选模型。
 
 #### 简报必须通过三项机械校验
 
@@ -93,7 +92,7 @@ MODEL=llama/LLaMA
 | 含交付要求 | 出现「提交」 |
 | 含改动范围 | 出现「白名单」或「只允许改动」 |
 
-这三项替代了 prompt 里的复述：**规格写错就发不出去**，而不是靠第二份副本掩盖。
+三项缺任一项，`preflight` 直接退出 3，不建仓。
 
 ### 3. dispatch（父代理 → 子代理）
 
@@ -105,7 +104,6 @@ MODEL=llama/LLaMA
 
 配上 `provider` / `model` / `cwd`（`cwd` = 仓库路径）即可。子代理会自己读 `dispatch.prompt`，再顺着它读简报。
 
-规格只存在于简报一处：prompt 里没有第二份副本可以掩盖简报的错误。
 
 ### 4. postflight（父代理执行）
 
@@ -150,8 +148,7 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 - **历史被改写不是“细读代码”的触发条件**，是“拒绝交付”的触发条件。patch 副本在手，重建即可。
 - 真正需要细读的是“机械检查全绿但测试覆盖不到”的改动。
-- `ALLOWED` 为空时脚本拒绝执行，不允许默认全量——13G 工作区上默认全量会直接变成事故。
-- 子代理的工作树若脏，仍可验收（父代理直接取工作树 diff），但必须记录在案。
+- `ALLOWED` 为空时脚本拒绝执行：大工作区上默认全量会变成事故。
 
 ## 目录布局
 
@@ -159,7 +156,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 .tasks/<task>/
   dispatch.env          # BASE / BRANCH / ALLOW / TESTS
   dispatch.prompt       # 三行任务卡，由 POINTER 一行引用（勿粘贴正文）
-  briefs/brief.md       # 规格唯一来源，preflight 会校验
+  briefs/brief.md       # 规格唯一来源，preflight 校验
+  reviews/              # 父代理的审查记录
   allow.txt             # 白名单原文，供重叠检测读取
   MERGED                # 已落地标记（手工创建，释放路径占用）
   ABANDONED             # 已废弃标记（postflight 判定不通过时自动写入）
@@ -167,13 +165,12 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
   test.log              # 完整测试输出
   MANIFEST.json
   deliveries/<task>.patch
-  briefs/  reviews/     # 父代理的文件放在这里（在仓库之外）
   repo/                 # 任务专属仓库，diff 里只有子代理的改动
 ```
 
 ## 环境与限制
 
-环境要求：`git >= 2.23`、可写工作区、POSIX 基本工具。首次使用跑 `scripts/doctor.sh`（`0` 通过 · `3` 不满足）——**失败要报告为环境问题，不是模型问题**。Windows 用 Git Bash 或 WSL，脚本须以 LF 保存。完整要求见 README。
+首次使用跑 `scripts/doctor.sh`（`0` 通过 · `3` 不满足）。环境失败要报告为**环境问题**，不是模型问题。
 
 限制：
 
