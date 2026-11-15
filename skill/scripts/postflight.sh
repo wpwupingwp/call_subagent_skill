@@ -18,7 +18,7 @@ EOF
   exit 3
 }
 
-TASK="" STOP="unknown" QUIET=0 USAGE=""
+TASK="" STOP="unknown" QUIET=0 USAGE="" CHILD=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --task) TASK="${2:-}"; shift 2 ;;
@@ -26,6 +26,7 @@ while [ $# -gt 0 ]; do
     --quiet) QUIET=1; shift ;;
     --root)  TASK_ROOT="${2:-}"; shift 2 ;;
     --usage) USAGE="${2:-}"; shift 2 ;;
+    --child) CHILD="${2:-}"; shift 2 ;;
     -h|--help) usage ;;
     *) echo "未知参数: $1" >&2; usage ;;
   esac
@@ -145,14 +146,14 @@ python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbr
          "$STOP" "$TEST_EXIT" "$VERDICT" "$PATCH_SHA" "$PATCH_LINES" \
          "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" \
          "$PROTO_VIOLATION" "$DISCARDED" \
-         "$STASH_COUNT" "$WORKTREE_COUNT" "${TESTS:-}" <<'PYEOF'
+         "$STASH_COUNT" "$WORKTREE_COUNT" "${TESTS:-}" "${CHILD:-}" <<'PYEOF'
 import json, sys, os
-if len(sys.argv) != 22:
+if len(sys.argv) != 23:
     sys.stderr.write("manifest: 参数个数错误 %d\n" % len(sys.argv))
     raise SystemExit(2)
 (tdir, task, session, base, head, branch, allow, stop, texit, verdict,
  psha, plines, nchanged, nviol, rewritten, ndirty,
- proto, discarded, nstash, nwt, tests) = sys.argv[1:22]
+ proto, discarded, nstash, nwt, tests, child) = sys.argv[1:23]
 
 def lines(name):
     p = os.path.join(tdir, "tmp", name)
@@ -169,6 +170,7 @@ doc = {
     "branch": branch,
     "allow": allow.split(","),
     "model": os.environ.get("MODEL") or None,
+    "childSession": child or None,
     "stopReason": stop,
     "tests": tests or None,
     "testExitCode": int(texit),
