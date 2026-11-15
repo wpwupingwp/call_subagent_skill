@@ -86,7 +86,8 @@ preflight.sh ... --model llama/LLaMA --save-model
 解析顺序：`--model` > 会话仓库内的 `repo/model` > `<工作区>/model`。
 
 **影响范围**：不同对话各用各的 `<session>/repo`；不写 `~/.dsh`、不改 profile、不设环境变量；用 `--root` 指定别的目录则完全隔离。
-一个对话只有一个仓库，从 `bootstrap` 到每个任务的提交连成一条线性历史；任务不另建仓库或分支。
+一个对话只有一个仓库，从 `session init` 到每个任务的提交连成一条线性历史；任务不另建仓库或分支。
+任务产物（简报、MANIFEST、patch）也在同一个仓库的 `tasks/<task>/` 下，随历史版本化。
 
 ## 环境检查
 

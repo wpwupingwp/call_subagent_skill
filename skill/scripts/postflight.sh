@@ -31,15 +31,19 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$TASK" ] || { echo "postflight: 必须指定 --task" >&2; usage; }
 
-ROOT="${TASK_ROOT:-$PWD/.tasks}"
-TDIR="$ROOT/$TASK"
+ROOT="${TASK_ROOT:-$PWD}"
+SESSION="${DSH_SESSION_ID:-unknown}"
+REPO="$ROOT/$SESSION/repo"
+TDIR="$REPO/tasks/$TASK"
 
+TMPD="$TDIR/tmp"
 [ -f "$TDIR/dispatch.env" ] || { echo "postflight: 缺少 $TDIR/dispatch.env，先跑 preflight.sh" >&2; exit 3; }
 # shellcheck disable=SC1090
 . "$TDIR/dispatch.env"
 
 [ -d "$REPO/.git" ] || { echo "postflight: $REPO 不是 git 仓库" >&2; exit 3; }
 cd "$REPO" || exit 3
+mkdir -p "$TMPD"
 
 count_lines() {
   local n
@@ -59,8 +63,8 @@ is_allowed() {
 }
 
 # ---- 1. 交付状态：子代理应当已提交；脏树默认判违规 ----
-git status --porcelain > "$TDIR/dirty-before.txt"
-DIRTY_COUNT=$(count_lines "$TDIR/dirty-before.txt")
+git status --porcelain > "$TMPD/dirty-before.txt"
+DIRTY_COUNT=$(count_lines "$TMPD/dirty-before.txt")
 DISCARDED=no
 PROTO_VIOLATION=no
 if [ "$DIRTY_COUNT" -gt 0 ]; then
@@ -69,8 +73,8 @@ fi
 
 # ---- 2. 变更清单：只读提交历史，不碰索引 ----
 HEAD_SHA=$(git rev-parse HEAD)
-git diff --no-renames --name-only "$BASE" "$HEAD_SHA" > "$TDIR/changed.txt"
-CHANGED_COUNT=$(count_lines "$TDIR/changed.txt")
+git diff --no-renames --name-only "$BASE" "$HEAD_SHA" > "$TMPD/changed.txt"
+CHANGED_COUNT=$(count_lines "$TMPD/changed.txt")
 
 # ---- 3. 历史是否被改写：BASE 必须是 HEAD 的祖先 ----
 REWRITTEN=no
@@ -79,18 +83,18 @@ if [ "$HEAD_SHA" != "$BASE" ]; then
 fi
 
 # ---- 4. 白名单核对 ----
-: > "$TDIR/violations.txt"
+: > "$TMPD/violations.txt"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
-  is_allowed "$f" || printf '%s\n' "$f" >> "$TDIR/violations.txt"
-done < "$TDIR/changed.txt"
-VIOLATION_COUNT=$(count_lines "$TDIR/violations.txt")
+  is_allowed "$f" || printf '%s\n' "$f" >> "$TMPD/violations.txt"
+done < "$TMPD/changed.txt"
+VIOLATION_COUNT=$(count_lines "$TMPD/violations.txt")
 
 # ---- 5. 附加可疑线索（不直接判违规，但要看得见）----
-git stash list > "$TDIR/stash.txt" 2>/dev/null || true
-git worktree list > "$TDIR/worktrees.txt" 2>/dev/null || true
-STASH_COUNT=$(count_lines "$TDIR/stash.txt")
-WORKTREE_COUNT=$(count_lines "$TDIR/worktrees.txt"); WORKTREE_COUNT=$(( WORKTREE_COUNT > 0 ? WORKTREE_COUNT - 1 : 0 ))
+git stash list > "$TMPD/stash.txt" 2>/dev/null || true
+git worktree list > "$TMPD/worktrees.txt" 2>/dev/null || true
+STASH_COUNT=$(count_lines "$TMPD/stash.txt")
+WORKTREE_COUNT=$(count_lines "$TMPD/worktrees.txt"); WORKTREE_COUNT=$(( WORKTREE_COUNT > 0 ? WORKTREE_COUNT - 1 : 0 ))
 
 # ---- 6. 测试：父代理自己跑一次，不采信子代理的自述 ----
 TEST_EXIT=0
@@ -102,14 +106,7 @@ else
   TEST_EXIT=127
 fi
 
-# ---- 7. patch：审查时刻的防篡改副本 ----
-mkdir -p "$TDIR/deliveries"
-PATCH="$TDIR/deliveries/$TASK.patch"
-git diff --binary --no-renames "$BASE" "$HEAD_SHA" > "$PATCH"
-PATCH_SHA=$(git hash-object -- "$PATCH")
-PATCH_LINES=$(count_lines "$PATCH")
-
-# ---- 8. 判定 ----
+# ---- 7. 判定 ----
 VERDICT="pass"; EXIT=0
 if [ "$VIOLATION_COUNT" -gt 0 ] || [ "$REWRITTEN" = yes ] || [ "$PROTO_VIOLATION" = yes ]; then
   VERDICT="reject"; EXIT=2
@@ -117,23 +114,45 @@ elif [ "$TEST_EXIT" -ne 0 ] || [ "$STOP" != "completed" ]; then
   VERDICT="fail"; EXIT=1
 fi
 
-# ---- 9. manifest ----
-export MODEL
+# ---- 8. 未通过则丢弃：先归档到仓库外，再还原 ----
+ARCHIVE=""
+if [ "$VERDICT" != "pass" ]; then
+  ARCHIVE=$(mktemp)
+  git add -A >/dev/null 2>&1
+  git diff --cached --binary --no-renames "$BASE" > "$ARCHIVE"
+  git reset -q --hard "$BASE"
+  git clean -qfd
+  DISCARDED=yes
+fi
+
+# ---- 9. 产物：patch 与 MANIFEST（在还原之后写，才不会被 clean 抹掉）----
+mkdir -p "$TDIR/deliveries"
+if [ -n "$ARCHIVE" ]; then
+  PATCH="$TDIR/deliveries/$TASK.abandoned.patch"
+  cp "$ARCHIVE" "$PATCH"
+  rm -f "$ARCHIVE"
+else
+  PATCH="$TDIR/deliveries/$TASK.patch"
+  git diff --binary --no-renames "$BASE" "$HEAD_SHA" > "$PATCH"
+fi
+PATCH_SHA=$(git hash-object -- "$PATCH")
+PATCH_LINES=$(count_lines "$PATCH")
+
 python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" "$ALLOW" \
          "$STOP" "$TEST_EXIT" "$VERDICT" "$PATCH_SHA" "$PATCH_LINES" \
          "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" \
          "$PROTO_VIOLATION" "$DISCARDED" \
-         "$STASH_COUNT" "$WORKTREE_COUNT" "${TESTS:-}" <<'PY'
+         "$STASH_COUNT" "$WORKTREE_COUNT" "${TESTS:-}" <<'PYEOF'
 import json, sys, os
 if len(sys.argv) != 22:
     sys.stderr.write("manifest: 参数个数错误 %d\n" % len(sys.argv))
     raise SystemExit(2)
-(tdir, task, conv, base, head, branch, allow, stop, texit, verdict,
+(tdir, task, session, base, head, branch, allow, stop, texit, verdict,
  psha, plines, nchanged, nviol, rewritten, ndirty,
  proto, discarded, nstash, nwt, tests) = sys.argv[1:22]
 
 def lines(name):
-    p = os.path.join(tdir, name)
+    p = os.path.join(tdir, "tmp", name)
     if not os.path.exists(p):
         return []
     with open(p, encoding="utf-8", errors="replace") as fh:
@@ -141,13 +160,13 @@ def lines(name):
 
 doc = {
     "task": task,
-    "conversation": conv,
+    "session": session,
     "base": base,
     "head": head,
     "branch": branch,
     "allow": allow.split(","),
-    "stopReason": stop,
     "model": os.environ.get("MODEL") or None,
+    "stopReason": stop,
     "tests": tests or None,
     "testExitCode": int(texit),
     "verdict": verdict,
@@ -160,25 +179,17 @@ doc = {
     "stashEntries": int(nstash),
     "extraWorktrees": int(nwt),
     "patch": {"file": os.path.join(tdir, "deliveries", task + ".patch"),
-              "contentHash": psha, "lines": int(plines)},
+              "sha256": psha, "lines": int(plines)},
 }
 with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:
     json.dump(doc, fh, ensure_ascii=False, indent=2)
     fh.write("\n")
-PY
+PYEOF
 
-# 判定不通过 → 自动丢弃。仓库是任务的临时产物，preflight 已保证起点干净，
-# 期间的写入只可能来自子代理，因此这里销毁不会伤及父代理的任何东西。
-if [ "$VERDICT" != "pass" ]; then
-  mkdir -p "$TDIR/deliveries"
-  # 先归档再还原：reset --hard 不会保留未跟踪文件
-  git add -A >/dev/null 2>&1
-  git diff --cached --binary --no-renames "$BASE" \
-    > "$TDIR/deliveries/$TASK.abandoned.patch"
-  git reset -q --hard "$BASE"
-  git clean -qfd
-  DISCARDED=yes
-fi
+# ---- 10. 记录物入历史（无论判定如何）----
+git -C "$REPO" add -A -- tasks 2>/dev/null || true
+git -C "$REPO" diff --cached --quiet || \
+  git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"
 
 # MANIFEST 缺失意味着出处与判定无法留痕，不能当作通过
 if [ ! -s "$TDIR/MANIFEST.json" ]; then
@@ -208,7 +219,7 @@ printf 'patch       %s（%s 行, sha %s）\n' "$PATCH" "$PATCH_LINES" "${PATCH_S
 printf '判定        %s%s\n' "$VERDICT" "$([ "$DISCARDED" = yes ] && echo '  → 已归档并还原，标记 ABANDONED' || echo '')"
 if [ "$VIOLATION_COUNT" -gt 0 ]; then
   echo "── 越界文件 ──"
-  sed 's/^/  /' "$TDIR/violations.txt"
+  sed 's/^/  /' "$TMPD/violations.txt"
 fi
 echo "────────────────────────────────────"
 exit "$EXIT"

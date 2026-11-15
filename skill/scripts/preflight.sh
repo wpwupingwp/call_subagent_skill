@@ -67,10 +67,10 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 
 [ -n "$TASK" ] || { echo "preflight: 必须指定 --task" >&2; usage; }
 
-TDIR="$ROOT/$TASK"
 SESSION="${DSH_SESSION_ID:-unknown}"
 SESS_DIR="$ROOT/$SESSION"
 REPO="$SESS_DIR/repo"
+TDIR="$REPO/tasks/$TASK"        # 任务产物与源码同仓
 
 # 模型解析顺序：--model > 仓库内 model > 会话目录 model > 任务根 model
 resolve_model() {
@@ -96,26 +96,19 @@ command -v git >/dev/null 2>&1 || die "git 不可用（PATH 中找不到）。�
 GV=$(git --version 2>/dev/null); GV=${GV#git version }
 version_ge "$GV" 2.23 || die "git 版本过低: ${GV:-未知}，需要 >= 2.23（git switch）。先跑 doctor.sh。"
 
-mkdir -p "$TDIR" 2>/dev/null || die "无法创建任务目录: $TDIR（权限或路径问题）。先跑 doctor.sh。"
-mkdir -p "$TDIR/briefs" "$TDIR/reviews"   # 父代理文件放在任务目录，不进仓库
-
-# ---- 简报校验：规格只有一份，缺项即拒绝，用校验替代 prompt 里的复述 ----
-BRIEF="${BRIEF:-$TDIR/briefs/brief.md}"
-[ -f "$BRIEF" ] || die "缺少简报: $BRIEF。先写简报（含验收命令/白名单/交付要求）再派发。"
-if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$BRIEF"; then
-  die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
-fi
-grep -qF -- "提交" "$BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
-grep -qE "白名单|只允许改动|允许改动" "$BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
+mkdir -p "$SESS_DIR" 2>/dev/null || die "无法创建会话目录: $SESS_DIR（权限或路径问题）。先跑 doctor.sh。"
 
 CREATED=0
+DIRTY=""
 if [ ! -d "$REPO/.git" ]; then
   CREATED=1
   mkdir -p "$REPO"
   git -C "$REPO" init -q -b main
   git -C "$REPO" config user.name  "task-bus"
   git -C "$REPO" config user.email "task-bus@localhost"
-  printf '__pycache__/\n*.pyc\n.pytest_cache/\n.venv/\n' > "$REPO/.gitignore"
+  printf '%s\n' '__pycache__/' '*.pyc' '.pytest_cache/' '.venv/' \
+    'tasks/*/dispatch.env' 'tasks/*/dispatch.prompt' 'tasks/*/test.log' 'tasks/*/tmp/' \
+    > "$REPO/.gitignore"
 else
   # 复用仓库：先确认树干净，否则 BASE 不等于子代理实际看到的树
   DIRTY=$(git -C "$REPO" status --porcelain)
@@ -131,6 +124,19 @@ else
     fi
   fi
 fi
+
+# ---- 简报：可给外部路径，拷进仓库后作为唯一来源 ----
+mkdir -p "$TDIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
+if [ -n "$BRIEF" ] && [ "$BRIEF" != "$TDIR/brief.md" ] && [ -f "$BRIEF" ]; then
+  cp "$BRIEF" "$TDIR/brief.md"
+fi
+BRIEF="$TDIR/brief.md"
+[ -f "$BRIEF" ] || die "缺少简报: $BRIEF。先写简报（含验收命令/白名单/交付要求）再派发。"
+if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$BRIEF"; then
+  die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
+fi
+grep -qF -- "提交" "$BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
+grep -qE "白名单|只允许改动|允许改动" "$BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
 
 : > "$TDIR/provenance.tsv"
 printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"
@@ -159,14 +165,14 @@ if [ -n "$IMPORT" ]; then
 fi
 
 if [ "$CREATED" -eq 1 ]; then
-  git -C "$REPO" add -A
-  git -C "$REPO" commit -q --allow-empty \
-    -m "bootstrap session=$SESSION brief=$(hash_file "$BRIEF")"
+  git -C "$REPO" commit -q --allow-empty -m "session init ($SESSION)"
   echo "preflight: 已创建会话仓库 $REPO（分支 main）" >&2
-elif [ "${#ADDED[@]}" -gt 0 ]; then
-  git -C "$REPO" add -- "${ADDED[@]}"
-  git -C "$REPO" commit -q -m "import task=$TASK"
-  echo "preflight: 已导入新增文件并提交到 main" >&2
+fi
+
+git -C "$REPO" add -A
+if ! git -C "$REPO" diff --cached --quiet; then
+  git -C "$REPO" commit -q \
+    -m "task $TASK: plan (brief=$(hash_file "$BRIEF"))"
 fi
 
 # 模型落盘：写进会话仓库并提交，先于 BASE
@@ -219,7 +225,7 @@ PROMPT_FILE="$TDIR/dispatch.prompt"
 if [ "$QUIET" -eq 1 ]; then
   printf 'PROMPT=%s\n' "$PROMPT_FILE"
   printf 'POINTER=读 %s 并按其执行\n' "$PROMPT_FILE"
-  [ -n "$MODEL" ] && printf 'MODEL=%s\n' "$MODEL"
+  if [ -n "$MODEL" ]; then printf 'MODEL=%s\n' "$MODEL"; fi
 else
   printf '\n──────── 派发 prompt（已写入 %s，复制即用）────────\n' "$PROMPT_FILE"
   cat "$PROMPT_FILE"

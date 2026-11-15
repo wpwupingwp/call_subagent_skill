@@ -199,3 +199,16 @@ SKILL.md 常驻上下文：一次性全价、之后每步按 0.02 重读。拆�
 
 净效果：概念更少（去掉三套机制），并且顺手解决了「任务间基线」这个此前只能靠人工顺序保证的问题。
 
+### 9.11 任务产物移入会话仓库
+
+任务目录（简报、provenance、MANIFEST、patch）原先与仓库同级，导致配置与记录分处两地。移入
+`<repo>/tasks/<task>/` 后，一个对话真的只有一个 git 仓库。
+
+代价是「产物会进入 diff 或被判脏树」，因此分两类处理：
+
+- **记录物**（`brief.md`、`provenance.tsv`、`MANIFEST.json`、`deliveries/*.patch`）：提交进 `main`；
+- **派生物**（`dispatch.env`、`dispatch.prompt`、`test.log`、`tmp/`）：写进 `.gitignore`，可随时重算。
+
+顺序上出现两个必须固定的点：`plan` 提交必须在取 `BASE` 之前；`postflight` 的产物必须在
+`reset --hard` + `clean -fd` **之后**写，否则会被自己抹掉。这两点都踩过坑。
+

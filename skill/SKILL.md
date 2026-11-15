@@ -60,10 +60,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 简报写清四件事：目标、允许改动的范围、验收命令（与 `--tests` **完全一致**）、交付要求。
 
-```bash
-mkdir -p .tasks/<task>/briefs
-$EDITOR .tasks/<task>/briefs/brief.md
-```
+简报可以写在任意位置，用 `--brief <路径>` 传给 `preflight`；它会被拷进仓库的 `tasks/<task>/brief.md` 并提交，成为唯一来源。
 
 ### 2. preflight（父代理执行，一次）
 
@@ -165,7 +162,7 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 ### 6. 交付
 
-`deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
+`tasks/<task>/deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
 
 **父代理不为任务提交任何东西**——它的文件（简报、审查记录）在任务目录，位于仓库之外。`BASE` 只是本次任务的起点：它之前的提交是此前已完成的工作，`BASE..HEAD` 就是本次任务。
 
@@ -183,18 +180,19 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 ```
 <工作区>/
-  <会话 id>/repo/              # 会话仓库：单分支 main，所有任务共用
-    model                      # 会话级模型选择（在仓库内，被版本管理）
-  <task>/                      # 任务目录：父代理的产物，不在仓库里
-    dispatch.env               # BASE / SESSION / ALLOW / TESTS / MODEL
-    dispatch.prompt            # 三行任务卡，由 POINTER 一行引用
-    briefs/brief.md            # 规格唯一来源，preflight 校验
-    reviews/                   # 审查记录
-    provenance.tsv             # 导入来源与 contentHash
-    test.log                   # 完整测试输出
-    MANIFEST.json
-    deliveries/<task>.patch
+  <会话 id>/repo/            # 会话仓库：单分支 main，所有任务共用
+    model                    # 会话级模型选择
+    <源码…>                  # 子代理可写（白名单内）
+    tasks/<task>/            # 任务产物，与源码同仓
+      brief.md               # 规格唯一来源，preflight 校验并提交
+      provenance.tsv         # 导入来源与 contentHash
+      MANIFEST.json          # 判定与证据
+      deliveries/<task>.patch
+      dispatch.env  dispatch.prompt  test.log  tmp/   # 派生文件，.gitignore
 ```
+
+任务产物进历史：`plan` 提交（简报 + 导入）→ 子代理提交 → `result`/`discarded` 提交。
+派生文件不入历史，靠 `preflight` 生成、`postflight` 覆盖。
 
 ## 环境与限制
 
