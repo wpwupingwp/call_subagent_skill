@@ -46,9 +46,19 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 换机器、换环境、或第一次用某个子代理模型时，先按 `references/probe.md` 跑三层探测（doctor / envcheck / probe）。环境不合格时，任何编排都不会成功。
 
-### 1. 先写简报（父代理）
+### 1. 先写测试，再写简报（父代理）
 
-规格只有一份，就是简报。写清四件事：目标、允许改动的范围、验收命令、交付要求。
+验收完全依赖测试，所以**测试由父代理先写、并在派发前冻结**：
+
+- 测试文件用 `--import` 复制进仓库，但**不放进 `--allow`**；
+- 子代理改它，`postflight` 的文件名比对就判越界、拒绝交付——冻结靠白名单，不靠嘱咐。
+
+测试要满足两点：
+
+- **能跑起来**：派发前 `envcheck.sh` 返回 `0` 或 `1`。基线为红是正常的（实现还不存在），只要不是 `3`（命令跑不起来）。
+- **能判定需求**：断言具体行为与边界，不要只断言「不抛异常」。
+
+简报写清四件事：目标、允许改动的范围、验收命令（与 `--tests` **完全一致**）、交付要求。
 
 ```bash
 mkdir -p .tasks/<task>/briefs
@@ -60,10 +70,11 @@ $EDITOR .tasks/<task>/briefs/brief.md
 ```bash
 SKILL=<本技能目录>
 bash "$SKILL/scripts/preflight.sh" \
-  --task  2026-11-16-arg-validation \
-  --import src/result_io.py \
-  --allow  src/result_io.py \
-  --tests  'python3 -m pytest -q tests/test_result_io.py' \
+  --task   <task-id> \
+  --import <要放进仓库的文件：源文件或测试> \
+  --allow  <允许子代理改动的路径> \
+  --tests  '<验收命令，与简报里的一致>' \
+  --model  <provider/model> \
   --quiet
 ```
 
@@ -71,7 +82,7 @@ bash "$SKILL/scripts/preflight.sh" \
 
 脚本会：校验简报 → 建仓、导入、提交 bootstrap（提交信息记录 `brief=<简报内容哈希>`）→ 要求工作树干净 → 记录 `BASE` → 切到 `work/<task>` → 写 `dispatch.env` 与 `dispatch.prompt`。
 
-`--quiet` 让 stdout 只剩两行（诊断信息走 stderr）：
+`--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
 
 ```
 PROMPT=/path/to/.tasks/<task>/dispatch.prompt
@@ -90,8 +101,6 @@ MODEL=llama/LLaMA
 | 含验收命令 | 简报正文包含 `--tests` 的字面文本 |
 | 含交付要求 | 出现「提交」 |
 | 含改动范围 | 出现「白名单」或「只允许改动」 |
-
-三项缺任一项，`preflight` 直接退出 3，不建仓。
 
 ### 3. dispatch（父代理 → 子代理）
 
