@@ -4,32 +4,32 @@
 子代理在 `work/<task>` 分支上工作并提交，父代理用 diff、路径核对与测试退出码做机械验收，
 产出 patch 与 `MANIFEST.json`。
 
-给**人**看的说明。给模型看的规范在同目录的 `skill/SKILL.md`。
+给**人**看的说明。给模型看的规范在同目录的 `git-task-bus/SKILL.md`。
 
 ## 安装
 
-技能本体在 `skill/`。二选一：
+技能本体在 `git-task-bus/`。二选一：
 
 ```bash
 # 仅本工作区可用
-cp -r skill <workspace>/.dsh/skills/git-task-bus
+cp -r git-task-bus <workspace>/.dsh/skills/
 
 # 本机所有会话可用（会影响全局 catalog，按需选择）
-cp -r skill ~/.dsh/skills/git-task-bus
+cp -r git-task-bus ~/.dsh/skills/
 ```
 
-放好后模型会按 `description` 自动匹配并按需加载；也可以不安装，直接让模型读 `skill/SKILL.md`。
+放好后模型会按 `description` 自动匹配并按需加载；也可以不安装，直接让模型读 `git-task-bus/SKILL.md`。
 
 ## 结构
 
 ```
-skill/SKILL.md              规范与流程（模型读这个）
-skill/references/probe.md   三层探测：首次换环境/换模型时读
-skill/scripts/              doctor / envcheck / preflight / postflight
-skill/templates/            brief / probe / review
-usage_of.sh                 读取子代理会话用量（环境相关）
-usage_stats.sh              汇总消耗记录（不属于技能本体）
-subagent_test.md            实测记录与设计决策
+git-task-bus/SKILL.md            规范与流程（模型读这个）
+git-task-bus/references/probe.md 三层探测：首次换环境/换模型时读
+git-task-bus/scripts/            doctor / envcheck / preflight / postflight
+git-task-bus/templates/          brief / probe / review
+usage_of.sh                      读取子代理会话用量（环境相关）
+usage_stats.sh                   汇总消耗记录（不属于技能本体）
+subagent_test.md                 实测记录与设计决策
 ```
 
 **产出归属**：子代理改的是仓库里的源码（白名单内）；`tasks/<task>/` 是父代理的文书（简报、MANIFEST、patch），子代理只读不写。
