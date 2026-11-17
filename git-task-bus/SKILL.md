@@ -26,7 +26,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 | 角色 | 只写 | 职责 |
 |---|---|---|
 | 子代理 | `ALLOWED` 白名单内的路径，在 `main` 上 | 实现并提交 |
-| 父代理 | 任务目录里的 `briefs/`、`reviews/`（不在仓库内） | 冻结 BASE、核对、验收、产出 patch |
+| 父代理 | 简报（`tasks/<task>/brief.md`，仓库内）与审查记录（`<会话目录>/reviews/`，仓库外） | 冻结 BASE、核对、验收、产出 patch |
 
 ## 约束的分工
 
@@ -174,11 +174,11 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 `tasks/<task>/deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
 
-**父代理不为任务提交任何东西**——它的文件（简报、审查记录）在任务目录，位于仓库之外。`BASE` 只是本次任务的起点：它之前的提交是此前已完成的工作，`BASE..HEAD` 就是本次任务。
+**父代理不为任务提交任何东西**：简报由 `preflight` 拷进仓库并提交，审查记录写在 `<会话目录>/reviews/`（仓库之外）。`BASE` 只是本次任务的起点：它之前的提交是此前已完成的工作，`BASE..HEAD` 就是本次任务。
 
 下一个任务自动从新的 `HEAD` 起步（`BASE` 重新取值），所以**不需要合并动作**：已验收的提交就是 `main` 的最新状态。
 
-验收结论写进 `reviews/<task>.md`（模板 `templates/review.md`），一行即可。
+验收结论写进 `<会话目录>/reviews/<task>.md`（模板 `templates/review.md`），一行即可。
 
 ## 关键判定
 

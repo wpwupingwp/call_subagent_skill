@@ -60,7 +60,11 @@ version_ge() {  # version_ge A B —— A >= B 时为真；纯 bash，不依赖 
   (( a3 >= b3 ))
 }
 
-hash_stdin() { git hash-object --stdin; }   # 内容哈希：git 已在前提内，免去 sha256sum
+hash_stdin() { git hash-object --stdin; }
+hash_source() {  # 文件或目录的内容哈希
+  if [ -d "$1" ]; then tar -C "$1" -cf - . 2>/dev/null | hash_stdin
+  else hash_file "$1"; fi
+}   # 内容哈希：git 已在前提内，免去 sha256sum
 hash_file()  { git hash-object -- "$1"; }
 
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
@@ -71,6 +75,7 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 SESSION="${DSH_SESSION_ID:-unknown}"
 SESS_DIR="$ROOT/$SESSION"
 REPO="$SESS_DIR/repo"
+IMPORTS="$REPO/tasks/imports.tsv"
 TDIR="$REPO/tasks/$TASK"        # 任务产物与源码同仓
 
 # 模型解析顺序：--model > 仓库内 model > 会话目录 model > 任务根 model
@@ -139,7 +144,7 @@ if [ -n "$IMPORT" ]; then
   done
 fi
 
-mkdir -p "$TDIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
+mkdir -p "$TDIR" "$SESS_DIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
 if [ "$SRC_BRIEF" != "$TDIR/brief.md" ]; then cp "$SRC_BRIEF" "$TDIR/brief.md"; fi
 BRIEF="$TDIR/brief.md"
 
@@ -163,18 +168,28 @@ if [ -n "$IMPORT" ]; then
     it="${it#./}"
     [ -z "$it" ] && continue
     [ -e "$it" ] || die "导入源不存在: $it"
+    cur=$(hash_source "$it")
     if [ -e "$REPO/$it" ]; then
-      [ "$CREATED" -eq 0 ] && echo "preflight: 跳过已存在的导入路径 $it" >&2
+      if [ "$CREATED" -eq 0 ]; then
+        old=$(awk -F'\t' -v p="$it" '$1==p{print $2}' "$IMPORTS" 2>/dev/null | tail -1)
+        if [ -n "$old" ] && [ "$old" != "$cur" ]; then
+          echo "preflight: 警告 —— 源 $it 已变（与上次导入不同），仓库内仍是旧版本" >&2
+        else
+          echo "preflight: 跳过已存在的导入路径 $it" >&2
+        fi
+      fi
       continue
     fi
     mkdir -p "$REPO/$(dirname "$it")"
     cp -a "$it" "$REPO/$it"
-    if [ -d "$it" ]; then
-      h=$(tar -C "$it" -cf - . 2>/dev/null | hash_stdin)
+    printf '%s\t%s\t%s\n' "$it" "$cur" "$(now_utc)" >> "$TDIR/provenance.tsv"
+    if [ -f "$IMPORTS" ]; then
+      awk -F'\t' -v p="$it" '$1!=p' "$IMPORTS" > "$IMPORTS.tmp"
     else
-      h=$(hash_file "$it")
+      : > "$IMPORTS.tmp"
     fi
-    printf '%s\t%s\t%s\n' "$it" "$h" "$(now_utc)" >> "$TDIR/provenance.tsv"
+    printf '%s\t%s\t%s\n' "$it" "$cur" "$(now_utc)" >> "$IMPORTS.tmp"
+    mv "$IMPORTS.tmp" "$IMPORTS"
     ADDED+=("$it")
   done
 fi

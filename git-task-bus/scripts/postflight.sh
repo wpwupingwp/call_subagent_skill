@@ -255,7 +255,7 @@ doc = {
     "stashEntries": int(nstash),
     "extraWorktrees": int(nwt),
     "patch": {"file": patch,
-              "sha256": psha, "lines": int(plines)},
+              "contentHash": psha, "lines": int(plines)},
 }
 with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:
     json.dump(doc, fh, ensure_ascii=False, indent=2)

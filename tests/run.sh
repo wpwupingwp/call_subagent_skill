@@ -123,6 +123,19 @@ OUT2=$(DSH_SESSION_ID=session-ad2 bash "$SK/scripts/preflight.sh" --task ad-2 --
 chk "AD/已忽略时不提示" "no" "$(printf '%s' "$OUT2" | grep -q '未被忽略' && echo yes || echo no)"
 cd "$B/fix"
 
+echo "── AE 导入源变更 ──"
+sess gAE
+printf 'x=1\n' > "$B/fix/ae.py"
+mkbrief t-ae1 true
+chk "AE/preflight1" 0 "$(bash "$SK/scripts/preflight.sh" --root "$B" --task t-ae1 --import ae.py --allow ae.py --brief "$B/fix/brief-t-ae1.md" --tests true >/dev/null 2>&1; echo $?)"
+printf 'x=2\n' > "$B/fix/ae.py"
+mkbrief t-ae2 true
+OUT_AE=$(bash "$SK/scripts/preflight.sh" --root "$B" --task t-ae2 --import ae.py --allow ae.py --brief "$B/fix/brief-t-ae2.md" --tests true 2>&1 >/dev/null)
+chk "AE/源变更时警告" "yes" "$(printf '%s' "$OUT_AE" | grep -q '已变' && echo yes || echo no)"
+chk "AE/索引已记录" "yes" "$([ -f "$R/tasks/imports.tsv" ] && echo yes || echo no)"
+chk "AE/审查目录在仓库外" "yes" "$([ -d "$B/gAE/reviews" ] && echo yes || echo no)"
+chk "AE/仓库内无 reviews" "no" "$([ -d "$R/tasks/t-ae1/reviews" ] && echo yes || echo no)"
+
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── W 消耗记录 ──"
 sess gW
