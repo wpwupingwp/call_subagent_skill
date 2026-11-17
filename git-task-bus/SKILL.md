@@ -138,8 +138,7 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 把派发时拿到的子代理 id 传给 `--child`（或 `--child auto`）。
 
-**不要为了看细节重跑 `postflight`**：它第一次运行就会把产物写进历史，重跑会把它们当成越界改动并覆盖上一次的归档。
-需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新 id。
+不要为了看细节重跑 `postflight`；需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新任务 id。
 
 `--stop` 默认 `completed`；子代理非正常结束（`aborted`/`error`/`max-tokens`/`refusal`）时必须显式传入。
 
@@ -160,7 +159,7 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 - 层级 2：仅在触发时读净 diff——测试红、越界、体量失衡、触及权限/并发/IO/exec、新增依赖、断言明显弱于改动
 - 层级 3：安全与数据破坏类任务全量细读
 
-**父代理必须自己重跑一次测试**：子代理的报告是自述，重跑是唯一不经过转述的事实。重跑一次，不重复跑。
+**父代理必须自己重跑一次验收命令。**
 
 不通过时任务已被自动丢弃，仓库回到 `BASE`。重派之前先看失败类型：**连续两次同类失败通常说明简报不清，应当改简报，而不是再派第三次**。
 
