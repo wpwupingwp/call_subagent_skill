@@ -11,7 +11,7 @@ usage() {
   git 是否可用、版本是否 >= 2.23（需要 git switch）
   依赖命令：sed grep cp tar date tr dirname basename head tail
   （以上均为 POSIX 基本工具；内容哈希改用 git hash-object，无需外部哈希工具）
-  任务根目录是否可创建、可写
+  任务根目录是否可创建、可写（默认当前目录；沙箱下请用 --root 指向可写工作区）
   --src 列出的源路径是否可读
 
 退出码：0 全部通过 / 3 存在不满足项
@@ -19,7 +19,7 @@ EOF
   exit 3
 }
 
-ROOT="${PWD}/.tasks"
+ROOT="${PWD}"
 SRC=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -80,11 +80,11 @@ if mkdir -p "$PROBE_DIR" 2>/dev/null; then
   if : > "$PROBE_DIR/w" 2>/dev/null; then
     ok "任务根目录可写: $ROOT"
   else
-    bad "任务根目录不可写: $ROOT"
+    bad "任务根目录不可写: $ROOT（若当前目录受沙箱限制，用 --root 指向工作区，例如 --root /tmp/gtb）"
   fi
   rm -rf "$PROBE_DIR" 2>/dev/null
 else
-  bad "任务根目录无法创建（权限或路径问题）: $ROOT"
+  bad "任务根目录无法创建（权限或路径问题）: $ROOT（若当前目录受沙箱限制，用 --root 指向可写工作区）"
 fi
 
 # 4. 源路径可读

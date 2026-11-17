@@ -18,7 +18,10 @@ cp -r git-task-bus <workspace>/.dsh/skills/
 cp -r git-task-bus ~/.dsh/skills/
 ```
 
-放好后模型会按 `description` 自动匹配并按需加载；也可以不安装，直接让模型读 `git-task-bus/SKILL.md`。
+放好后模型会按 `description` 自动匹配并按需加载。
+
+**未安装时 `skill` 工具调用里不会出现这个技能**——那是预期行为，不是缺陷。此时模型只能直接读
+`git-task-bus/SKILL.md`，并把文档里的 `<本技能目录>` 换成该仓库的实际路径。
 
 ## 结构
 

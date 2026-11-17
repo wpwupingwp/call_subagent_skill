@@ -84,8 +84,8 @@ bash "$SKILL/scripts/preflight.sh" \
 `--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
 
 ```
-PROMPT=/path/to/.tasks/<task>/dispatch.prompt
-POINTER=读 /path/to/.tasks/<task>/dispatch.prompt 并按其执行
+PROMPT=<会话仓库>/tasks/<task>/dispatch.prompt
+POINTER=读 <会话仓库>/tasks/<task>/dispatch.prompt 并按其执行
 MODEL=llama/LLaMA
 ```
 
@@ -115,7 +115,7 @@ MODEL=llama/LLaMA
 `subagent` 的 `prompt` 参数**只填 `POINTER` 那一行**，不要再粘贴或改写：
 
 ```
-读 /path/to/.tasks/<task>/dispatch.prompt 并按其执行
+读 <会话仓库>/tasks/<task>/dispatch.prompt 并按其执行
 ```
 
 配上 `provider` / `model` / `cwd`（`cwd` = 仓库路径）即可。子代理会自己读 `dispatch.prompt`，再顺着它读简报。
@@ -199,7 +199,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 ## 环境与限制
 
-首次使用跑 `scripts/doctor.sh`（`0` 通过 · `3` 不满足）。环境失败要报告为**环境问题**，不是模型问题。
+首次使用跑 `scripts/doctor.sh --root <可写工作区>`（`0` 通过 · `3` 不满足）。
+`--root` 默认当前目录；沙箱里当前目录可能不可写，换工作区或 `/tmp` 再跑。环境失败要报告为**环境问题**，不是模型问题。
 
 限制：
 
