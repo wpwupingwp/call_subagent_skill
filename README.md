@@ -268,7 +268,7 @@ postflight.sh --task t1 --stop completed --child <子代理 session id>
 ```bash
 bash tests/run.sh            # 71 项断言
 bash tests/run.sh --keep     # 保留临时目录以便排查
-SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 48 项
+SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 42 项
 ```
 
 覆盖：建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、
