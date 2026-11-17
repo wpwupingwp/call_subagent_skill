@@ -141,6 +141,7 @@ bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation \
 
 ```
 verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
+verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ```
 
 把派发时拿到的子代理 id 传给 `--child`（或 `--child auto`）。
@@ -168,6 +169,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 - 层级 3：安全与数据破坏类任务全量细读
 
 **父代理必须自己重跑一次验收命令。**
+
+`stop=max-tokens` 表示本次尝试被预算截断，不要原样重派：先缩小任务（减少导入文件或拆成多个任务）。
 
 不通过时任务已被自动丢弃，仓库回到 `BASE`。重派之前先看失败类型：**连续两次同类失败通常说明简报不清，应当改简报，而不是再派第三次**。
 

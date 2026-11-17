@@ -336,8 +336,13 @@ fi
 
 # ---- 12. 摘要 ----
 if [ "$QUIET" -eq 1 ]; then
-  printf 'verdict=%s changed=%s violations=%s history=%s dirty=%s testexit=%s patch=%s\n' \
-    "$VERDICT" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_EXIT" "$PATCH"
+  if [ "$STOP" = "completed" ]; then
+    printf 'verdict=%s changed=%s violations=%s history=%s dirty=%s testexit=%s patch=%s\n' \
+      "$VERDICT" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_EXIT" "$PATCH"
+  else
+    printf 'verdict=%s stop=%s changed=%s violations=%s history=%s dirty=%s testexit=%s patch=%s\n' \
+      "$VERDICT" "$STOP" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_EXIT" "$PATCH"
+  fi
   exit "$EXIT"
 fi
 

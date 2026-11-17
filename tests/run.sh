@@ -151,7 +151,9 @@ sess gAF
 chk "AF/preflight" 0 "$(pf --task t-af --import calc.py --allow calc.py $(b t-af) --tests true)"
 git -C "$R" commit -qam child --allow-empty
 mkfake sid-stop aborted
-chk "AF/日志 aborted 覆盖默认" 1 "$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-af --child sid-stop --quiet >/dev/null 2>&1; echo $?)"
+OUT_AF=$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-af --child sid-stop --quiet 2>/dev/null); RC_AF=$?
+chk "AF/日志 aborted 覆盖默认" 1 "$RC_AF"
+chk "AF/输出含 stop=aborted" "yes" "$(printf '%s' "$OUT_AF" | grep -q 'stop=aborted' && echo yes || echo no)"
 sess gAG
 chk "AG/preflight" 0 "$(pf --task t-ag --import calc.py --allow calc.py $(b t-ag) --tests true)"
 git -C "$R" commit -qam child --allow-empty
