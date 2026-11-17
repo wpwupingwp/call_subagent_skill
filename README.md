@@ -51,7 +51,8 @@ usage_of.sh                      读取子代理会话用量（环境相关）
 usage_stats.sh                   汇总消耗记录（不属于技能本体）
 subagent_test.md                 实测记录与设计决策
 HISTORY.md                       开发史与角色记录（不含规范）
-tests/run.sh                     自检（76 项断言，不需要网络或子代理）
+tests/run.sh                     自检（79 项断言，不需要网络或子代理）
+tests/audit_compliance.py        合规审计：第一次派发前有没有先动手
 ```
 
 **产出归属**：子代理改的是仓库里的源码（白名单内）；`tasks/<task>/` 是父代理的文书（简报、MANIFEST、patch），子代理只读不写。
@@ -279,13 +280,24 @@ postflight.sh --task t1 --stop completed --child <子代理 session id>
 ## 自检
 
 ```bash
-bash tests/run.sh            # 76 项断言
+bash tests/run.sh            # 79 项断言
 bash tests/run.sh --keep     # 保留临时目录以便排查
-SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 46 项
+SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 49 项
 ```
 
 覆盖：建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、
 最小模式、可移植性、`--child auto` 与用量记录、`--stop` 默认值、重跑守卫、patch 路径。
+
+### 合规审计
+
+硬规则 7 要求"派发前只读"。跑对照测试时，用下面这条判断某次会话有没有违反：
+
+```bash
+python3 tests/audit_compliance.py --session <会话日志> --scope code,static
+```
+
+退出码：`0` 合规 · `2` 违规（列出步骤与命令）· `3` 没有派发记录。
+只看第一次 `subagent` 调用之前的动作；支持 `.zstd` 日志与纯文本用例。
 
 ## 开发统计（本仓库自身）
 

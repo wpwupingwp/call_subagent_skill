@@ -147,6 +147,23 @@ chk "AH/提示删除锁" "yes" "$(printf '%s' "$OUT_AH" | grep -q 'index.lock' &
 rm -f "$R/.git/index.lock"
 chk "AH/解锁后可判定" 0 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --quiet >/dev/null 2>&1; echo $?)"
 
+echo "── AI 合规审计 ──"
+mkdir -p "$B/audit"
+cat > "$B/audit/ok.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"read","arguments":"{\"file_path\":\"/p/code/a.py\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
+EOF
+cat > "$B/audit/bad.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"edit","arguments":"{\"file_path\":\"/p/code/a.py\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
+EOF
+cat > "$B/audit/none.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"read","arguments":"{}"}]}}}
+EOF
+chk "AI/合规会话" 0 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/ok.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+chk "AI/派发前改代码" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/bad.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+chk "AI/无派发" 3 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/none.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── AF 子会话结束原因校验 ──"
 FH3="$B/fh3"
