@@ -193,6 +193,7 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
       MANIFEST.json          # 判定与证据
       deliveries/<task>.patch
       dispatch.env  dispatch.prompt  test.log  tmp/   # 派生文件，.gitignore
+      # test.log 由 postflight 写（父代理自己跑的验收输出），子代理不写日志
 ```
 
 任务产物进历史：`plan` 提交（简报 + 导入）→ 子代理提交 → `result`/`discarded` 提交。

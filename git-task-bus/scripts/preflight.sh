@@ -234,7 +234,7 @@ PROMPT_FILE="$TDIR/dispatch.prompt"
 {
   printf '仓库 %s（cwd 已给，直接在 main 上提交，勿切分支）· BASE %s · 白名单 %s\n' "$REPO" "$BASE" "$ALLOW"
   printf '先读简报：%s\n' "$BRIEF"
-  printf '交付：提交 + 测试输出写 %s/test.log + 回报 stop（completed / 未完成原因）\n' "$TDIR"
+  printf '交付：提交 + 回报 stop（completed / 未完成原因）\n'
 } > "$PROMPT_FILE"
 
 if [ "$QUIET" -eq 1 ]; then
