@@ -7,13 +7,18 @@ set -uo pipefail
 
 usage() {
   cat <<'EOF'
-用法: postflight.sh --task <id> [--stop completed|aborted|error|max-tokens|refusal|unknown] [--quiet]
+用法: postflight.sh --task <id> [--stop <reason>] [--child <id|auto>] [--usage <用量>]
+                   [--root <工作区>] [--quiet]
 
-判定不通过时自动丢弃：归档 patch → 还原工作区 → 写 ABANDONED（释放路径占用）。
+判定不通过时自动丢弃：归档 patch → 还原工作区（丢弃前的 patch 存为 deliveries/<task>.abandoned.patch）。
 
 说明:
   --stop         子代理的 stopReason，默认 completed。子代理非正常结束时必须显式传入
                    （aborted/error/max-tokens/refusal），否则按 completed 处理。
+  --root         工作区根目录（默认当前目录），用于定位 <root>/<session>/repo。
+  --child        子代理会话 id（或 auto）。给出后从会话日志读取用量并写入 tasks/usage.tsv；
+                  不给则 MANIFEST.childSession 为 null、不记录用量。
+  --usage        手工指定用量（覆盖 --child 的自动读取）。
   依赖 preflight.sh 写出的 <任务目录>/dispatch.env。
 EOF
   exit 3
@@ -315,7 +320,7 @@ printf '交付时未提交 %s 项（%s）/ stash %s / 额外 worktree %s\n' "$DI
   "$STASH_COUNT" "$WORKTREE_COUNT"
 printf '测试退出码  %s（日志 %s/test.log）\n' "$TEST_EXIT" "$TDIR"
 printf 'patch       %s（%s 行, sha %s）\n' "$PATCH" "$PATCH_LINES" "${PATCH_SHA:0:12}"
-printf '判定        %s%s\n' "$VERDICT" "$([ "$DISCARDED" = yes ] && echo '  → 已归档并还原，标记 ABANDONED' || echo '')"
+printf '判定        %s%s\n' "$VERDICT" "$([ "$DISCARDED" = yes ] && echo '  → 已归档并还原' || echo '')"
 if [ "$VIOLATION_COUNT" -gt 0 ]; then
   echo "── 越界文件 ──"
   sed 's/^/  /' "$TMPD/violations.txt"

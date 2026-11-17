@@ -105,6 +105,11 @@ printf 'CHANGED\n' > "$B/fix/calc.py"
 chk "V/再次" 0 "$(pf --task t-v2 --import calc.py --allow calc.py $(b t-v2) --tests true)"
 chk "V/未覆盖" "yes" "$(grep -q 'def add' "$R/calc.py" && echo yes || echo no)"
 
+echo "── AC envcheck ──"
+mkdir -p "$B/ec/tests"; printf 'print("ok")\n' > "$B/ec/tests/t.py"
+chk "AC/环境变量前缀" 0 "$(bash "$SK/scripts/envcheck.sh" --cwd "$B/ec" --tests 'PYTHONPATH=. python3 tests/t.py' >/dev/null 2>&1; echo $?)"
+chk "AC/命令缺失" 3 "$(bash "$SK/scripts/envcheck.sh" --cwd "$B/ec" --tests 'no_such_cmd_xyz' >/dev/null 2>&1; echo $?)"
+
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── W 消耗记录 ──"
 sess gW

@@ -89,14 +89,12 @@ fi
 
 # 4. 源路径可读
 if [ -n "$SRC" ]; then
-  local_ok=1
   IFS=',' read -ra items <<< "$SRC"
   for it in "${items[@]}"; do
     it="${it#./}"
     [ -z "$it" ] && continue
-    if [ -r "$it" ]; then ok "源路径可读: $it"; else bad "源路径不可读: $it"; local_ok=0; fi
+    if [ -r "$it" ]; then ok "源路径可读: $it"; else bad "源路径不可读: $it"; fi
   done
-  [ "$local_ok" -eq 1 ] || true
 fi
 
 echo "────────────────"

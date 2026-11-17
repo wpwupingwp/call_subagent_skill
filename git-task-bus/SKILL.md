@@ -126,7 +126,8 @@ MODEL=llama/LLaMA
 ### 4. postflight（父代理执行）
 
 ```bash
-bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation --stop completed --quiet
+bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation \
+  --stop completed --child <子代理 id> --quiet
 ```
 
 `--quiet` 只输出一行，用于常规验收：
@@ -134,6 +135,9 @@ bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation --stop comp
 ```
 verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ```
+
+**必须把派发时拿到的子代理 id 传给 `--child`**（或 `--child auto`）：不传则 `MANIFEST.childSession`
+为 `null`，`tasks/usage.tsv` 也不会生成，这次派发的用量就丢了。
 
 **不要为了看细节重跑 `postflight`**：它第一次运行就会把产物写进历史，重跑会把它们当成越界改动并覆盖上一次的归档。
 需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新 id。

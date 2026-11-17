@@ -30,15 +30,8 @@ done
 
 cd "$CWD" || exit 3
 
-# 单独探测首个词是否可解析，以便区分"命令缺失"与"测试失败"
-FIRST=${TESTS%% *}
-if ! command -v "$FIRST" >/dev/null 2>&1; then
-  case "$FIRST" in
-    # shell 内建与关键字，command -v 也能查到；查不到说明确实不可用
-    *) echo "envcheck: ENV_MISSING —— 命令不存在或不可执行: $FIRST" >&2; exit 3 ;;
-  esac
-fi
-
+# 直接执行，用 126/127 区分"命令缺失"与"测试失败"。
+# 不预检首个词：`PYTHONPATH=. python3 x.py` 这类带环境变量前缀的命令会把首个词误当成命令。
 bash -c "$TESTS" >/tmp/envcheck.$$.log 2>&1
 RC=$?
 tail -20 /tmp/envcheck.$$.log
@@ -46,6 +39,9 @@ rm -f /tmp/envcheck.$$.log
 
 case "$RC" in
   0)   echo "envcheck: OK —— 命令可执行且基线为绿"; exit 0 ;;
-  126|127) echo "envcheck: ENV_MISSING —— 命令不可执行（退出码 $RC）" >&2; exit 3 ;;
+  126|127)
+    CMD_WORD=$(printf '%s\n' "$TESTS" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')
+    echo "envcheck: ENV_MISSING —— 命令不可执行（退出码 $RC，命令: ${CMD_WORD:-未知}）" >&2
+    exit 3 ;;
   *)   echo "envcheck: BASELINE_RED —— 命令可执行，但基线退出码为 $RC（不一定是环境问题）" >&2; exit 1 ;;
 esac
