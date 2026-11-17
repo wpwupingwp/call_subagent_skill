@@ -49,6 +49,12 @@ tests/run.sh                     自检（58 项断言，不需要网络或子�
 脚本只允许 POSIX 基本工具：不得引入 `sort -V`、`date -Iseconds`、`sha256sum`（BSD/macOS 没有）。
 内容哈希用 `git hash-object`，字段名 `contentHash`，仅用于相等性比对。
 
+**工作区不需要是 git 仓库。** 技能会在 `<工作区>/<会话 id>/repo` 自己建一个，源文件通过 `--import` 拷进去；
+没有 git 的工作区照样能用。
+
+反过来说，如果工作区**本身**就是一个 git 仓库，那么 `<会话 id>/` 会成为它的未跟踪目录。建议在工作区的
+`.gitignore` 里加一行 `<会话 id>/` 或 `session-*/`，两者就不会互相干扰。
+
 ## 平台
 
 | 平台 | 所需 | 说明 |
