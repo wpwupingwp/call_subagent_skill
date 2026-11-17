@@ -137,6 +137,30 @@ chk "AE/审查目录在仓库外" "yes" "$([ -d "$B/gAE/reviews" ] && echo yes |
 chk "AE/仓库内无 reviews" "no" "$([ -d "$R/tasks/t-ae1/reviews" ] && echo yes || echo no)"
 
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
+echo "── AF 子会话结束原因校验 ──"
+FH3="$B/fh3"
+mkfake() {  # mkfake <sid> <kind>
+  local d="$FH3/sessions/p/$1"
+  mkdir -p "$d"
+  { printf '{"type":"session","id":"%s","createdAt":%s,"parentSession":"%s","origin":"subagent"}\n' "$1" "$(date +%s)000" "$DSH_SESSION_ID"
+    printf '{"type":"assistant/message","data":{"usage":{"inputTokens":1,"outputTokens":2,"cacheReadTokens":3}}}\n'
+    printf '{"type":"turn/end","data":{"reason":{"kind":"%s"}}}\n' "$2"
+  } | zstd -q -o "$d/session.v4.jsonl.zstd"
+}
+sess gAF
+chk "AF/preflight" 0 "$(pf --task t-af --import calc.py --allow calc.py $(b t-af) --tests true)"
+git -C "$R" commit -qam child --allow-empty
+mkfake sid-stop aborted
+chk "AF/日志 aborted 覆盖默认" 1 "$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-af --child sid-stop --quiet >/dev/null 2>&1; echo $?)"
+sess gAG
+chk "AG/preflight" 0 "$(pf --task t-ag --import calc.py --allow calc.py $(b t-ag) --tests true)"
+git -C "$R" commit -qam child --allow-empty
+mkfake sid-ok completed
+chk "AG/日志 completed 通过" 0 "$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-ag --child sid-ok --quiet >/dev/null 2>&1; echo $?)"
+chk "AG/preflight2" 0 "$(pf --task t-ag2 --import calc.py --allow calc.py $(b t-ag2) --tests true)"
+git -C "$R" commit -qam child2 --allow-empty
+chk "AG/--stop 与日志不一致则失败" 1 "$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-ag2 --child sid-stop --stop completed --quiet >/dev/null 2>&1; echo $?)"
+
 echo "── W 消耗记录 ──"
 sess gW
 chk "W/preflight" 0 "$(pf --task t-w --import calc.py --allow calc.py $(b t-w) --tests true)"

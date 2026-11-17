@@ -113,9 +113,42 @@ print(f"steps={steps},in={ti},out={to},cache={tc}")
 }
 
 
+read_child_stop() {
+  [ -n "$CHILD" ] || return 1
+  command -v zstd >/dev/null 2>&1 || return 1
+  local home="${DSH_HOME:-$HOME/.dsh}"
+  local log kind
+  log=$(find "$home/sessions" -type f -path "*/$CHILD/session.v4.jsonl.zstd" 2>/dev/null | head -1)
+  [ -n "$log" ] || return 1
+  kind=$(zstd -dc "$log" 2>/dev/null | python3 -c '
+import json, sys
+kind = None
+for line in sys.stdin:
+    try: ev = json.loads(line)
+    except Exception: continue
+    if ev.get("type") == "turn/end":
+        kind = ((ev.get("data") or {}).get("reason") or {}).get("kind") or kind
+if kind: print(kind)
+' 2>/dev/null) || return 1
+  [ -n "$kind" ] || return 1
+  printf '%s' "$kind"
+}
+
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
 resolve_child || true
 
+# 用子会话日志的结束原因校正 --stop：日志是事实，命令行是转述
+if CHILD_KIND=$(read_child_stop); then
+  if [ -z "${STOP_GIVEN:-}" ]; then
+    STOP="$CHILD_KIND"
+    printf 'postflight: stopReason 取自子会话日志: %s\n' "$STOP" >&2
+  elif [ "$CHILD_KIND" != "$STOP" ]; then
+    printf 'postflight: 警告 —— --stop=%s 与子会话日志的 %s 不一致，以日志为准\n' "$STOP" "$CHILD_KIND" >&2
+    STOP="$CHILD_KIND"
+  fi
+fi
+
+# 读子会话最后一个 turn/end 的结束原因，用于校验 --stop
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 count_lines() {

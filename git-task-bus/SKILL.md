@@ -144,6 +144,7 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ```
 
 把派发时拿到的子代理 id 传给 `--child`（或 `--child auto`）。
+给了 `--child` 时，`postflight` 从子会话日志读真实结束原因并覆盖 `--stop`；两者不一致时以日志为准。
 
 不要为了看细节重跑 `postflight`；需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新任务 id。
 
