@@ -30,6 +30,7 @@ git-task-bus/templates/          brief / probe / review
 usage_of.sh                      读取子代理会话用量（环境相关）
 usage_stats.sh                   汇总消耗记录（不属于技能本体）
 subagent_test.md                 实测记录与设计决策
+tests/run.sh                     自检（56 项断言，不需要网络或子代理）
 ```
 
 **产出归属**：子代理改的是仓库里的源码（白名单内）；`tasks/<task>/` 是父代理的文书（简报、MANIFEST、patch），子代理只读不写。
@@ -168,6 +169,17 @@ postflight.sh --task t1 --stop completed --child <子代理 session id>
 ## 测试与成本记录
 
 见 `subagent_test.md`：各轮实测 token、方差、缓存成本、以及 9 条设计决策记录。
+
+## 自检
+
+```bash
+bash tests/run.sh            # 56 项断言
+bash tests/run.sh --keep     # 保留临时目录以便排查
+SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 33 项
+```
+
+覆盖：建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、
+最小模式、可移植性、`--child auto` 与用量记录、`--stop` 默认值、重跑守卫、patch 路径。
 
 ## 开发统计（本仓库自身）
 
