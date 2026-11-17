@@ -182,6 +182,13 @@ fi
 if [ "$CREATED" -eq 1 ]; then
   git -C "$REPO" commit -q --allow-empty -m "session init ($SESSION)"
   echo "preflight: 已创建会话仓库 $REPO（分支 main）" >&2
+  # 工作区若在别的 git 仓库内，提醒把 <会话目录> 加进忽略，免得被 git add -A 卷进去
+  if TOP=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null); then
+    REL=$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$SESS_DIR" "$TOP" 2>/dev/null || true)
+    if [ -n "$REL" ] && ! git -C "$TOP" check-ignore -q -- "$REL" 2>/dev/null; then
+      echo "preflight: 工作区在 git 仓库内（$TOP），但 $REL 未被忽略；建议把 $REL/ 加进 .gitignore" >&2
+    fi
+  fi
 fi
 
 git -C "$REPO" add -A

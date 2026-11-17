@@ -50,7 +50,7 @@ git-task-bus/templates/          brief / probe / review
 usage_of.sh                      读取子代理会话用量（环境相关）
 usage_stats.sh                   汇总消耗记录（不属于技能本体）
 subagent_test.md                 实测记录与设计决策
-tests/run.sh                     自检（58 项断言，不需要网络或子代理）
+tests/run.sh                     自检（60 项断言，不需要网络或子代理）
 ```
 
 **产出归属**：子代理改的是仓库里的源码（白名单内）；`tasks/<task>/` 是父代理的文书（简报、MANIFEST、patch），子代理只读不写。
@@ -61,9 +61,10 @@ tests/run.sh                     自检（58 项断言，不需要网络或子�
 |---|---|---|
 | **git** | 可执行，版本 >= 2.23（需要 `git switch`） | 无法建仓、切换回 main、diff、patch |
 | **可写工作区** | 能建目录、复制源文件、导出 patch | 建仓即失败 |
-| **依赖命令** | `sed grep cp tar date tr dirname basename head tail` | 脚本中途报错，信息晦涩 |
+| **依赖命令** | `sed grep cp tar date tr dirname basename head tail python3` | 脚本中途报错，信息晦涩 |
 
-脚本只允许 POSIX 基本工具：不得引入 `sort -V`、`date -Iseconds`、`sha256sum`（BSD/macOS 没有）。
+脚本只用 POSIX 基本工具 + `python3`：不得引入 `sort -V`、`date -Iseconds`、`sha256sum`（BSD/macOS 没有）。
+`python3` 是硬依赖，用于生成 `MANIFEST.json` 与解析子代理用量。
 内容哈希用 `git hash-object`，字段名 `contentHash`，仅用于相等性比对。
 
 **工作区不需要是 git 仓库。** 技能会在 `<工作区>/<会话 id>/repo` 自己建一个，源文件通过 `--import` 拷进去；
@@ -206,9 +207,9 @@ postflight.sh --task t1 --stop completed --child <子代理 session id>
 ## 自检
 
 ```bash
-bash tests/run.sh            # 58 项断言
+bash tests/run.sh            # 60 项断言
 bash tests/run.sh --keep     # 保留临时目录以便排查
-SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 35 项
+SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 37 项
 ```
 
 覆盖：建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、

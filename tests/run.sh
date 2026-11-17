@@ -110,6 +110,19 @@ mkdir -p "$B/ec/tests"; printf 'print("ok")\n' > "$B/ec/tests/t.py"
 chk "AC/环境变量前缀" 0 "$(bash "$SK/scripts/envcheck.sh" --cwd "$B/ec" --tests 'PYTHONPATH=. python3 tests/t.py' >/dev/null 2>&1; echo $?)"
 chk "AC/命令缺失" 3 "$(bash "$SK/scripts/envcheck.sh" --cwd "$B/ec" --tests 'no_such_cmd_xyz' >/dev/null 2>&1; echo $?)"
 
+echo "── AD 工作区在 git 仓库内 ──"
+mkdir -p "$B/gw/site/fix"
+( cd "$B/gw" && git init -q -b main && git config user.name t && git config user.email t@t && git commit -q --allow-empty -m init )
+cd "$B/gw/site/fix"
+printf 'x=1\n' > a.py
+printf '# 简报\n白名单：只允许改动 a.py\n验收 test -f a.py\n提交\n' > brief.md
+OUT=$(DSH_SESSION_ID=session-ad1 bash "$SK/scripts/preflight.sh" --task ad-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw/site" --quiet 2>&1)
+chk "AD/未忽略时提示" "yes" "$(printf '%s' "$OUT" | grep -q '未被忽略' && echo yes || echo no)"
+printf 'session-*/\n' > "$B/gw/.gitignore"
+OUT2=$(DSH_SESSION_ID=session-ad2 bash "$SK/scripts/preflight.sh" --task ad-2 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw/site" --quiet 2>&1)
+chk "AD/已忽略时不提示" "no" "$(printf '%s' "$OUT2" | grep -q '未被忽略' && echo yes || echo no)"
+cd "$B/fix"
+
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── W 消耗记录 ──"
 sess gW

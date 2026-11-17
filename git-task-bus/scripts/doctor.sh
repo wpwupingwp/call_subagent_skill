@@ -9,8 +9,8 @@ usage() {
 
 检查项：
   git 是否可用、版本是否 >= 2.23（需要 git switch）
-  依赖命令：sed grep cp tar date tr dirname basename head tail
-  （以上均为 POSIX 基本工具；内容哈希改用 git hash-object，无需外部哈希工具）
+  依赖命令：sed grep cp tar date tr dirname basename head tail python3
+  （前十个是 POSIX 基本工具；python3 用于生成 MANIFEST.json 与解析用量）
   任务根目录是否可创建、可写（默认当前目录；沙箱下请用 --root 指向可写工作区）
   --src 列出的源路径是否可读
 
@@ -68,7 +68,7 @@ fi
 
 # 2. 依赖命令
 MISSING=""
-for c in sed grep cp tar date tr dirname basename head tail; do
+for c in sed grep cp tar date tr dirname basename head tail python3; do
   command -v "$c" >/dev/null 2>&1 || MISSING="$MISSING $c"
 done
 if [ -z "$MISSING" ]; then ok "依赖命令齐全（POSIX 基本工具，Windows 下由 Git Bash 提供）"
