@@ -11,12 +11,13 @@ usage() {
                [--allow-dirty] [--quiet]
 
 说明:
-  --task         任务标识，会成为分支名 work/<id> 与目录名
+  --task         任务标识，作为 tasks/<id>/ 目录名（不建分支）
   --allow        仓库相对路径白名单，文件或目录前缀，必填
-  --import       从当前目录复制进仓库的路径，逗号分隔；记录 sha256
+  --import       从当前目录复制进仓库的路径，逗号分隔；以 git hash-object 记录内容哈希
   --tests           验收命令，postflight 原样执行并记录退出码
   --allow-dirty     允许工作树不干净（会把脏文件清单记录进 dispatch.env）
-  --brief           简报路径，默认 <任务目录>/briefs/brief.md；必须存在且含
+  --brief           简报路径，默认 <任务目录>/brief.md（该默认仅适用于目录已存在
+                    的复用场景，首次任务必须显式指定）；必须存在且含
                     验收命令、白名单、交付要求，否则拒绝派发
   --model           子代理模型（provider/model），记录进 dispatch.env 与 MANIFEST，
                     并在 --quiet 输出里给出 MODEL= 行，避免派发时临时决定
@@ -85,7 +86,7 @@ resolve_model
 
 [ -n "$ALLOW" ] || die "--allow 不能为空。白名单是硬约束，不允许默认全量。"
 
-# 任务 id 只允许安全字符，因为它进入分支名与路径
+# 任务 id 只允许安全字符，因为它进入路径
 case "$TASK" in
   *[!A-Za-z0-9._-]*) die "任务 id 只允许字母数字与 . _ -，实际: $TASK" ;;
 esac
@@ -122,7 +123,7 @@ fi
 # ---- 简报：先校验，再落盘（校验失败不留任何状态）----
 SRC_BRIEF="$BRIEF"
 [ -n "$SRC_BRIEF" ] || SRC_BRIEF="$TDIR/brief.md"
-[ -f "$SRC_BRIEF" ] || die "缺少简报: $SRC_BRIEF。先写简报（含验收命令/白名单/交付要求）再派发。"
+[ -f "$SRC_BRIEF" ] || die "缺少简报: $SRC_BRIEF。首次任务请用 --brief 指定简报路径（含验收命令/白名单/交付要求）。"
 if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$SRC_BRIEF"; then
   die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
 fi

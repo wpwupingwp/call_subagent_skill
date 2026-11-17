@@ -1,8 +1,8 @@
 # git-task-bus
 
 用 git 仓库作为父代理与子代理之间的协作介质。父代理冻结 `BASE` 与路径白名单，
-子代理在 `work/<task>` 分支上工作并提交，父代理用 diff、路径核对与测试退出码做机械验收，
-产出 patch 与 `MANIFEST.json`。
+子代理直接在 `main` 上工作并提交（单分支线性历史，不建任务分支），
+父代理用 diff、路径核对与测试退出码做机械验收，产出 patch 与 `MANIFEST.json`。
 
 给**人**看的说明。给模型看的规范在同目录的 `git-task-bus/SKILL.md`。
 
@@ -38,7 +38,7 @@ subagent_test.md                 实测记录与设计决策
 
 | 前提 | 要求 | 缺了会怎样 |
 |---|---|---|
-| **git** | 可执行，版本 >= 2.23（需要 `git switch`） | 无法建仓、分支、diff、patch |
+| **git** | 可执行，版本 >= 2.23（需要 `git switch`） | 无法建仓、切换回 main、diff、patch |
 | **可写工作区** | 能建目录、复制源文件、导出 patch | 建仓即失败 |
 | **依赖命令** | `sed grep cp tar date tr dirname basename head tail` | 脚本中途报错，信息晦涩 |
 

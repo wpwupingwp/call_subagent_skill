@@ -30,7 +30,7 @@
 
 ## 交付
 
-1. 改动提交到 `work/<TASK_ID>`
+1. 改动直接在 `main` 上提交（当前分支就是 main，不要新建或切换分支）
 2. 完整测试输出（原样 stdout/stderr）写入 `<任务目录>/test.log`
 3. 回报一行 stop 结论：`completed` 或未完成的具体原因
 
