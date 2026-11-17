@@ -50,7 +50,7 @@ git-task-bus/templates/          brief / probe / review / findings
 usage_of.sh                      读取子代理会话用量（环境相关）
 usage_stats.sh                   汇总消耗记录（不属于技能本体）
 subagent_test.md                 实测记录与设计决策
-tests/run.sh                     自检（72 项断言，不需要网络或子代理）
+tests/run.sh                     自检（76 项断言，不需要网络或子代理）
 ```
 
 **产出归属**：子代理改的是仓库里的源码（白名单内）；`tasks/<task>/` 是父代理的文书（简报、MANIFEST、patch），子代理只读不写。
@@ -196,6 +196,7 @@ preflight.sh ... --model llama/LLaMA --save-model
 
 - **纯产出型任务可用**：无 `--import` 时 bootstrap 走空提交，仓库从零开始。
 - **子代理步数方差与编排无关**：同任务 7 次实测为 11–86 步，成本尾部由「首版是否一次写对」决定，无法通过编排消除。
+- **中断会留下 `.git/index.lock`**：子代理在写 git 时被杀，仓库会留下锁文件；`postflight` 检测到会拒绝执行（退出 3）并提示删除，不会假装成功。
 
 ## 两条容易踩的规则
 
@@ -266,9 +267,9 @@ postflight.sh --task t1 --stop completed --child <子代理 session id>
 ## 自检
 
 ```bash
-bash tests/run.sh            # 72 项断言
+bash tests/run.sh            # 76 项断言
 bash tests/run.sh --keep     # 保留临时目录以便排查
-SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 42 项
+SKIP_USAGE_TESTS=1 bash tests/run.sh   # 没有 zstd 时只跑 46 项
 ```
 
 覆盖：建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、

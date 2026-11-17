@@ -136,6 +136,17 @@ chk "AE/索引已记录" "yes" "$([ -f "$R/tasks/imports.tsv" ] && echo yes || e
 chk "AE/审查目录在仓库外" "yes" "$([ -d "$B/gAE/reviews" ] && echo yes || echo no)"
 chk "AE/仓库内无 reviews" "no" "$([ -d "$R/tasks/t-ae1/reviews" ] && echo yes || echo no)"
 
+echo "── AH 仓库锁 ──"
+sess gAH
+chk "AH/preflight" 0 "$(pf --task t-ah --import calc.py --allow calc.py $(b t-ah) --tests true)"
+git -C "$R" commit -qam child --allow-empty
+touch "$R/.git/index.lock"
+OUT_AH=$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --quiet 2>&1); RC_AH=$?
+chk "AH/锁存在时拒绝" 3 "$RC_AH"
+chk "AH/提示删除锁" "yes" "$(printf '%s' "$OUT_AH" | grep -q 'index.lock' && echo yes || echo no)"
+rm -f "$R/.git/index.lock"
+chk "AH/解锁后可判定" 0 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --quiet >/dev/null 2>&1; echo $?)"
+
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── AF 子会话结束原因校验 ──"
 FH3="$B/fh3"

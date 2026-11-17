@@ -53,6 +53,12 @@ TMPD="$TDIR/tmp"
 cd "$REPO" || exit 3
 mkdir -p "$TMPD"
 
+if [ -f "$REPO/.git/index.lock" ]; then
+  printf 'postflight: 仓库存在 .git/index.lock（可能是子代理中断留下的）。\n' >&2
+  printf '确认没有 git 进程在跑之后删除它，再重跑：rm %s/.git/index.lock\n' "$REPO" >&2
+  exit 3
+fi
+
 if [ -z "$STOP" ]; then
   STOP="completed"
   [ -n "${STOP_GIVEN:-}" ] || printf 'postflight: 未提供 --stop，按 completed 处理；子代理非正常结束时请显式传入\n' >&2
@@ -225,10 +231,22 @@ fi
 ARCHIVE=""
 if [ "$VERDICT" != "pass" ]; then
   ARCHIVE=$(mktemp)
-  git add -A >/dev/null 2>&1
-  git diff --cached --binary --no-renames "$BASE" > "$ARCHIVE"
-  git reset -q --hard "$BASE"
-  git clean -qfd
+  if ! git add -A >/dev/null 2>&1; then
+    printf 'postflight: 丢弃失败 —— git add 出错（仓库可能仍在被占用）\n' >&2
+    exit 3
+  fi
+  if ! git diff --cached --binary --no-renames "$BASE" > "$ARCHIVE"; then
+    printf 'postflight: 丢弃失败 —— 导出 patch 出错\n' >&2
+    exit 3
+  fi
+  if ! git reset -q --hard "$BASE"; then
+    printf 'postflight: 丢弃失败 —— git reset --hard 出错，仓库未还原\n' >&2
+    exit 3
+  fi
+  if ! git clean -qfd; then
+    printf 'postflight: 丢弃失败 —— git clean 出错\n' >&2
+    exit 3
+  fi
   DISCARDED=yes
 fi
 
@@ -324,9 +342,16 @@ if [ -n "$USAGE" ]; then
 fi
 
 # ---- 11. 记录物入历史（无论判定如何）----
-git -C "$REPO" add -A -- tasks 2>/dev/null || true
-git -C "$REPO" diff --cached --quiet || \
-  git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"
+if ! git -C "$REPO" add -A -- tasks >/dev/null 2>&1; then
+  printf 'postflight: 记录入历史失败 —— git add 出错\n' >&2
+  VERDICT="error"; EXIT=3
+fi
+if ! git -C "$REPO" diff --cached --quiet; then
+  if ! git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"; then
+    printf 'postflight: 记录入历史失败 —— git commit 出错\n' >&2
+    VERDICT="error"; EXIT=3
+  fi
+fi
 
 # MANIFEST 缺失意味着出处与判定无法留痕，不能当作通过
 if [ ! -s "$TDIR/MANIFEST.json" ]; then
