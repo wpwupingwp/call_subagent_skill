@@ -72,6 +72,9 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 简报可以写在任意位置，用 `--brief <路径>` 传给 `preflight`；它会被拷进仓库的 `tasks/<task>/brief.md` 并提交，成为唯一来源。
 
+查代码时注意：`grep` 基于 ripgrep，会跳过 `.gitignore` 忽略的文件；`read` 与 `bash` 不会。
+需要看被忽略的数据目录时用后两者，或先 `--import` 进来。
+
 ### 2. preflight（父代理执行，一次）
 
 ```bash
