@@ -30,8 +30,6 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 ## 约束的分工
 
-每种机制约束的对象不同，别把它们混着记：
-
 | 机制 | 约束谁 | 性质 | 靠什么生效 |
 |---|---|---|---|
 | **回合边界** | 父代理 | 流程纪律 | 派发后结束回合，不与子代理并发写 |
@@ -41,11 +39,11 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 ### 白名单由 postflight 事后核对
 
-简报里的「只允许改动 X」是给子代理的指令；真正的约束是 `postflight` 对 `BASE..HEAD` 的逐文件比对，不依赖它配合。
+白名单由 `postflight` 逐文件比对 `BASE..HEAD` 生效，不依赖子代理配合。
 
 ### 交付必须已提交，否则自动丢弃
 
-`postflight` 只读 `BASE..HEAD`，不执行 `git add`（那会改动被审对象的索引）。工作树脏即交付未完成，退出码 2。规则无例外：
+`postflight` 只读 `BASE..HEAD`，不执行 `git add`。工作树脏即交付未完成，退出码 2。规则无例外：
 
 > **判定不通过 → 自动丢弃。**
 
@@ -55,7 +53,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 ### 0. 首次使用：跑一次探测
 
-换机器、换环境、或第一次用某个子代理模型时，先按 `references/probe.md` 跑三层探测（doctor / envcheck / probe）。环境不合格时，任何编排都不会成功。
+换机器、换环境、或第一次用某个子代理模型时，先按 `references/probe.md` 跑三层探测（doctor / envcheck / probe）。
 
 ### 1. 先写测试，再写简报（父代理）
 
@@ -155,7 +153,7 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 - `git status` 快照（工作树脏则判交付违规，退出码 2）
 - 变更文件清单与**越界违规清单**
-- 测试执行结果（完整日志落盘，不占父代理上下文）
+- 测试执行结果（日志落盘）
 - 净 diff 生成的 patch：`deliveries/<task>.patch`
 - `MANIFEST.json`：BASE、head、文件与 contentHash、测试退出码、verdict
 
@@ -180,14 +178,14 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 下一个任务自动从新的 `HEAD` 起步（`BASE` 重新取值），所以**不需要合并动作**：已验收的提交就是 `main` 的最新状态。
 
-验收结论写进 `reviews/<task>.md`（模板 `templates/review.md`），一行即可——下次接手的人靠它判断当时为什么放行。
+验收结论写进 `reviews/<task>.md`（模板 `templates/review.md`），一行即可。
 
 ## 关键判定
 
-- **历史被改写不是“细读代码”的触发条件**，是“拒绝交付”的触发条件。patch 副本在手，重建即可。
+- **历史被改写 → 拒绝交付**（不是细读代码的触发条件）。
 - 真正需要细读的是“机械检查全绿但测试覆盖不到”的改动。
 - `ALLOWED` 为空时脚本拒绝执行。
-- 子代理写入 `tasks/**` 会被白名单判越界，并随丢弃一并回滚——任务产物不需要额外保护机制。
+- 子代理写入 `tasks/**` 会被白名单判越界，并随丢弃一并回滚。
 
 ## 目录布局
 
