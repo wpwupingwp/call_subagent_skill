@@ -9,7 +9,7 @@ usage() {
 用法: usage_stats.sh [--root <工作区>] [文件...]
 
   不给文件时，在 --root（默认当前目录）下查找 */repo/tasks/usage.tsv
-  加权成本口径：未缓存输入 1、输出 2、缓存读 0.02（与测试记录一致）
+  加权成本口径：未缓存输入 1、输出 4（推理按输出计）、缓存读 0.02
 EOF
   exit 0
 }
@@ -48,10 +48,10 @@ awk -F'\t' '
     if (tasks == 0) { print "usage_stats: 没有数据行" > "/dev/stderr"; exit 1 }
     printf "合计: %d 个任务, %d 步\n", tasks, steps
     printf "  in=%d  out=%d  cache=%d\n", tin, tout, tcache
-    printf "  加权成本=%.0f  （in + 2*out + 0.02*cache）\n", tin + 2*tout + 0.02*tcache
+    printf "  加权成本=%.0f  （in + 4*out + 0.02*cache）\n", tin + 4*tout + 0.02*tcache
     printf "\n按模型:\n"
     for (k in n) {
-      printf "  %-26s 任务=%d  加权=%.0f\n", k, n[k], i[k] + 2*o[k] + 0.02*c[k]
+      printf "  %-26s 任务=%d  加权=%.0f\n", k, n[k], i[k] + 4*o[k] + 0.02*c[k]
     }
   }
 ' "${FILES[@]}"

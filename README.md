@@ -162,7 +162,7 @@ postflight.sh --task t1 --stop completed --child <子代理 session id>
 ./usage_stats.sh a.tsv b.tsv             # 或直接给文件
 ```
 
-输出任务数、总步数、in/out/cache 与加权成本（`in + 2*out + 0.02*cache`），并按模型分组。
+输出任务数、总步数、in/out/cache 与加权成本（`in + 4*out + 0.02*cache`，推理按输出计），并按模型分组。
 
 传参本身约 20 tokens；**贵的是取数**（读会话日志、跑统计，一次工具调用 200–400 tokens）。所以统计适合攒几轮做一次，而不是每个任务都做。
 
