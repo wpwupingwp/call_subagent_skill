@@ -50,6 +50,7 @@ git-task-bus/templates/          brief / probe / review / findings
 usage_of.sh                      读取子代理会话用量（环境相关）
 usage_stats.sh                   汇总消耗记录（不属于技能本体）
 subagent_test.md                 实测记录与设计决策
+HISTORY.md                       开发史与角色记录（不含规范）
 tests/run.sh                     自检（76 项断言，不需要网络或子代理）
 ```
 
