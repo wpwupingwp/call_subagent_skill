@@ -184,7 +184,9 @@ preflight.sh ... --model llama/LLaMA --save-model
 |---|---|---|
 | `scripts/doctor.sh` | 本技能能否工作（git / 权限 / 依赖命令） | 每环境一次 |
 | `scripts/envcheck.sh` | 这个任务的验收命令能否运行（解释器 / 依赖 / 基线） | 每任务一次 |
-| `probe`（走一次真任务） | 子代理是否守约（提交 / 白名单 / 回合结束） | 每模型一次 |
+| `probe`（走一次真任务） | 子代理是否守约（提交 / 白名单 / 回合结束） | 每模型一次；**技能更新后一次** |
+
+更新技能（重新 `cp -r` 覆盖）后重跑一次 `probe`——脚本行为可能变了，旧结论不再成立。
 
 `doctor.sh` **不检查**：磁盘剩余空间、网络、全局 git 配置（`preflight` 会在仓库内设置 `user.name`/`user.email`）、git hook 干扰。
 
