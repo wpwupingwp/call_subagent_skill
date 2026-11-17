@@ -46,7 +46,7 @@ git reset --hard <BASE>   +   git clean -fd
 git-task-bus/SKILL.md            规范与流程（模型读这个）
 git-task-bus/references/probe.md 三层探测：首次换环境/换模型时读
 git-task-bus/scripts/            doctor / envcheck / preflight / postflight
-git-task-bus/templates/          brief / probe / review
+git-task-bus/templates/          brief / probe / review / findings
 usage_of.sh                      读取子代理会话用量（环境相关）
 usage_stats.sh                   汇总消耗记录（不属于技能本体）
 subagent_test.md                 实测记录与设计决策

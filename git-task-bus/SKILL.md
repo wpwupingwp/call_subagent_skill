@@ -180,6 +180,9 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 
 验收结论写进 `<会话目录>/reviews/<task>.md`（模板 `templates/review.md`），一行即可。
 
+交付含结论或发现时（评审、分析、诊断），逐条记进 `templates/findings.md`：证据、采纳与否、理由。
+无证据的只能记为意见；拒绝必须写理由。
+
 ## 关键判定
 
 - **历史被改写 → 拒绝交付**（不是细读代码的触发条件）。
