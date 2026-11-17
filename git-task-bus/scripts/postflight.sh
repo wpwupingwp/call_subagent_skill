@@ -12,17 +12,18 @@ usage() {
 判定不通过时自动丢弃：归档 patch → 还原工作区 → 写 ABANDONED（释放路径占用）。
 
 说明:
-  --stop         子代理的 stopReason。非 completed 一律判未完成（max-tokens 尤其要警惕）。
+  --stop         子代理的 stopReason，默认 completed。子代理非正常结束时必须显式传入
+                   （aborted/error/max-tokens/refusal），否则按 completed 处理。
   依赖 preflight.sh 写出的 <任务目录>/dispatch.env。
 EOF
   exit 3
 }
 
-TASK="" STOP="unknown" QUIET=0 USAGE="" CHILD=""
+TASK="" STOP="" QUIET=0 USAGE="" CHILD=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --task) TASK="${2:-}"; shift 2 ;;
-    --stop) STOP="${2:-}"; shift 2 ;;
+    --stop) STOP="${2:-}"; STOP_GIVEN=1; shift 2 ;;
     --quiet) QUIET=1; shift ;;
     --root)  TASK_ROOT="${2:-}"; shift 2 ;;
     --usage) USAGE="${2:-}"; shift 2 ;;
@@ -46,6 +47,18 @@ TMPD="$TDIR/tmp"
 [ -d "$REPO/.git" ] || { echo "postflight: $REPO 不是 git 仓库" >&2; exit 3; }
 cd "$REPO" || exit 3
 mkdir -p "$TMPD"
+
+if [ -z "$STOP" ]; then
+  STOP="completed"
+  [ -n "${STOP_GIVEN:-}" ] || printf 'postflight: 未提供 --stop，按 completed 处理；子代理非正常结束时请显式传入\n' >&2
+fi
+
+# 同一任务已判定过就拒绝重跑：产物已进历史，重跑会把它们当成越界改动，
+# 并覆盖上一次的归档（审计链断裂）。要重新判定请用新的任务 id。
+if git cat-file -e "HEAD:tasks/$TASK/MANIFEST.json" 2>/dev/null; then
+  printf 'postflight: 任务 %s 已有判定结果（HEAD:tasks/%s/MANIFEST.json），拒绝重跑；如需重新判定请换新任务 id\n' "$TASK" "$TASK" >&2
+  exit 3
+fi
 
 # --child auto：按 parentSession + createdAt 找本次派发的子会话
 resolve_child() {
@@ -199,14 +212,14 @@ python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbr
          "$STOP" "$TEST_EXIT" "$VERDICT" "$PATCH_SHA" "$PATCH_LINES" \
          "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" \
          "$PROTO_VIOLATION" "$DISCARDED" \
-         "$STASH_COUNT" "$WORKTREE_COUNT" "${TESTS:-}" "${CHILD:-}" <<'PYEOF'
+         "$STASH_COUNT" "$WORKTREE_COUNT" "${TESTS:-}" "${CHILD:-}" "$PATCH" <<'PYEOF'
 import json, sys, os
-if len(sys.argv) != 23:
+if len(sys.argv) != 24:
     sys.stderr.write("manifest: 参数个数错误 %d\n" % len(sys.argv))
     raise SystemExit(2)
 (tdir, task, session, base, head, branch, allow, stop, texit, verdict,
  psha, plines, nchanged, nviol, rewritten, ndirty,
- proto, discarded, nstash, nwt, tests, child) = sys.argv[1:23]
+ proto, discarded, nstash, nwt, tests, child, patch) = sys.argv[1:24]
 
 def lines(name):
     p = os.path.join(tdir, "tmp", name)
@@ -236,7 +249,7 @@ doc = {
     "discarded": discarded == "yes",
     "stashEntries": int(nstash),
     "extraWorktrees": int(nwt),
-    "patch": {"file": os.path.join(tdir, "deliveries", task + ".patch"),
+    "patch": {"file": patch,
               "sha256": psha, "lines": int(plines)},
 }
 with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:

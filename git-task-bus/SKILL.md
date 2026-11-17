@@ -128,7 +128,7 @@ skill 不猜价格——价格不在它的可见范围内，猜就是一个无�
 ### 4. postflight（父代理执行）
 
 ```bash
-bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation --quiet
+bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation --stop completed --quiet
 ```
 
 `--quiet` 只输出一行，用于常规验收：
@@ -137,7 +137,10 @@ bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation --quiet
 verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ```
 
-需要细节（变更清单、越界文件、测试摘要）时去掉 `--quiet` 重跑即可——它不改变任何判定，只改变输出量。
+**不要为了看细节重跑 `postflight`**：它第一次运行就会把产物写进历史，重跑会把它们当成越界改动并覆盖上一次的归档。
+需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新 id。
+
+`--stop` 默认 `completed`；子代理非正常结束（`aborted`/`error`/`max-tokens`/`refusal`）时必须显式传入。
 
 非 quiet 模式依次产出：
 
