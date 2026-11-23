@@ -181,16 +181,18 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 
 ```
 <工作区>/
-  <会话 id>/repo/            # 会话仓库：单分支 main，所有任务共用
-    model                    # 会话级模型选择
-    <源码…>                  # 子代理可写（白名单内）
-    tasks/<task>/            # 任务产物，与源码同仓
-      brief.md               # 规格唯一来源，preflight 校验并提交
-      provenance.tsv         # 导入来源与 contentHash
-      MANIFEST.json          # 判定与证据
-      deliveries/<task>.patch
-      dispatch.env  dispatch.prompt  test.log  tmp/   # 派生文件，.gitignore
-      # test.log 由 postflight 写（父代理自己跑的验收输出），子代理不写日志
+  <会话 id>/
+    .gitignore               # 内容 * ：外层 git 仓库忽略整个会话目录
+    repo/                    # 会话仓库：单分支 main，所有任务共用
+      model                  # 会话级模型选择
+      <源码…>                # 子代理可写（白名单内）
+      tasks/<task>/          # 任务产物，与源码同仓
+        brief.md             # 规格唯一来源，preflight 校验并提交
+        provenance.tsv       # 导入来源与 contentHash
+        MANIFEST.json        # 判定与证据
+        deliveries/<task>.patch
+        dispatch.env  dispatch.prompt  test.log  tmp/   # 派生文件，.gitignore
+        # test.log 由 postflight 写（父代理自己跑的验收输出），子代理不写日志
 ```
 
 任务产物进历史：`plan` 提交（简报 + 导入）→ 子代理提交 → `result`/`discarded` 提交。

@@ -117,10 +117,10 @@ cd "$B/gw/site/fix"
 printf 'x=1\n' > a.py
 printf '# 简报\n白名单：只允许改动 a.py\n验收 test -f a.py\n提交\n' > brief.md
 OUT=$(DSH_SESSION_ID=session-ad1 bash "$SK/scripts/preflight.sh" --task ad-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw/site" --quiet 2>&1)
-chk "AD/未忽略时提示" "yes" "$(printf '%s' "$OUT" | grep -q '未被忽略' && echo yes || echo no)"
-printf 'session-*/\n' > "$B/gw/.gitignore"
-OUT2=$(DSH_SESSION_ID=session-ad2 bash "$SK/scripts/preflight.sh" --task ad-2 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw/site" --quiet 2>&1)
-chk "AD/已忽略时不提示" "no" "$(printf '%s' "$OUT2" | grep -q '未被忽略' && echo yes || echo no)"
+chk "AD/自动写入忽略" "*" "$(cat "$B/gw/site/session-ad1/.gitignore" 2>/dev/null)"
+chk "AD/外层 status 干净" "" "$(git -C "$B/gw" status --porcelain --untracked-files=all -- site/session-ad1)"
+chk "AD/不再提示手动忽略" "no" "$(printf '%s' "$OUT" | grep -q '仍出现在 git status' && echo yes || echo no)"
+
 cd "$B/fix"
 
 echo "── AE 导入源变更 ──"

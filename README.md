@@ -1,6 +1,6 @@
 # git-task-bus
 
-[English](README.en.md) · 中文
+**中文** · [English](README.en.md)
 
 把会改文件的活派给便宜的子代理：父代理冻结 `BASE` 与路径白名单，子代理在独立的 git 仓库里
 干活并提交，父代理只做机械验收（diff + 白名单 + 测试退出码），最后收下可回滚的 patch。
@@ -79,13 +79,15 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
 ## 目录结构
 
 ```
-<工作区>/<会话 id>/repo/
-├── <源码>                  # 子代理可改（白名单内）
-├── model                   # 会话级模型选择
-└── tasks/<task>/
-    ├── brief.md            # 规格唯一来源，preflight 提交
-    ├── MANIFEST.json       # 判定与证据
-    └── deliveries/<task>.patch
+<工作区>/<会话 id>/
+├── .gitignore              # 内容 * ：外层 git 仓库忽略整个会话目录
+└── repo/                   # 会话仓库，单分支 main
+    ├── <源码>              # 子代理可改（白名单内）
+    ├── model               # 会话级模型选择
+    └── tasks/<task>/
+        ├── brief.md        # 规格唯一来源，preflight 提交
+        ├── MANIFEST.json   # 判定与证据
+        └── deliveries/<task>.patch
 ```
 
 仓库清单：
@@ -185,8 +187,13 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 **会动我自己的仓库吗？**
 不会。所有 git 操作都在 `<工作区>/<会话 id>/repo` 里；你自己的仓库只被读（`--import` 拷文件）。
 丢弃用的是 `git reset --hard` + `git clean -fd`，这两条如果作用在你的仓库上会抹掉未提交的改动
-和未跟踪文件，所以技能只在自己建的仓库里回滚。副作用是：工作区本身是 git 仓库时，`<会话 id>/`
-会成为它的未跟踪目录，把 `<会话 id>/` 加进工作区的 `.gitignore` 即可。
+和未跟踪文件，所以技能只在自己建的仓库里回滚。`preflight` 还会在会话目录里写一个 `.gitignore`
+（内容 `*`），所以工作区本身是 git 仓库时，`git status` 里也看不到 `<会话 id>/`——不需要你改自己的
+`.gitignore`。
+
+**任务完成后要自己删目录吗？**
+需要的话删掉 `<工作区>/<会话 id>/` 即可，技能不会自动删：那里留着 patch、`MANIFEST.json` 和提交
+历史，是事后审计和回滚的依据。已被外层仓库忽略，放着不会弄脏 `git status`。
 
 **子代理说测试通过，能信吗？**
 不能。`postflight` 会自己跑验收命令拿退出码，父代理还要再重跑一次。自述不是证据。
@@ -216,8 +223,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 79 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 49 项
+bash tests/run.sh                    # 80 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 50 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、
@@ -258,3 +265,7 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 ## License
 
 [AGPL-3.0](LICENSE)
+
+---
+
+[中文](README.md) · [English](README.en.md)

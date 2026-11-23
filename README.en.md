@@ -1,6 +1,6 @@
 # git-task-bus
 
-[中文](README.md) · English
+**English** · [中文](README.md)
 
 Hand file-changing work to a cheap subagent: the parent freezes `BASE` and a path whitelist, the
 subagent works and commits in an isolated git repository, and the parent only does mechanical
@@ -83,13 +83,15 @@ There is one repository per conversation, with a single `main` branch; tasks are
 ## Repository layout
 
 ```
-<workspace>/<session id>/repo/
-├── <source>                # writable by the subagent (whitelist)
-├── model                   # session-level model choice
-└── tasks/<task>/
-    ├── brief.md            # single source of truth, committed by preflight
-    ├── MANIFEST.json       # verdict and evidence
-    └── deliveries/<task>.patch
+<workspace>/<session id>/
+├── .gitignore              # contains "*": hides the whole session dir from an outer repo
+└── repo/                   # the session repo, single main branch
+    ├── <source>            # writable by the subagent (whitelist)
+    ├── model               # session-level model choice
+    └── tasks/<task>/
+        ├── brief.md        # single source of truth, committed by preflight
+        ├── MANIFEST.json   # verdict and evidence
+        └── deliveries/<task>.patch
 ```
 
 Repository files:
@@ -198,7 +200,13 @@ paths (`/c/work/...`), not `C:\...`.
 No. All git operations happen in `<workspace>/<session id>/repo`; your repo is only read
 (`--import` copies files). Discarding uses `git reset --hard` + `git clean -fd`, which would wipe
 uncommitted and untracked files if run in your tree — that is exactly why the skill keeps its own
-repo. If your workspace is itself a git repo, add `<session id>/` to its `.gitignore`.
+repo. `preflight` also writes a `.gitignore` containing `*` into the session directory, so an outer
+repository never shows `<session id>/` in `git status`; you don't need to edit your own `.gitignore`.
+
+**Should I delete the directory when the task is done?**
+Delete `<workspace>/<session id>/` if you want it gone. The skill does not clean up automatically:
+the directory keeps the patch, `MANIFEST.json` and the commit history used for audit and rollback.
+It is ignored by any outer repository, so leaving it in place does not dirty `git status`.
 
 **The subagent says the tests pass — can I trust it?**
 No. `postflight` runs the acceptance command itself and records the exit code, and the parent runs
@@ -233,8 +241,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 79 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 49 when zstd is unavailable
+bash tests/run.sh                    # 80 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 50 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
@@ -281,3 +289,7 @@ savings get drowned by that fixed context, so the skill has to be judged over ma
 ## License
 
 [AGPL-3.0](LICENSE)
+
+---
+
+[English](README.en.md) · [中文](README.md)

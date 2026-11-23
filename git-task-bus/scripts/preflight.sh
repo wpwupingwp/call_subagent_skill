@@ -104,6 +104,11 @@ version_ge "$GV" 2.23 || die "git 版本过低: ${GV:-未知}，需要 >= 2.23�
 
 mkdir -p "$SESS_DIR" 2>/dev/null || die "无法创建会话目录: $SESS_DIR（权限或路径问题）。先跑 doctor.sh。"
 
+# 让外层 git 仓库看不见这个目录：目录内的 .gitignore 只影响外层，不进入会话仓库的历史。
+if [ ! -f "$SESS_DIR/.gitignore" ]; then
+  printf '*\n' > "$SESS_DIR/.gitignore" 2>/dev/null || true
+fi
+
 CREATED=0
 DIRTY=""
 if [ ! -d "$REPO/.git" ]; then
@@ -197,11 +202,11 @@ fi
 if [ "$CREATED" -eq 1 ]; then
   git -C "$REPO" commit -q --allow-empty -m "session init ($SESSION)"
   echo "preflight: 已创建会话仓库 $REPO（分支 main）" >&2
-  # 工作区若在别的 git 仓库内，提醒把 <会话目录> 加进忽略，免得被 git add -A 卷进去
+  # 工作区若在别的 git 仓库内，确认会话目录没有污染它的 git status
   if TOP=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null); then
     REL=$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$SESS_DIR" "$TOP" 2>/dev/null || true)
-    if [ -n "$REL" ] && ! git -C "$TOP" check-ignore -q -- "$REL" 2>/dev/null; then
-      echo "preflight: 工作区在 git 仓库内（$TOP），但 $REL 未被忽略；建议把 $REL/ 加进 .gitignore" >&2
+    if [ -n "$REL" ] && [ -n "$(git -C "$TOP" status --porcelain --untracked-files=all -- "$REL" 2>/dev/null)" ]; then
+      echo "preflight: 工作区在 git 仓库内（$TOP），且 $REL 仍出现在 git status 里；建议把 $REL/ 加进 .gitignore" >&2
     fi
   fi
 fi
