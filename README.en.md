@@ -2,13 +2,14 @@
 
 **English** · [中文](README.md)
 
-Hand file-changing work to a cheap subagent: the parent freezes `BASE` and a path whitelist, the
-subagent works and commits in an isolated git repository, and the parent only does mechanical
-acceptance (diff + whitelist + test exit code) before handing back a patch you can roll back.
+Hand file-changing work to a subagent and use git to get a **delivery you can roll back and audit**:
+the parent freezes `BASE` and a path whitelist, the subagent works and commits in an isolated git
+repository, and the parent only does mechanical acceptance (diff + whitelist + test exit code)
+before handing back a patch you can inspect.
 
-- Reads, failed attempts and test logs stay in the subagent's own session
 - A failed check discards the work; the repository returns to where it started
 - Every verdict lands in `MANIFEST.json` and the patch, so it can be audited later
+- Reads, failed attempts and test logs stay in the subagent's own session
 
 Human-facing docs. The model-facing spec is [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md).
 
@@ -125,34 +126,37 @@ README.md                    Chinese version
 
 ## Why use it
 
-One line: **keep the reading, the dead ends and the failure logs in the child session, let the
-parent receive only a verdict, and give that verdict a reader that was not primed by the parent's
-assumptions.**
+One line: **buy a rollbackable, traceable delivery first; a reader not primed by the parent's
+context second. Token savings are conditional, not the default.**
 
-- **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
-  own session. The parent sees one `postflight` line, the `git diff --stat` of a passing task, and
-  the net diff only when a trigger fires. In long sessions most cost is context re-reading, so a
-  short parent context is cheaper on every later step.
-- **A second reader without the baggage.** The subagent only gets the frozen brief and `BASE`. It
-  cannot see the assumptions of the previous dozens of turns, so it does not skip a check because
-  "we already decided X". That matters most unattended, when nobody is around to correct course.
 - **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
   the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
   and the patch, so it can be reproduced later.
+- **A second reader without the baggage.** The subagent only gets the frozen brief and `BASE`. It
+  cannot see the assumptions of the previous dozens of turns, so it does not skip a check because
+  "we already decided X". Across multiple self-review rounds, about 40% survived the parent's item-by-item
+  reproduction: it can find invariants the parent missed, but its findings must be verified, not
+  treated as a backlog.
+- **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
+  own session. The parent sees one `postflight` line, the `git diff --stat` of a passing task, and
+  the net diff only when a trigger fires. In long sessions most cost is context re-reading, so a
+  short parent context is lighter on every later step.
 
 The trade-offs are real: the parent still pays for the brief and for orchestration (about 2,100 in
-our measurements), so many tiny dispatches never pay off; the subagent's review can miss things,
-so findings still need item-by-item checking; and "independent" means independent context, not a
-permission boundary.
+our measurements); reviews usually cost more; the subagent's review can miss things, so findings
+still need item-by-item checking; and "independent" means independent context, not a permission
+boundary. Token savings depend on `r`, task size and batching — see the next section.
 
 ## When to use
 
-All four have to hold:
+The first three are hard requirements; the fourth decides whether this is also a token saving:
 
 1. The deliverable is a **file change** (code, data, config, or a document whose structure can be checked).
 2. Acceptance can be **checked mechanically** (a test or script, not a human read).
 3. The change needs **iteration** (first pass is usually not the last).
-4. The subagent is **at least 3× cheaper** than the parent (`r ≤ 0.3`); a local model (`r = 0`) qualifies.
+4. If token savings are the goal: lower `r` is better; large or batched work needs roughly
+   `r ≤ 0.3`, while `r > 0.38` is usually for audit, not savings. A local model (`r = 0`) clears
+   the savings bar, but a single small change can still lose to orchestration.
 
 | ✅ Good fit | ❌ Poor fit |
 |---|---|
@@ -169,22 +173,21 @@ cannot catch a wrong conclusion, and when there is nothing structural to check i
 one. The same is true
 for document deliverables: they are worth dispatching for a second read, not for token savings.
 
-The savings below come from an extrapolated model, not from measurements per scenario:
-
-| Scenario | `r = 0.1` (10× cheaper) | `r = 0` (local, free) |
-|---|---|---|
-| New implementation of 100+ lines | saves 73% | saves 79% |
-| A 500-line task | saves 64% | saves 96% |
-| A 30–50 line change | saves 35–64% | saves 44–73% |
-| Ten 10-line changes, batched | saves 36% | saves 51% |
-| Bulk mechanical edits | ✅ | ✅ |
-| Review (second opinion) | more expensive (measured 109k–147k per run) | orchestration only |
-| One-off script | too small to pay off | orchestration only |
+## When token savings are possible (`r`)
 
 `r` is the subagent price divided by the parent price. The measured break-even `r*` lands at
 26–38% (extrapolated down to ~17% for 100-line changes): the subagent has to be 3–4× cheaper
-to win. And `r = 0` is not free — it removes the
-subagent's tokens, not the parent's turns:
+before a single dispatch can win. Whether it actually saves also depends on task size and batching.
+
+| `r` | May save when | Extrapolated |
+|---|---|---|
+| `r = 0` (local, free) | 100+ lines, 500-line tasks, bulk mechanical edits, ten 10-line changes batched | 100+ lines: 79%; 500 lines: 96%; ten batched: 51% |
+| `0 < r ≤ 0.1` | 100+ lines, 30–50 lines, batched work | 100+ lines: 73%; 30–50 lines: 35–64%; ten batched: 36% |
+| `0.1 < r ≤ 0.3` | Large or batched work; medium changes approach break-even | 100-line tasks can still win; a single 10-line change usually loses |
+| `0.3 < r ≤ 0.38` | Only very large or batched work may break even | Near the break-even line; measure actual steps |
+| `r > 0.38` | Usually not dispatched for savings | The value shifts to audit, isolation and rollback |
+
+`r = 0` is not free — it removes the subagent's tokens, not the parent's turns:
 
 ```
 a 10-line change done by the parent: 2,400
@@ -192,7 +195,8 @@ one task per turn:                  2,100 orchestration + amortization ≈ 2,443
 batch ten of them:                  about 210 each → saves 51%
 ```
 
-**Batching is what pays, not a cheaper model.**
+**Batching is what pays, not a cheaper model.** Review/document work usually fails the savings
+test (measured 109k–147k per run); what you buy is a second independent read.
 
 ## Requirements
 
