@@ -100,7 +100,7 @@ esac
 # 前置条件：本技能全部机制都依赖 git 与可写目录，缺任一项立即给出明确原因
 command -v git >/dev/null 2>&1 || die "git 不可用（PATH 中找不到）。本技能无法工作，先跑 doctor.sh。"
 GV=$(git --version 2>/dev/null); GV=${GV#git version }
-version_ge "$GV" 2.0 || die "git 版本过低: ${GV:-未知}，需要 >= 2.0。先跑 doctor.sh。"
+version_ge "$GV" 2.28 || die "git 版本过低: ${GV:-未知}，需要 >= 2.28。先跑 doctor.sh。"
 
 mkdir -p "$SESS_DIR" 2>/dev/null || die "无法创建会话目录: $SESS_DIR（权限或路径问题）。先跑 doctor.sh。"
 
@@ -115,14 +115,13 @@ if [ -n "$TOP" ]; then
       session-*) [ "$DIR" = "." ] && PAT="/session-*/" || PAT="/$DIR/session-*/" ;;
       *)         PAT="/$REL/" ;;
     esac
-    GITDIR=$(git -C "$TOP" rev-parse --git-dir 2>/dev/null || true)
-    case "$GITDIR" in
+    EXCL=$(git -C "$TOP" rev-parse --git-path info/exclude 2>/dev/null || true)
+    case "$EXCL" in
       "") ;;
       /*) ;;
-      *) GITDIR="$TOP/$GITDIR" ;;
+      *) EXCL="$TOP/$EXCL" ;;
     esac
-    EXCL="$GITDIR/info/exclude"
-    if [ -n "$GITDIR" ] && [ -f "$EXCL" ] && ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
+    if [ -n "$EXCL" ] && [ -f "$EXCL" ] && ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
       [ -n "$(tail -c 1 "$EXCL" 2>/dev/null)" ] && printf '\n' >> "$EXCL" 2>/dev/null
       printf '# git-task-bus session workspaces\n%s\n' "$PAT" >> "$EXCL" 2>/dev/null || true
     fi
@@ -179,8 +178,7 @@ BRIEF="$TDIR/brief.md"
 
 # 仓库不存在时现在才初始化（此前只做了只读校验）
 if [ "$CREATED" -eq 1 ]; then
-  git -C "$REPO" init -q
-  git -C "$REPO" symbolic-ref HEAD refs/heads/main
+  git -C "$REPO" init -q -b main
   git -C "$REPO" config user.name  "task-bus"
   git -C "$REPO" config user.email "task-bus@localhost"
   printf '%s\n' '__pycache__/' '*.pyc' '.pytest_cache/' '.venv/' \
@@ -255,7 +253,7 @@ resolve_model
 # 单分支线性历史：必须停在 main 上，本次任务的 BASE 就是它的 HEAD
 CUR=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
 if [ "$CUR" != "main" ]; then
-  git -C "$REPO" checkout -q main 2>/dev/null \
+  git -C "$REPO" switch -q main 2>/dev/null \
     || die "会话仓库不在 main 分支（当前 $CUR），无法继续"
 fi
 BASE=$(git -C "$REPO" rev-parse HEAD)

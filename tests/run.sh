@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # git-task-bus 自检。用法: bash tests/run.sh [--keep]
-# 依赖: git >= 2.0、python3、（可选）zstd —— 没有 zstd 时跳过用量记录相关断言。
+# 依赖: git >= 2.28、python3、（可选）zstd —— 没有 zstd 时跳过用量记录相关断言。
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -112,7 +112,7 @@ chk "AC/命令缺失" 3 "$(bash "$SK/scripts/envcheck.sh" --cwd "$B/ec" --tests 
 
 echo "── AD 工作区在 git 仓库内 ──"
 mkdir -p "$B/gw/site/fix"
-( cd "$B/gw" && git init -q && git symbolic-ref HEAD refs/heads/main && git config user.name t && git config user.email t@t && git commit -q --allow-empty -m init )
+( cd "$B/gw" && git init -q -b main && git config user.name t && git config user.email t@t && git commit -q --allow-empty -m init )
 cd "$B/gw/site/fix"
 printf 'x=1\n' > a.py
 printf '# 简报\n白名单：只允许改动 a.py\n验收 test -f a.py\n提交\n' > brief.md
@@ -124,7 +124,7 @@ chk "AD/不建嵌套忽略" "no" "$([ -f "$B/gw/site/session-ad1/.gitignore" ] &
 
 echo "── AD2 工作区已有 .gitignore ──"
 mkdir -p "$B/gw2/site/fix"
-( cd "$B/gw2" && git init -q && git symbolic-ref HEAD refs/heads/main && git config user.name t && git config user.email t@t
+( cd "$B/gw2" && git init -q -b main && git config user.name t && git config user.email t@t
   printf 'keepme/\n*.log\n' > .gitignore && git add .gitignore && git commit -qm init )
 cd "$B/gw2/site/fix"
 printf 'x=1\n' > a.py

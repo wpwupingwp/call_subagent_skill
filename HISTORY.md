@@ -73,7 +73,7 @@
 | 复用仓库时源文件变了不报警 | 记 `tasks/imports.tsv`，比对后警告 |
 | 文档写「子代理在 `work/<task>` 分支提交」 | 全改为「直接在 `main` 提交」 |
 | 会话目录出现在用户的 `git status` 里 | `preflight` 把 `/session-*/` 追加进 `.git/info/exclude`；写不成才退回会话目录内的 `*` |
-| 要求 git ≥ 2.23，实际只用到 `git switch` | 改用 `git checkout`、`git init` + `symbolic-ref`、数 `.git/worktrees/`，门槛降到 2.0（2014-05） |
+| 版本门槛来回调了三次（2.23 → 1.8.0 → 2.0 → 2.28） | 最终定 2.28（2020-07）：`init -b`、`switch`、`worktree list` 都可直接用，不再为老版本写兼容分支 |
 
 文档侧同步瘦身：删掉解释性段落，只留可执行规则；理由进 `README` 与 `subagent_test.md`。
 

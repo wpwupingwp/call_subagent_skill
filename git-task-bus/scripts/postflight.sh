@@ -205,12 +205,9 @@ VIOLATION_COUNT=$(count_lines "$TMPD/violations.txt")
 
 # ---- 5. 附加可疑线索（不直接判违规，但要看得见）----
 git stash list > "$TMPD/stash.txt" 2>/dev/null || true
+git worktree list > "$TMPD/worktrees.txt" 2>/dev/null || true
 STASH_COUNT=$(count_lines "$TMPD/stash.txt")
-WORKTREE_COUNT=0
-GITDIR_NOW=$(git rev-parse --git-dir 2>/dev/null || true)
-if [ -n "$GITDIR_NOW" ] && [ -d "$GITDIR_NOW/worktrees" ]; then
-  WORKTREE_COUNT=$(ls -1 "$GITDIR_NOW/worktrees" 2>/dev/null | wc -l | tr -d ' ')
-fi
+WORKTREE_COUNT=$(count_lines "$TMPD/worktrees.txt"); WORKTREE_COUNT=$(( WORKTREE_COUNT > 0 ? WORKTREE_COUNT - 1 : 0 ))
 
 # ---- 6. 测试：父代理自己跑一次，不采信子代理的自述 ----
 TEST_EXIT=0
