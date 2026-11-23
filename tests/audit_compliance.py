@@ -126,7 +126,7 @@ def main() -> int:
 
     dispatch_at = None
     for idx, (_, calls) in enumerate(steps):
-        if any(name == "subagent" for name, _ in calls):
+        if any(name in ("subagent", "subagent_fork") for name, _ in calls):
             dispatch_at = idx
             break
 

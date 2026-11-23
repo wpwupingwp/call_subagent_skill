@@ -86,6 +86,17 @@ git -C "$R" switch -q -c side
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam side
 chk "BR/非 main 拒绝" 2 "$(po t-br)"
 
+echo "── RF 丢弃失败留痕 ──"
+sess gRF
+chk "RF/preflight" 0 "$(pf --task t-rf --import calc.py --allow calc.py $(b t-rf) --tests true)"
+printf 'oob\n' > "$R/oob.txt"; git -C "$R" add -A; git -C "$R" commit -qm oob
+mkdir -p "$B/fakegit"
+printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = reset ] && exit 1; done\nexec %s "$@"\n' "$(command -v git)" > "$B/fakegit/git"
+chmod +x "$B/fakegit/git"
+chk "RF/应 3" 3 "$(PATH="$B/fakegit:$PATH" bash "$SK/scripts/postflight.sh" --root "$B" --task t-rf --quiet >/dev/null 2>&1; echo $?)"
+chk "RF/manifest=error" "error" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-rf/MANIFEST.json'))['verdict'])" 2>/dev/null)"
+chk "RF/error patch" "yes" "$([ -s "$R/tasks/t-rf/deliveries/t-rf.error.patch" ] && echo yes || echo no)"
+
 echo "── S 简报校验 ──"
 sess gS
 chk "S1/无简报" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task s-1 --allow a.py --tests true --root "$B" >/dev/null 2>&1; echo $?)"
@@ -211,6 +222,11 @@ cat > "$B/audit/tee.jsonl" <<'EOF'
 {"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
 EOF
 chk "AI/tee 写入" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/tee.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+cat > "$B/audit/fork.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"edit","arguments":"{\"file_path\":\"/p/code/a.py\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent_fork","arguments":"{}"}]}}}
+EOF
+chk "AI/fork 派发" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/fork.jsonl" --scope code >/dev/null 2>&1; echo $?)"
 
 echo "── MF MANIFEST 生成失败 ──"
 sess gMF

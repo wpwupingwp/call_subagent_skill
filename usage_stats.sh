@@ -8,7 +8,8 @@ usage() {
   cat <<'EOF'
 用法: usage_stats.sh [--root <工作区>] [文件...]
 
-  不给文件时，在 --root（默认当前目录）下查找 */repo/tasks/usage.tsv
+  不给文件时，在 --root（默认当前目录）下查找 */repo/tasks/usage.tsv；
+  默认会汇总该工作区下所有会话，只看一个会话请把 --root 指到 <工作区>/<会话 id>
   加权成本口径：未缓存输入 1、输出 4（推理按输出计）、缓存读 0.02
 EOF
   exit 0

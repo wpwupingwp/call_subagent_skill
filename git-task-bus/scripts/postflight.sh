@@ -247,24 +247,40 @@ elif [ -n "$TEST_EXIT" ] && [ "$TEST_EXIT" -ne 0 ]; then
   VERDICT="fail"; EXIT=1
 fi
 
+# 丢弃失败时也要留下判定：否则仓库停在半还原态且没有 MANIFEST/patch 可查。
+write_discard_error() {
+  local reason="$1" src="${2:-}" p=""
+  mkdir -p "$TDIR/deliveries" 2>/dev/null || true
+  if [ -n "$src" ] && [ -s "$src" ]; then
+    p="$TDIR/deliveries/$TASK.error.patch"
+    cp "$src" "$p" 2>/dev/null || p=""
+  fi
+  printf '{\n  "task": "%s",\n  "session": "%s",\n  "base": "%s",\n  "head": "%s",\n  "verdict": "error",\n  "error": "%s",\n  "patch": {"file": "%s"}\n}\n' \
+    "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$reason" "${p:-}" > "$TDIR/MANIFEST.json" 2>/dev/null || true
+}
+
 # ---- 8. 未通过则丢弃：先归档到仓库外，再还原 ----
 ARCHIVE=""
 if [ "$VERDICT" != "pass" ]; then
   ARCHIVE=$(mktemp)
   if ! git add -A >/dev/null 2>&1; then
     printf 'postflight: 丢弃失败 —— git add 出错（仓库可能仍在被占用）\n' >&2
+    write_discard_error "git add failed"
     exit 3
   fi
   if ! git diff --cached --binary --no-renames "$BASE" > "$ARCHIVE"; then
     printf 'postflight: 丢弃失败 —— 导出 patch 出错\n' >&2
+    write_discard_error "patch export failed" "$ARCHIVE"
     exit 3
   fi
   if ! git reset -q --hard "$BASE"; then
     printf 'postflight: 丢弃失败 —— git reset --hard 出错，仓库未还原\n' >&2
+    write_discard_error "git reset --hard failed" "$ARCHIVE"
     exit 3
   fi
   if ! git clean -qfd; then
     printf 'postflight: 丢弃失败 —— git clean 出错\n' >&2
+    write_discard_error "git clean failed" "$ARCHIVE"
     exit 3
   fi
   DISCARDED=yes
