@@ -18,8 +18,8 @@ EOF
 TESTS="" CWD="$PWD"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --tests) TESTS="${2:-}"; shift 2 ;;
-    --cwd)   CWD="${2:-}";   shift 2 ;;
+    --tests) [ $# -ge 2 ] || usage; TESTS="$2"; shift 2 ;;
+    --cwd)   [ $# -ge 2 ] || usage; CWD="$2";   shift 2 ;;
     -h|--help) usage ;;
     *) echo "envcheck: 未知参数 $1" >&2; usage ;;
   esac
@@ -32,10 +32,12 @@ cd "$CWD" || exit 3
 
 # 直接执行，用 126/127 区分"命令缺失"与"测试失败"。
 # 不预检首个词：`PYTHONPATH=. python3 x.py` 这类带环境变量前缀的命令会把首个词误当成命令。
-bash -c "$TESTS" >/tmp/envcheck.$$.log 2>&1
+LOG=$(mktemp "${TMPDIR:-/tmp}/envcheck.XXXXXX" 2>/dev/null) \
+  || { echo "envcheck: 无法创建临时日志（${TMPDIR:-/tmp} 不可写）" >&2; exit 3; }
+bash -c "$TESTS" > "$LOG" 2>&1
 RC=$?
-tail -20 /tmp/envcheck.$$.log
-rm -f /tmp/envcheck.$$.log
+tail -20 "$LOG"
+rm -f "$LOG"
 
 case "$RC" in
   0)   echo "envcheck: OK —— 命令可执行且基线为绿"; exit 0 ;;

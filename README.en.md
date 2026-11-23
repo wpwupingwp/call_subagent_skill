@@ -236,6 +236,10 @@ Pass the real stop reason with `--stop` (`aborted` / `error` / `max-tokens` / `r
 `--child` the tool also reads it from the session log. `max-tokens` means the task was too big —
 narrow it or split it, don't re-dispatch unchanged.
 
+**Does the acceptance command run sandboxed?**
+No: `--tests` runs as the calling user inside the session repo. Treat it as executable shell code;
+do not paste commands from untrusted sources.
+
 **What do the exit codes mean?**
 `0` pass · `1` test failure or abnormal stop reason · `2` violation (out of scope, rewritten
 history, uncommitted delivery) · `3` configuration or environment error. Two similar failures in a
@@ -261,8 +265,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 99 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 69 when zstd is unavailable
+bash tests/run.sh                    # 108 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 78 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

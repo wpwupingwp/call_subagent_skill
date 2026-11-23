@@ -50,16 +50,19 @@ done
 
 die() { echo "preflight: $*" >&2; exit 3; }
 
-version_ge() {  # version_ge A B —— A >= B 时为真；纯 bash，不依赖 sort -V
-  local re='^([0-9]+)\.([0-9]+)(\.([0-9]+))?'
-  local a1 a2 a3 b1 b2 b3
-  [[ $1 =~ $re ]] || return 1
-  a1=${BASH_REMATCH[1]}; a2=${BASH_REMATCH[2]}; a3=${BASH_REMATCH[4]:-0}
-  [[ $2 =~ $re ]] || return 1
-  b1=${BASH_REMATCH[1]}; b2=${BASH_REMATCH[2]}; b3=${BASH_REMATCH[4]:-0}
-  if (( a1 != b1 )); then (( a1 > b1 )); return $?; fi
-  if (( a2 != b2 )); then (( a2 > b2 )); return $?; fi
-  (( a3 >= b3 ))
+version_ge() {  # version_ge A B —— A >= B 时为真；按数字段逐段比较，缺段补 0
+  local -a a b
+  local i x y n
+  a=($(printf '%s' "$1" | grep -oE '[0-9]+'))
+  b=($(printf '%s' "$2" | grep -oE '[0-9]+'))
+  n=${#a[@]}; (( ${#b[@]} > n )) && n=${#b[@]}
+  (( n > 0 )) || return 1
+  for (( i=0; i<n; i++ )); do
+    x=${a[i]:-0}; y=${b[i]:-0}
+    (( x > y )) && return 0
+    (( x < y )) && return 1
+  done
+  return 0
 }
 
 hash_stdin() { git hash-object --stdin; }
@@ -112,7 +115,7 @@ if [ -z "$TESTS" ]; then
   [ "$ALLOW_NO_TESTS" -eq 1 ] || die "缺少 --tests。行为类交付必须有验收命令；评审/文档类请显式 --allow-no-tests 并在简报写明人工核对方式。"
   grep -qE "人工核对|manual review" "$SRC_BRIEF" || die "使用 --allow-no-tests 时，简报必须写明人工核对方式（例如「人工核对」）。"
 elif ! grep -qF -- "$TESTS" "$SRC_BRIEF"; then
-  die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
+  die "简报未逐字节包含 --tests 的值「$TESTS」（含空格与引号）。请把命令原样贴进简报。"
 fi
 grep -qF -- "提交" "$SRC_BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
 grep -qE "白名单|只允许改动|允许改动" "$SRC_BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
@@ -191,6 +194,9 @@ if [ "$CREATED" -eq 1 ]; then
     > "$REPO/.gitignore"
 fi
 
+# 非 ASCII 路径在 git diff/status 里保持原样，否则白名单比对会误判越界
+git -C "$REPO" config core.quotepath false 2>/dev/null || true
+
 : > "$TDIR/provenance.tsv"
 printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"
 
@@ -199,12 +205,13 @@ if [ -n "$IMPORT" ]; then
   IFS=',' read -ra items <<< "$IMPORT"
   for it in "${items[@]}"; do
     it="${it#./}"
+    it="${it#"${it%%[![:space:]]*}"}"; it="${it%"${it##*[![:space:]]}"}"
     [ -z "$it" ] && continue
     [ -e "$it" ] || die "导入源不存在: $it"
     cur=$(hash_source "$it")
     if [ -e "$REPO/$it" ]; then
       if [ "$CREATED" -eq 0 ]; then
-        old=$(awk -F'\t' -v p="$it" '$1==p{print $2}' "$IMPORTS" 2>/dev/null | tail -1)
+        old=$(P="$it" awk -F'\t' '$1==ENVIRON["P"]{print $2}' "$IMPORTS" 2>/dev/null | tail -1)
         if [ -n "$old" ] && [ "$old" != "$cur" ]; then
           echo "preflight: 警告 —— 源 $it 已变（与上次导入不同），仓库内仍是旧版本" >&2
         else
@@ -217,7 +224,7 @@ if [ -n "$IMPORT" ]; then
     cp -a "$it" "$REPO/$it"
     printf '%s\t%s\t%s\n' "$it" "$cur" "$(now_utc)" >> "$TDIR/provenance.tsv"
     if [ -f "$IMPORTS" ]; then
-      awk -F'\t' -v p="$it" '$1!=p' "$IMPORTS" > "$IMPORTS.tmp"
+      P="$it" awk -F'\t' '$1!=ENVIRON["P"]' "$IMPORTS" > "$IMPORTS.tmp"
     else
       : > "$IMPORTS.tmp"
     fi
@@ -266,6 +273,7 @@ BASE=$(git -C "$REPO" rev-parse HEAD)
 # 白名单里的路径不存在时给出警告（新建文件的任务属正常）
 IFS=',' read -ra allow_items <<< "$ALLOW"
 for a in "${allow_items[@]}"; do
+  a="${a#"${a%%[![:space:]]*}"}"; a="${a%"${a##*[![:space:]]}"}"
   a="${a%/}"
   [ -z "$a" ] && continue
   [ -e "$REPO/$a" ] || echo "preflight: 提示 —— 白名单路径在仓库中尚不存在: $a" >&2
@@ -287,7 +295,13 @@ done
 # ---- 指针式派发 prompt：只给引用，不复述规格 ----
 PROMPT_FILE="$TDIR/dispatch.prompt"
 {
-  printf '仓库 %s（cwd 已给，直接在 main 上提交，勿切分支）· BASE %s · 白名单 %s\n' "$REPO" "$BASE" "$ALLOW"
+  printf '仓库 %s（cwd 已给，直接在 main 上提交，勿切分支）· BASE %s\n' "$REPO" "$BASE"
+  printf '白名单（路径按原样，逗号分隔；权威值见 dispatch.env 的 ALLOW=）：\n'
+  IFS=',' read -ra _prompt_allow <<< "$ALLOW"
+  for _pe in "${_prompt_allow[@]}"; do
+    _pe="${_pe#"${_pe%%[![:space:]]*}"}"; _pe="${_pe%"${_pe##*[![:space:]]}"}"
+    [ -n "$_pe" ] && printf '  - %s\n' "$_pe"
+  done
   printf '先读简报：%s\n' "$BRIEF"
   printf '交付：提交 + 回报 stop（completed / 未完成原因）\n'
 } > "$PROMPT_FILE"

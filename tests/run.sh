@@ -287,6 +287,32 @@ chk "AM/坏简报被拒" 3 "$( cd "$B/gw3/site/fix" && DSH_SESSION_ID=session-am
 chk "AM/未建会话目录" "no" "$([ -d "$B/gw3/site/session-am1" ] && echo yes || echo no)"
 chk "AM/exclude 未追加" "no" "$(grep -q 'git-task-bus' "$B/gw3/.git/info/exclude" && echo yes || echo no)"
 
+# AV：版本比较按全部数字段
+chk "AV/四段版本比较" "1" "$(bash -c 'eval "$(sed -n "/^version_ge()/,/^}/p" "$1")"; version_ge 2.30.1.windows.1 2.30.1.windows.10; echo $?' _ "$SK/scripts/preflight.sh")"
+chk "AV/三段仍正确" "0" "$(bash -c 'eval "$(sed -n "/^version_ge()/,/^}/p" "$1")"; version_ge 2.28.1 2.28; echo $?' _ "$SK/scripts/preflight.sh")"
+# AW：非 ASCII 路径不被误判越界
+sess gAW
+printf 'x=1\n' > "$B/fix/中文.py"
+mkbrief t-aw true
+chk "AW/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-aw --import 中文.py --allow 中文.py --brief "$B/fix/brief-t-aw.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+printf 'x=2\n' > "$R/中文.py"; git -C "$R" commit -qam cn
+chk "AW/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aw --quiet >/dev/null 2>&1; echo $?)"
+# AX：白名单条目前后空格会被裁剪
+sess gAX
+printf 'x=1\n' > "$B/fix/sp.py"
+mkbrief t-ax true
+chk "AX/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ax --import sp.py --allow ' sp.py , other.py ' --brief "$B/fix/brief-t-ax.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+printf 'x=2\n' > "$R/sp.py"; git -C "$R" commit -qam sp
+chk "AX/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ax --quiet >/dev/null 2>&1; echo $?)"
+# AY：--usage 里逗号后的空格不应吞字段
+sess gAY
+printf 'x=1\n' > "$B/fix/uy.py"
+mkbrief t-ay true
+chk "AY/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ay --import uy.py --allow uy.py --brief "$B/fix/brief-t-ay.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+printf 'x=2\n' > "$R/uy.py"; git -C "$R" commit -qam uy
+chk "AY/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ay --quiet --usage 'steps=7, in=100, out=9, cache=5' >/dev/null 2>&1; echo $?)"
+chk "AY/用量字段" "7	100	9	5" "$(tail -1 "$R/tasks/usage.tsv" | cut -f5-8)"
+
 echo
 echo "结果: $pass 通过 / $fail 失败"
 exit $((fail>0))

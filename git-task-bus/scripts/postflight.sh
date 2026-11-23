@@ -79,14 +79,18 @@ resolve_child() {
   local home="${DSH_HOME:-$HOME/.dsh}"
   local since
   since=$(sed -n 's/^CREATED=//p' "$TDIR/dispatch.env" | tr -d "'\"" )
-  since=$(date -d "$since" +%s000 2>/dev/null || echo 0)
+  since=$(python3 -c 'import sys, datetime
+try:
+    print(int(datetime.datetime.fromisoformat(sys.argv[1].strip().replace("Z", "+00:00")).timestamp() * 1000))
+except Exception:
+    print(0)' "$since" 2>/dev/null || echo 0)
   while IFS= read -r f; do
     local first t
     first=$(zstd -dc "$f" 2>/dev/null | head -1)
     case "$first" in *"\"parentSession\":\"$parent\""*) ;; *) continue ;; esac
     t=$(printf '%s' "$first" | sed -n 's/.*"createdAt":\([0-9]*\).*/\1/p')
     [ -n "$t" ] && [ "$t" -ge "$since" ] && [ "$t" -gt "$best_t" ] && { best_t=$t; best=$f; }
-  done < <(find "$home/sessions" -type f -name 'session.v4.jsonl.zstd' -newermt "@$((since/1000))" 2>/dev/null)
+  done < <(find "$home/sessions" -type f -name 'session.v4.jsonl.zstd' 2>/dev/null)
   [ -n "$best" ] || return 1
   CHILD=$(basename "$(dirname "$best")")
   echo "postflight: 自动匹配到子代理会话 $CHILD" >&2
@@ -165,8 +169,10 @@ count_lines() {
 
 is_allowed() {
   local f="$1" e
-  local IFS=','
-  for e in $ALLOW; do
+  local -a _al
+  IFS=',' read -ra _al <<< "$ALLOW"
+  for e in "${_al[@]}"; do
+    e="${e#"${e%%[![:space:]]*}"}"; e="${e%"${e##*[![:space:]]}"}"
     e="${e%/}"
     [ -z "$e" ] && continue
     [ "$f" = "$e" ] && return 0
@@ -292,7 +298,7 @@ doc = {
     "base": base,
     "head": head,
     "branch": branch,
-    "allow": allow.split(","),
+    "allow": [a.strip() for a in allow.split(",") if a.strip()],
     "model": os.environ.get("MODEL") or None,
     "childSession": child or None,
     "stopReason": stop,
@@ -332,6 +338,7 @@ if [ -n "$USAGE" ]; then
   u_steps=""; u_in=""; u_out=""; u_cache=""
   IFS=',' read -ra kv <<< "$USAGE"
   for pair in "${kv[@]}"; do
+    pair="${pair#"${pair%%[![:space:]]*}"}"; pair="${pair%"${pair##*[![:space:]]}"}"
     case "$pair" in
       steps=*) u_steps="${pair#steps=}" ;;
       in=*)    u_in="${pair#in=}" ;;
@@ -344,22 +351,22 @@ if [ -n "$USAGE" ]; then
     "$u_steps" "$u_in" "$u_out" "$u_cache" >> "$USAGE_FILE"
 fi
 
+# MANIFEST 缺失意味着出处与判定无法留痕：先降级，再决定提交信息
+if [ ! -s "$TDIR/MANIFEST.json" ]; then
+  echo "postflight: MANIFEST.json 生成失败，判定降级为 error" >&2
+  VERDICT="error"; EXIT=3
+fi
+
 # ---- 11. 记录物入历史（无论判定如何）----
 if ! git -C "$REPO" add -A -- tasks >/dev/null 2>&1; then
   printf 'postflight: 记录入历史失败 —— git add 出错\n' >&2
   VERDICT="error"; EXIT=3
 fi
 if ! git -C "$REPO" diff --cached --quiet; then
-  if ! git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"; then
+  if ! git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || { [ "$VERDICT" = error ] && echo error || echo discarded; }) ($VERDICT)"; then
     printf 'postflight: 记录入历史失败 —— git commit 出错\n' >&2
     VERDICT="error"; EXIT=3
   fi
-fi
-
-# MANIFEST 缺失意味着出处与判定无法留痕，不能当作通过
-if [ ! -s "$TDIR/MANIFEST.json" ]; then
-  echo "postflight: MANIFEST.json 生成失败，判定降级为 error" >&2
-  VERDICT="error"; EXIT=3
 fi
 
 # ---- 12. 摘要 ----

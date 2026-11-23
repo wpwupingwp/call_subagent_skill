@@ -31,16 +31,19 @@ while [ $# -gt 0 ]; do
 done
 
 
-version_ge() {  # version_ge A B —— A >= B 时为真；纯 bash，不依赖 sort -V
-  local re='^([0-9]+)\.([0-9]+)(\.([0-9]+))?'
-  local a1 a2 a3 b1 b2 b3
-  [[ $1 =~ $re ]] || return 1
-  a1=${BASH_REMATCH[1]}; a2=${BASH_REMATCH[2]}; a3=${BASH_REMATCH[4]:-0}
-  [[ $2 =~ $re ]] || return 1
-  b1=${BASH_REMATCH[1]}; b2=${BASH_REMATCH[2]}; b3=${BASH_REMATCH[4]:-0}
-  if (( a1 != b1 )); then (( a1 > b1 )); return $?; fi
-  if (( a2 != b2 )); then (( a2 > b2 )); return $?; fi
-  (( a3 >= b3 ))
+version_ge() {  # version_ge A B —— A >= B 时为真；按数字段逐段比较，缺段补 0
+  local -a a b
+  local i x y n
+  a=($(printf '%s' "$1" | grep -oE '[0-9]+'))
+  b=($(printf '%s' "$2" | grep -oE '[0-9]+'))
+  n=${#a[@]}; (( ${#b[@]} > n )) && n=${#b[@]}
+  (( n > 0 )) || return 1
+  for (( i=0; i<n; i++ )); do
+    x=${a[i]:-0}; y=${b[i]:-0}
+    (( x > y )) && return 0
+    (( x < y )) && return 1
+  done
+  return 0
 }
 
 hash_stdin() { git hash-object --stdin; }   # 内容哈希：git 已在前提内，免去 sha256sum

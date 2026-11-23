@@ -281,6 +281,12 @@
 判等）、`awk -v` 吃掉反斜杠路径、`dispatch.prompt` 用裸 `%s` 拼接白名单、MANIFEST 生成失败时
 `result` 提交仍先落地。
 
+随后按清单修复（10 条有效项全部处理，2 条假阳性不改）：`version_ge` 改为逐数字段比较；
+仓库级 `core.quotepath=false` 让非 ASCII 路径原样进入白名单比对；`awk` 改用 `ENVIRON` 传路径；
+`dispatch.prompt` 逐行列出白名单；MANIFEST 检查移到 `result` 提交之前；`--usage`、`--allow`、
+`--import` 统一 trim；`envcheck` 用 `mktemp`；`--child auto` 的时间解析改用 python3（去掉 GNU
+`date -d` / `find -newermt`）；文档补上「`--tests` 以父代理权限执行」。断言 99 → **108**。
+
 成本：子代理 49 步，`in 102,550 / out 97,500 / cache 5,405,312`，加权约 **600,656**
 （输入 1 / 缓存 0.02 / 输出 4）。父代理侧是逐条复现与 8 个临时工作区，未单独计量。
 

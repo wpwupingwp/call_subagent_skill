@@ -217,6 +217,10 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 把真实结束原因传给 `--stop`（`aborted` / `error` / `max-tokens` / `refusal`）；给了 `--child`
 时 `postflight` 还会从子会话日志校正。`max-tokens` 说明任务太大，缩小范围或拆开，别原样重派。
 
+**验收命令有执行权限吗？**
+`--tests` 是以父代理的身份、在会话仓库里直接执行的 shell 命令，没有沙箱；把它当成可执行代码，
+不要从不可信来源复制命令。
+
 **验收失败了怎么办？**
 看退出码：`0` 通过 · `1` 测试失败或结束原因异常 · `2` 违规（越界 / 改写历史 / 未提交）·
 `3` 配置或环境错误。连续两次同类失败通常说明简报不清，该改简报而不是再派第三次。
@@ -239,8 +243,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 99 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 69 项
+bash tests/run.sh                    # 108 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 78 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、

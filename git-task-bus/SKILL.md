@@ -155,6 +155,8 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 
 退出码：`0` 通过 · `1` 测试失败或 stopReason 异常 · `2` 违规（越界/改写历史/未提交交付）· `3` 配置或环境错误（含 MANIFEST 生成失败）。
 
+`--tests` 以父代理权限、在会话仓库里直接执行，没有沙箱：把它当可执行代码，不要粘贴不可信来源的命令。
+
 ### 5. 验收（父代理）
 
 - 层级 0：退出码 + 违规清单（近零成本，每次）
