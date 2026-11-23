@@ -25,7 +25,7 @@ usage() {
   --save-model      把 --model 的值写进会话仓库 <root>/<session>/repo/model
   --quiet           只打印 PROMPT/POINTER/MODEL，不打印 prompt 内容
 EOF
-  exit 3
+  exit "${1:-3}"
 }
 
 TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 ALLOW_NO_TESTS=0 QUIET=0
@@ -43,7 +43,7 @@ while [ $# -gt 0 ]; do
     --model)         MODEL="${2:-}"; shift 2 ;;
     --save-model)    SAVE_MODEL=1; shift ;;
     --quiet)         QUIET=1; shift ;;
-    -h|--help)     usage ;;
+    -h|--help)     usage 0 ;;
     *) echo "未知参数: $1" >&2; usage ;;
   esac
 done
@@ -263,7 +263,13 @@ if [ "$CREATED" -eq 1 ]; then
   fi
 fi
 
-git -C "$REPO" add -A
+# 只提交本次任务产物与导入，--allow-dirty 放行的既有脏文件留在工作树，
+# 不吸进 plan 提交，否则会被永久写进 main 历史。
+git -C "$REPO" add -A -- tasks
+[ "$CREATED" -eq 1 ] && git -C "$REPO" add -- .gitignore 2>/dev/null || true
+if [ "${#ADDED[@]}" -gt 0 ]; then
+  git -C "$REPO" add -- "${ADDED[@]}" 2>/dev/null || true
+fi
 if ! git -C "$REPO" diff --cached --quiet; then
   git -C "$REPO" commit -q \
     -m "task $TASK: plan (brief=$(hash_file "$BRIEF"))"

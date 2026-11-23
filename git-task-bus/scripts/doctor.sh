@@ -17,7 +17,7 @@ usage() {
 
 退出码：0 全部通过 / 3 存在不满足项
 EOF
-  exit 3
+  exit "${1:-3}"
 }
 
 ROOT="${PWD}"
@@ -26,7 +26,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --root) ROOT="${2:-}"; shift 2 ;;
     --src)  SRC="${2:-}";  shift 2 ;;
-    -h|--help) usage ;;
+    -h|--help) usage 0 ;;
     *) echo "doctor: 未知参数 $1" >&2; usage ;;
   esac
 done

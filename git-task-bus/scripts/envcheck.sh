@@ -12,7 +12,7 @@ usage() {
   1  命令可执行但基线是红的（退出码非 0，且不是命令缺失）
   3  环境缺失：命令不存在 / 无执行权限 / 目录不可用
 EOF
-  exit 3
+  exit "${1:-3}"
 }
 
 TESTS="" CWD="$PWD"
@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --tests) [ $# -ge 2 ] || usage; TESTS="$2"; shift 2 ;;
     --cwd)   [ $# -ge 2 ] || usage; CWD="$2";   shift 2 ;;
-    -h|--help) usage ;;
+    -h|--help) usage 0 ;;
     *) echo "envcheck: 未知参数 $1" >&2; usage ;;
   esac
 done

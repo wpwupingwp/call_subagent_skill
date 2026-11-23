@@ -61,6 +61,14 @@ echo junk > "$R/junk.txt"
 chk "E/应 3" 3 "$(pf --task t-e --allow calc.py $(b t-e) --tests true)"
 rm -f "$R/junk.txt"
 
+echo "── DS --allow-dirty 不吸收脏文件 ──"
+sess gDS
+chk "DS/preflight" 0 "$(pf --task t-ds1 --import calc.py --allow calc.py $(b t-ds1) --tests true)"
+echo junk > "$R/junk.txt"
+chk "DS/preflight2" 0 "$(pf --task t-ds2 --allow calc.py $(b t-ds2) --tests true --allow-dirty)"
+chk "DS/junk 未入历史" "no" "$(git -C "$R" ls-tree -r --name-only HEAD | grep -qx junk.txt && echo yes || echo no)"
+chk "DS/DIRTY=yes" "yes" "$(grep '^DIRTY=' "$R/tasks/t-ds2/dispatch.env" | cut -d= -f2)"
+
 echo "── F max-tokens ──"
 sess gF
 chk "F/preflight" 0 "$(pf --task t-f --import calc.py --allow calc.py $(b t-f) --tests true)"

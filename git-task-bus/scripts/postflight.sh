@@ -21,7 +21,7 @@ usage() {
   --usage        手工指定用量（覆盖 --child 的自动读取）。
   依赖 preflight.sh 写出的 <任务目录>/dispatch.env。
 EOF
-  exit 3
+  exit "${1:-3}"
 }
 
 TASK="" STOP="" QUIET=0 USAGE="" CHILD=""
@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
     --root)  TASK_ROOT="${2:-}"; shift 2 ;;
     --usage) USAGE="${2:-}"; shift 2 ;;
     --child) CHILD="${2:-}"; shift 2 ;;
-    -h|--help) usage ;;
+    -h|--help) usage 0 ;;
     *) echo "未知参数: $1" >&2; usage ;;
   esac
 done
@@ -62,7 +62,9 @@ fi
 
 if [ -z "$STOP" ]; then
   STOP="completed"
-  [ -n "${STOP_GIVEN:-}" ] || printf 'postflight: 未提供 --stop，按 completed 处理；子代理非正常结束时请显式传入\n' >&2
+  if [ -z "${STOP_GIVEN:-}" ] && [ -z "${CHILD:-}" ]; then
+    printf 'postflight: 未提供 --stop 与 --child，按 completed 处理；子代理非正常结束时请显式传入\n' >&2
+  fi
 fi
 
 # 同一任务已判定过就拒绝重跑：产物已进历史，重跑会把它们当成越界改动，
