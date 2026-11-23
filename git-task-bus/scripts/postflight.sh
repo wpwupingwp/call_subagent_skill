@@ -74,7 +74,7 @@ if git cat-file -e "HEAD:tasks/$TASK/MANIFEST.json" 2>/dev/null; then
   exit 3
 fi
 
-# zstd 是 DSH 的依赖，由 doctor 检查；这里直接读会话日志。
+# --child 是 DSH 适配器；不给 --child 时完全不读 DSH 日志。
 child_log() {
   local id="$1"
   find "${DSH_HOME:-$HOME/.dsh}/sessions" -type f -path "*/$id/session.v4.jsonl.zstd" 2>/dev/null | head -1
@@ -95,7 +95,8 @@ except Exception:
     print(0)' "$since" 2>/dev/null || echo 0)
   while IFS= read -r f; do
     local first t
-    first=$(zstd -dc "$f" 2>/dev/null | sed -n '1p')
+    # head 读到首行就关闭管道；sed -n 1p 会把整份日志读完，成本高一个数量级。
+    first=$(zstd -dc "$f" 2>/dev/null | head -n 1 || true)
     case "$first" in *"\"parentSession\":\"$parent\""*) ;; *) continue ;; esac
     t=$(printf '%s' "$first" | sed -n 's/.*"createdAt":\([0-9]*\).*/\1/p')
     [ -n "$t" ] && [ "$t" -ge "$since" ] && [ "$t" -gt "$best_t" ] && { best_t=$t; best=$f; }
@@ -105,47 +106,32 @@ except Exception:
   echo "postflight: 自动匹配到子代理会话 $CHILD" >&2
 }
 
-read_child_usage() {
+# 一次完整解压同时拿 stop 与 usage；两者来自同一份事件流，没必要解两遍。
+read_child_meta() {
   [ -n "$CHILD" ] || return 1
-  local log
+  local log out
   log=$(child_log "$CHILD")
   [ -n "$log" ] || return 1
-  local out
   out=$(zstd -dc "$log" 2>/dev/null | python3 -c '
 import json, sys
 steps=ti=to=tc=0
+kind=""
 for line in sys.stdin:
     try: ev=json.loads(line)
     except Exception: continue
-    if ev.get("type")!="assistant/message": continue
-    u=(ev.get("data") or {}).get("usage") or {}
-    if not u: continue
-    steps+=1; ti+=u.get("inputTokens",0); to+=u.get("outputTokens",0); tc+=u.get("cacheReadTokens",0)
-if steps==0: raise SystemExit(2)
-print(f"steps={steps},in={ti},out={to},cache={tc}")
+    t=ev.get("type")
+    if t=="assistant/message":
+        u=(ev.get("data") or {}).get("usage") or {}
+        if u:
+            steps+=1; ti+=u.get("inputTokens",0); to+=u.get("outputTokens",0); tc+=u.get("cacheReadTokens",0)
+    elif t=="turn/end":
+        kind=((ev.get("data") or {}).get("reason") or {}).get("kind") or kind
+print(kind)
+print(f"steps={steps},in={ti},out={to},cache={tc}" if steps else "")
 ' 2>/dev/null) || return 1
-  [ -n "$out" ] || return 1
-  USAGE="$out"
-  return 0
-}
-
-read_child_stop() {
-  [ -n "$CHILD" ] || return 1
-  local log kind
-  log=$(child_log "$CHILD")
-  [ -n "$log" ] || return 1
-  kind=$(zstd -dc "$log" 2>/dev/null | python3 -c '
-import json, sys
-kind = None
-for line in sys.stdin:
-    try: ev = json.loads(line)
-    except Exception: continue
-    if ev.get("type") == "turn/end":
-        kind = ((ev.get("data") or {}).get("reason") or {}).get("kind") or kind
-if kind: print(kind)
-' 2>/dev/null) || return 1
-  [ -n "$kind" ] || return 1
-  printf '%s' "$kind"
+  CHILD_STOP=$(printf '%s\n' "$out" | sed -n '1p')
+  CHILD_USAGE=$(printf '%s\n' "$out" | sed -n '2p')
+  CHILD_META_OK=1
 }
 
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
@@ -156,14 +142,19 @@ if [ "$CHILD" = "auto" ]; then
   fi
 fi
 
+CHILD_META_OK=0; CHILD_STOP=""; CHILD_USAGE=""
+if [ -n "${CHILD:-}" ]; then
+  read_child_meta || true
+fi
+
 # 用子会话日志的结束原因校正 --stop：日志是事实，命令行是转述
-if CHILD_KIND=$(read_child_stop); then
+if [ "$CHILD_META_OK" -eq 1 ] && [ -n "$CHILD_STOP" ]; then
   if [ -z "${STOP_GIVEN:-}" ]; then
-    STOP="$CHILD_KIND"
+    STOP="$CHILD_STOP"
     printf 'postflight: stopReason 取自子会话日志: %s\n' "$STOP" >&2
-  elif [ "$CHILD_KIND" != "$STOP" ]; then
-    printf 'postflight: 警告 —— --stop=%s 与子会话日志的 %s 不一致，以日志为准\n' "$STOP" "$CHILD_KIND" >&2
-    STOP="$CHILD_KIND"
+  elif [ "$CHILD_STOP" != "$STOP" ]; then
+    printf 'postflight: 警告 —— --stop=%s 与子会话日志的 %s 不一致，以日志为准\n' "$STOP" "$CHILD_STOP" >&2
+    STOP="$CHILD_STOP"
   fi
 fi
 
@@ -382,7 +373,12 @@ fi
 # ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
 
 if [ -z "$USAGE" ] && [ -n "$CHILD" ]; then
-  if ! read_child_usage; then
+  if [ "$CHILD_META_OK" -ne 1 ]; then
+    read_child_meta || true
+  fi
+  if [ "$CHILD_META_OK" -eq 1 ]; then
+    [ -n "$CHILD_USAGE" ] && USAGE="$CHILD_USAGE"
+  else
     echo "postflight: 无法从会话日志读取 $CHILD 的用量（环境不同或日志缺失），本次不记录" >&2
   fi
 fi

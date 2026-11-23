@@ -10,6 +10,10 @@
 - 每次判定都写进 `MANIFEST.json` 和 patch，事后能复查
 - 子代理读的文件、失败的尝试、测试日志都留在它自己的会话里
 
+> **Harness 版本**：本技能基于 DeepSeek Harness **v0.2.2** 开发和验证。核心验收只依赖
+> git、bash、python3，换 harness 仍可用；但 `--child` 自动读取子会话 stop/用量是 DSH 适配器，
+> 其他 harness 需要重写，或由父代理显式传 `--stop` / `--usage`。
+
 给**人**看的说明。给模型读的规范在 [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md)。
 
 ## 安装
@@ -247,9 +251,10 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 exit 3——不会退化成父模型。
 
 **怎么记录子代理用量？**
-`--child auto` 会按 `parentSession` 匹配本次派发的子会话，读日志并记进 `tasks/usage.tsv`；
-也可以手填 `--usage 'steps=12,in=2689,out=1926,cache=143545'`。读取依赖 DSH 会话日志和
-zstd（DSH 的依赖，doctor 会检查）；日志不可用时只警告、不影响判定。`usage_stats.sh` 按模型汇总。
+`--child auto` 会按 `parentSession` 匹配本次派发的子会话，并从 DSH 日志读取 stop/用量，记进
+`tasks/usage.tsv`；这是可选的 DSH 适配器。也可以手填
+`--usage 'steps=12,in=2689,out=1926,cache=143545'` 跳过自动读取；没有适配器时只警告、
+不影响判定。`usage_stats.sh` 按模型汇总。
 
 **换环境或换模型前要做什么？**
 按 [`git-task-bus/references/probe.md`](git-task-bus/references/probe.md) 跑一次三层探测
@@ -259,7 +264,7 @@ zstd（DSH 的依赖，doctor 会检查）；日志不可用时只警告、不�
 
 ```bash
 bash tests/run.sh                    # 135 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 102 项
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 102 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、

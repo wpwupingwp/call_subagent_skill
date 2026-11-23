@@ -9,9 +9,9 @@ usage() {
 
 检查项：
   git 是否可用、版本是否 >= 2.28
-  依赖命令：sed grep cp tar date tr dirname basename head tail awk python3 zstd
-  （除 python3/zstd 外都是 POSIX 基本工具；awk 用于 --import 的路径校验，python3 用于生成
-  MANIFEST.json 与解析用量，zstd 是 DSH 会话日志的依赖）
+  依赖命令：sed grep cp tar date tr dirname basename head tail awk python3
+  （除 python3 外都是 POSIX 基本工具；awk 用于 --import 的路径校验，python3 用于生成
+  MANIFEST.json 与解析用量）
   任务根目录是否可创建、可写（默认当前目录；沙箱下请用 --root 指向可写工作区）
   --src 列出的源路径是否可读
 
@@ -72,10 +72,10 @@ fi
 
 # 2. 依赖命令
 MISSING=""
-for c in sed grep cp tar date tr dirname basename head tail awk python3 zstd; do
+for c in sed grep cp tar date tr dirname basename head tail awk python3; do
   command -v "$c" >/dev/null 2>&1 || MISSING="$MISSING $c"
 done
-if [ -z "$MISSING" ]; then ok "依赖命令齐全（POSIX 基本工具 + python3 + zstd）"
+if [ -z "$MISSING" ]; then ok "依赖命令齐全（POSIX 基本工具 + python3）"
 else bad "缺少依赖命令:$MISSING"; fi
 
 # 3. 任务根目录可创建、可写

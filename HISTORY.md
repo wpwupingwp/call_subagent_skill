@@ -494,6 +494,25 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 
 断言 131 → **135**。
 
+## 定位修正：核心与 DSH 适配器分离（2026-11-24）
+
+技能最初把“读 DSH 子会话日志”当成 postflight 的一部分：`--child` 必填、doctor 要求 zstd、
+stop 和 usage 都从 `~/.dsh/sessions` 读。这让核心验收和 DSH 的内部日志格式绑在一起。
+
+修正后的边界：
+
+- **核心**：diff、白名单、历史、测试、patch、MANIFEST、丢弃回滚，只依赖 git/bash/python3；
+  `--stop` 是核心输入，父代理显式传入；不传 `--child` 时不读任何会话日志。
+- **适配器**：`--child <id|auto>` 是可选 DSH 适配器，只有它读日志、校正 stop、记 usage；
+  没有它时用 `--stop`，用量用 `--usage` 手填。
+- doctor 不再检查 zstd；README 增加“基于 DeepSeek Harness v0.2.2 开发，其他 harness
+  可能需要重写 `--child`”的说明。
+- 日志读取本身也做了两处优化：首行匹配从 `sed -n '1p'`（读完整流）改为 `head -n 1`
+  （219 个会话约 13s → 0.5s）；stop 与 usage 合并成一次完整解压 + 一次遍历（约 70ms → 33ms）。
+
+验证：135 条断言（有 zstd）/ 102 条（无 zstd）全绿；另用一个 `echo` 最小任务验证
+“不传 `--child`、PATH 无 zstd”也能 pass（changed=1、childSession=null、testexit=0）。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

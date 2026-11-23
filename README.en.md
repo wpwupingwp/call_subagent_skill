@@ -11,6 +11,11 @@ before handing back a patch you can inspect.
 - Every verdict lands in `MANIFEST.json` and the patch, so it can be audited later
 - Reads, failed attempts and test logs stay in the subagent's own session
 
+> **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**. The core
+> acceptance path only needs git, bash and python3, so it can run on other harnesses; the
+> `--child` adapter that reads child stop/usage is DSH-specific and must be ported, or bypassed
+> by passing `--stop` / `--usage` explicitly.
+
 Human-facing docs. The model-facing spec is [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md).
 
 ## Install
@@ -274,10 +279,10 @@ human, then persist the answer with `--model <provider/model> --save-model`. Res
 them `preflight` exits 3 instead of silently falling back to the parent model.
 
 **How is subagent usage recorded?**
-`--child auto` matches the child session through `parentSession` and reads its log into
-`tasks/usage.tsv`; you can also pass `--usage 'steps=12,in=2689,out=1926,cache=143545'` by hand.
-Reading depends on DSH session logs and zstd (a DSH dependency, checked by doctor); if they are unavailable it only warns. `usage_stats.sh`
-rolls up by model.
+`--child auto` matches the child session through `parentSession` and reads stop/usage from the
+DSH log into `tasks/usage.tsv`; this is an optional DSH adapter. You can also pass
+`--usage 'steps=12,in=2689,out=1926,cache=143545'` by hand to skip automatic reading; without the
+adapter it only warns and does not affect the verdict. `usage_stats.sh` rolls up by model.
 
 **What before a new environment or model?**
 Run the three-layer probe in [`git-task-bus/references/probe.md`](git-task-bus/references/probe.md)
@@ -288,7 +293,7 @@ turn. Re-run it after updating the skill.
 
 ```bash
 bash tests/run.sh                    # 135 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 102 when zstd is unavailable
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 102 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
