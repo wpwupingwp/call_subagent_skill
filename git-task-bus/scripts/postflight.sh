@@ -239,6 +239,8 @@ if [ "$VIOLATION_COUNT" -gt 0 ] || [ "$REWRITTEN" = yes ] || [ "$PROTO_VIOLATION
   VERDICT="reject"; EXIT=2
 elif [ "$STOP" != "completed" ]; then
   VERDICT="fail"; EXIT=1
+elif [ "$CHANGED_COUNT" -eq 0 ]; then
+  VERDICT="fail"; EXIT=1
 elif [ -n "$TEST_EXIT" ] && [ "$TEST_EXIT" -ne 0 ]; then
   VERDICT="fail"; EXIT=1
 fi

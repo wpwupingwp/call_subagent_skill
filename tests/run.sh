@@ -27,6 +27,7 @@ cd "$B/fix"
 echo "── A 通过 ──"
 sess gA
 chk "A/preflight" 0 "$(pf --task t-a --import calc.py --allow calc.py $(b t-a) --tests true)"
+chk "A/prompt 白名单逐行" "yes" "$(grep -qx '  - calc.py' "$R/tasks/t-a/dispatch.prompt" && ! grep -q '%s' "$R/tasks/t-a/dispatch.prompt" && echo yes || echo no)"
 printf '\ndef mul(a,b):\n    return a*b\n' >> "$R/calc.py"; git -C "$R" commit -qam "add mul"
 chk "A/postflight" 0 "$(po t-a)"
 chk "A/历史四段" 4 "$(git -C "$R" rev-list --count HEAD)"
@@ -73,6 +74,11 @@ chk "J/应 2" 2 "$(po t-j)"
 chk "J/已还原" "yes" "$(git -C "$R" log -1 --format=%s | grep -q 'discarded\|plan' && echo yes || echo no)"
 chk "J/归档存在" "yes" "$([ -s "$R/tasks/t-j/deliveries/t-j.abandoned.patch" ] && echo yes || echo no)"
 
+echo "── NO 无改动 ──"
+sess gNO
+chk "NO/preflight" 0 "$(pf --task t-no --import calc.py --allow calc.py $(b t-no) --tests true)"
+chk "NO/无改动应 1" 1 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-no --quiet >/dev/null 2>&1; echo $?)"
+
 echo "── S 简报校验 ──"
 sess gS
 chk "S1/无简报" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task s-1 --allow a.py --tests true --root "$B" >/dev/null 2>&1; echo $?)"
@@ -83,6 +89,7 @@ echo "── T 模型与最小模式 ──"
 sess gT
 chk "T/preflight" 0 "$(pf --task t-t --import calc.py --allow calc.py $(b t-t) --tests 'test -f calc.py' --model llama/LLaMA --save-model --quiet)"
 chk "T/model 在仓库" "yes" "$([ -f "$R/model" ] && echo yes || echo no)"
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 TX=$(bash $SK/scripts/postflight.sh --root "$B" --task t-t --stop completed --quiet 2>&1); TRC=$?
 chk "T/postflight" 0 "$TRC"
 chk "T/manifest 记录模型" "llama/LLaMA" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-t/MANIFEST.json'))['model'])" 2>/dev/null)"
@@ -153,7 +160,7 @@ chk "AE/仓库内无 reviews" "no" "$([ -d "$R/tasks/t-ae1/reviews" ] && echo ye
 echo "── AH 仓库锁 ──"
 sess gAH
 chk "AH/preflight" 0 "$(pf --task t-ah --import calc.py --allow calc.py $(b t-ah) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 touch "$R/.git/index.lock"
 OUT_AH=$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --quiet 2>&1); RC_AH=$?
 chk "AH/锁存在时拒绝" 3 "$RC_AH"
@@ -201,7 +208,7 @@ chk "AI/tee 写入" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit
 echo "── MF MANIFEST 生成失败 ──"
 sess gMF
 chk "MF/preflight" 0 "$(pf --task t-mf --import calc.py --allow calc.py $(b t-mf) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 mkdir -p "$B/fakebin"
 REAL_PY=$(command -v python3)
 printf '#!/bin/sh\nif [ "$1" = "-" ]; then exit 1; fi\nexec %s "$@"\n' "$REAL_PY" > "$B/fakebin/python3"
@@ -223,24 +230,24 @@ mkfake() {  # mkfake <sid> <kind>
 }
 sess gAF
 chk "AF/preflight" 0 "$(pf --task t-af --import calc.py --allow calc.py $(b t-af) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 mkfake sid-stop aborted
 OUT_AF=$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-af --child sid-stop --quiet 2>/dev/null); RC_AF=$?
 chk "AF/日志 aborted 覆盖默认" 1 "$RC_AF"
 chk "AF/输出含 stop=aborted" "yes" "$(printf '%s' "$OUT_AF" | grep -q 'stop=aborted' && echo yes || echo no)"
 sess gAG
 chk "AG/preflight" 0 "$(pf --task t-ag --import calc.py --allow calc.py $(b t-ag) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 mkfake sid-ok completed
 chk "AG/日志 completed 通过" 0 "$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-ag --child sid-ok --quiet >/dev/null 2>&1; echo $?)"
 chk "AG/preflight2" 0 "$(pf --task t-ag2 --import calc.py --allow calc.py $(b t-ag2) --tests true)"
-git -C "$R" commit -qam child2 --allow-empty
+printf 'y\n' >> "$R/calc.py"; git -C "$R" commit -qam child2
 chk "AG/--stop 与日志不一致则失败" 1 "$(DSH_HOME="$FH3" bash "$SK/scripts/postflight.sh" --root "$B" --task t-ag2 --child sid-stop --stop completed --quiet >/dev/null 2>&1; echo $?)"
 
 echo "── W 消耗记录 ──"
 sess gW
 chk "W/preflight" 0 "$(pf --task t-w --import calc.py --allow calc.py $(b t-w) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 chk "W/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-w --stop completed --child child-123 --usage 'steps=7,in=100,out=200,cache=300' --quiet >/dev/null 2>&1; echo $?)"
 chk "W/记录 childSession" "child-123" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-w/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 chk "W/usage 有表头+一行" 2 "$(grep -c '' "$R/tasks/usage.tsv")"
@@ -252,12 +259,12 @@ printf '%s\n' '{"type":"assistant/message","data":{"usage":{"inputTokens":10,"ou
   | zstd -q -o "$FH/sessions/p/sid-1/session.v4.jsonl.zstd"
 sess gX
 chk "X/preflight" 0 "$(pf --task t-x --import calc.py --allow calc.py $(b t-x) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 chk "X/postflight" 0 "$(DSH_HOME="$FH" bash $SK/scripts/postflight.sh --root "$B" --task t-x --stop completed --child sid-1 --quiet >/dev/null 2>&1; echo $?)"
 chk "X/自动记录用量" "t-x	test/model	pass	2	11	22	33" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
 sess gY
 chk "Y/preflight" 0 "$(pf --task t-y --import calc.py --allow calc.py $(b t-y) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 chk "Y/日志缺失仍通过" 0 "$(DSH_HOME="$B/nohome" bash $SK/scripts/postflight.sh --root "$B" --task t-y --stop completed --child nope --quiet >/dev/null 2>&1; echo $?)"
 chk "Y/不写 usage" "no" "$([ -f "$R/tasks/usage.tsv" ] && echo yes || echo no)"
 # --child auto：用伪造 home 验证按 parentSession 匹配
@@ -268,20 +275,20 @@ NOW=$(date +%s)000
 { printf '{"type":"session","id":"sid-auto","createdAt":%s,"parentSession":"%s","origin":"subagent"}\n' "$NOW" "$DSH_SESSION_ID"
   printf '{"type":"assistant/message","data":{"usage":{"inputTokens":5,"outputTokens":6,"cacheReadTokens":7}}}\n'
 } | zstd -q -o "$D2/session.v4.jsonl.zstd"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 chk "Z/auto 应通过" 0 "$(DSH_HOME="$FH2" bash $SK/scripts/postflight.sh --root "$B" --task t-z --stop completed --child auto --quiet >/dev/null 2>&1; echo $?)"
 chk "Z/匹配到 sid-auto" "sid-auto" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-z/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 chk "Z/用量已记录" "t-z	test/model	pass	1	5	6	7" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
 # Z2：--child auto 匹配失败时记 null，而不是字面量 "auto"
 sess gZ2
 chk "Z2/preflight" 0 "$(pf --task t-z2 --import calc.py --allow calc.py $(b t-z2) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 chk "Z2/auto 失败仍通过" 0 "$(DSH_HOME="$B/nohome" bash $SK/scripts/postflight.sh --root "$B" --task t-z2 --stop completed --child auto --quiet >/dev/null 2>&1; echo $?)"
 chk "Z2/childSession=null" "None" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-z2/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 # AA：不传 --stop 默认 completed
 sess gAA
 chk "AA/preflight" 0 "$(pf --task t-aa --import calc.py --allow calc.py $(b t-aa) --tests true)"
-git -C "$R" commit -qam child --allow-empty
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 chk "AA/默认 stop 通过" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --quiet >/dev/null 2>&1; echo $?)"
 chk "AA/重跑被拒" 3 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --quiet >/dev/null 2>&1; echo $?)"
 chk "AA/归档未被覆盖" "t-aa.patch" "$(ls "$R/tasks/t-aa/deliveries/")"
@@ -291,7 +298,7 @@ chk "AB/preflight" 0 "$(pf --task t-ab --import calc.py --allow calc.py $(b t-ab
 printf 'oob\n' > "$R/oob.txt"; git -C "$R" add -A; git -C "$R" commit -qm oob
 chk "AB/越界拒绝" 2 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ab --quiet >/dev/null 2>&1; echo $?)"
 chk "AB/MANIFEST 指向 abandoned" "t-ab.abandoned.patch" "$(python3 -c "import json,os;print(os.path.basename(json.load(open('$R/tasks/t-ab/MANIFEST.json'))['patch']['file']))" 2>/dev/null)"
-chk "W/无 usage 时不建文件" "no" "$([ -f "$R/tasks/usage.tsv.bak" ] && echo yes || echo no)"
+chk "W/无 usage 时不建文件" "no" "$([ -f "$R/tasks/usage.tsv" ] && echo yes || echo no)"
 
 else
   echo "  (跳过消耗记录相关断言：未安装 zstd，或 SKIP_USAGE_TESTS=1)"
@@ -308,7 +315,7 @@ printf '# 简报\n## 范围\n白名单：只允许改动 calc.py\n## 验收\n人
 chk "AL/缺 tests 被拒" 3 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --model test/model --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --quiet >/dev/null 2>&1; echo $?)"
 chk "AL/失败不留仓库" "no" "$([ -d "$B/gAL/repo" ] && echo yes || echo no)"
 chk "AL/允许后 preflight" 0 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --model test/model --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
-git -C "$R" commit -q --allow-empty -m child
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 bash $SK/scripts/postflight.sh --root "$B" --task t-al --stop completed --quiet >"$B/al.out" 2>&1; RC_AL=$?
 chk "AL/postflight 通过" 0 "$RC_AL"
 chk "AL/quiet 记 skipped" "1" "$(grep -c 'testexit=skipped' "$B/al.out")"
