@@ -192,6 +192,11 @@ cat > "$B/audit/mvrm.jsonl" <<'EOF'
 {"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
 EOF
 chk "AI/mv 写入" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/mvrm.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+cat > "$B/audit/tee.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"bash","arguments":"{\"command\":\"echo x | tee code/a.py\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
+EOF
+chk "AI/tee 写入" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/tee.jsonl" --scope code >/dev/null 2>&1; echo $?)"
 
 echo "── MF MANIFEST 生成失败 ──"
 sess gMF

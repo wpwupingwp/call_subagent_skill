@@ -25,6 +25,7 @@ from pathlib import Path
 WRITE_TOOLS = {"write", "edit", "apply_patch"}
 COPY_HINTS = ("cp -a", "cp -r", "rsync", "git worktree")
 REDIRECT = re.compile(r">>?\s*([^\s;&|]+)")
+TEE = re.compile(r"\btee\b\s+([^;&|]+)")
 SED_INPLACE = re.compile(r"sed\s+-i[^\s]*\s+(?:-e\s+)?['\"]?([^\s'\";]+)")
 DEVNULL = {"/dev/null", "/dev/stdout", "/dev/stderr"}
 
@@ -55,11 +56,22 @@ def bash_findings(cmd: str, scopes: list[str]) -> tuple[list[str], list[str]]:
         target = m.group(1).strip("'\"")
         if target in DEVNULL or target.startswith("&"):
             continue
+        if target.startswith("$"):
+            warn.append(f"重定向目标含变量，未静态判定: {target}")
+            continue
         if in_scope(target, scopes):
             bad.append(f"重定向到 {target}")
     for m in SED_INPLACE.finditer(cmd):
         if in_scope(m.group(1), scopes):
             bad.append(f"sed -i {m.group(1)}")
+    for m in TEE.finditer(cmd):
+        for tok in re.findall(r"[^\s]+", m.group(1)):
+            tok = tok.strip("'\"")
+            if tok.startswith("-"):
+                continue
+            if any(p in scopes for p in parts(tok)):
+                bad.append(f"tee 到 {tok}")
+                break
     for m in re.finditer(r"\b(?:mv|rm)\b\s+([^;&|]+)", cmd):
         for tok in re.findall(r"[^\s]+", m.group(1)):
             tok = tok.strip("'\"")
