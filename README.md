@@ -258,8 +258,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 131 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 98 项
+bash tests/run.sh                    # 135 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 102 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、
@@ -292,7 +292,7 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 1,227,313 tok |
 | 缓存命中率 | 99.63% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 17,093,471 |
-| 使用本技能自举（preflight/postflight 跑自己） | **9 次**（self-review-2 … -10）；报告 **104** 条，复核后 **44** 条有效（39 条已修，5 条记录；含 minor/限制） |
+| 使用本技能自举（preflight/postflight 跑自己） | **10 次**（self-review-2 … -11）；报告 **114** 条，复核后 **48** 条有效（43 条已修，5 条记录；含 minor/限制） |
 | 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
 「有效」指父代理复现后成立，含已确认但未修的 minor/限制；「已修」不含仅记录项。
