@@ -11,10 +11,8 @@ before handing back a patch you can inspect.
 - Every verdict lands in `MANIFEST.json` and the patch, so it can be audited later
 - Reads, failed attempts and test logs stay in the subagent's own session
 
-> **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**. The core
-> acceptance path only needs git, bash and python3, so it can run on other harnesses; the
-> `--child` adapter that reads child stop/usage is DSH-specific and must be ported, or bypassed
-> by passing `--stop` / `--usage` explicitly.
+> **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**; `--child`
+> reads DSH child-session logs and is required. Other harnesses must port that adapter.
 
 Human-facing docs. The model-facing spec is [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md).
 
@@ -280,9 +278,9 @@ them `preflight` exits 3 instead of silently falling back to the parent model.
 
 **How is subagent usage recorded?**
 `--child auto` matches the child session through `parentSession` and reads stop/usage from the
-DSH log into `tasks/usage.tsv`; this is an optional DSH adapter. You can also pass
-`--usage 'steps=12,in=2689,out=1926,cache=143545'` by hand to skip automatic reading; without the
-adapter it only warns and does not affect the verdict. `usage_stats.sh` rolls up by model.
+DSH log into `tasks/usage.tsv`; `--child` is required. You can also pass
+`--usage 'steps=12,in=2689,out=1926,cache=143545'` by hand to skip automatic reading.
+`usage_stats.sh` rolls up by model.
 
 **What before a new environment or model?**
 Run the three-layer probe in [`git-task-bus/references/probe.md`](git-task-bus/references/probe.md)

@@ -17,7 +17,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 1. **用户明确要求使用本技能时，必须按流程派发，不得改为自己做。** 本文件的「自己做」只是默认建议。
 2. 一次只派一个子代理；派发后结束回合，等待期间不写任何文件。
 3. 父代理不手工 `git init`：会话仓库由 `preflight` 创建；所有 git 操作只针对 `<会话仓库>`。
-4. `postflight` 用 `--stop <reason>` 表示子代理结束原因；`--child <id | auto>` 是可选日志适配器，只在 DSH 下可用，给了才从日志校正 stop/用量；没有适配器时必须显式给 `--stop`。
+4. `postflight` 必须带 `--child <id | auto>`，从 DSH 子会话日志校正 stop 与用量；子代理非正常结束时再显式给 `--stop <reason>`。
 5. 模型候选**排除父代理自己**（= 当前会话正在用的 provider/model）：不要列进候选，
    也不要问用户要不要用它。候选只剩父模型时，直接告诉用户「这条不值得派」。
 6. 判定不通过即自动丢弃；同一任务 id 只判定一次。
@@ -137,8 +137,7 @@ MODEL=llama/LLaMA
 
 ```bash
 bash "$SKILL/scripts/postflight.sh" --task 2026-11-16-arg-validation \
-  --stop completed --quiet
-# 可选（DSH）：--child <子代理 id | auto>  # 从子会话日志校正 stop/用量
+  --child <子代理 id | auto> --stop completed --quiet
 ```
 
 `--quiet` 只输出一行，用于常规验收：
@@ -148,9 +147,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ```
 
-`--stop` 是核心输入；父代理应在子代理结束时显式传入（默认 `completed`）。
-`--child` 是可选的 DSH 日志适配器：给了就从子会话日志读真实结束原因和用量，不一致时以日志为准；
-不给就不读日志。
+`--child` 是必填的 DSH 日志适配器：从子会话日志读真实结束原因和用量，不一致时以日志为准。
+`--stop` 用于子代理非正常结束或日志不可读时的兜底（默认 `completed`）。
 
 不要为了看细节重跑 `postflight`；需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新任务 id。
 

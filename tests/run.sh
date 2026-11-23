@@ -20,7 +20,7 @@ sess() { export DSH_SESSION_ID="$1"; R="$B/$1/repo"; }
 mkbrief() { printf '# 简报：%s\n## 范围\n白名单：只允许改动约定路径\n## 验收\n```bash\n%s\n```\n## 交付\n1. 提交（工作树干净）\n' "$1" "$2" > "$B/fix/brief-$1.md"; }
 pf() { local t="" tests=""; local a=("$@"); for ((i=0;i<${#a[@]};i++)); do case "${a[i]}" in --task) t="${a[i+1]}";; --tests) tests="${a[i+1]}";; esac; done
        [ -n "$t" ] && mkbrief "$t" "$tests"; bash "$SK/scripts/preflight.sh" --model test/model --root "$B" "$@" >/dev/null 2>&1; echo $?; }
-po() { bash "$SK/scripts/postflight.sh" --root "$B" --task "$1" --stop "${2:-completed}" >"$B/$1.out" 2>&1; echo $?; }
+po() { bash "$SK/scripts/postflight.sh" --root "$B" --task "$1" --child test-child --stop "${2:-completed}" >"$B/$1.out" 2>&1; echo $?; }
 b() { echo "--brief $B/fix/brief-$1.md"; }
 cd "$B/fix"
 
@@ -85,7 +85,7 @@ chk "J/归档存在" "yes" "$([ -s "$R/tasks/t-j/deliveries/t-j.abandoned.patch"
 echo "── NO 无改动 ──"
 sess gNO
 chk "NO/preflight" 0 "$(pf --task t-no --import calc.py --allow calc.py $(b t-no) --tests true)"
-chk "NO/无改动应 1" 1 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-no --quiet >/dev/null 2>&1; echo $?)"
+chk "NO/无改动应 1" 1 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-no --child test-child --quiet >/dev/null 2>&1; echo $?)"
 
 echo "── BR 非 main ──"
 sess gBR
@@ -101,7 +101,7 @@ printf 'oob\n' > "$R/oob.txt"; git -C "$R" add -A; git -C "$R" commit -qm oob
 mkdir -p "$B/fakegit"
 printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = reset ] && exit 1; done\nexec %s "$@"\n' "$(command -v git)" > "$B/fakegit/git"
 chmod +x "$B/fakegit/git"
-chk "RF/应 3" 3 "$(PATH="$B/fakegit:$PATH" bash "$SK/scripts/postflight.sh" --root "$B" --task t-rf --quiet >/dev/null 2>&1; echo $?)"
+chk "RF/应 3" 3 "$(PATH="$B/fakegit:$PATH" bash "$SK/scripts/postflight.sh" --root "$B" --task t-rf --child test-child --quiet >/dev/null 2>&1; echo $?)"
 chk "RF/manifest=error" "error" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-rf/MANIFEST.json'))['verdict'])" 2>/dev/null)"
 chk "RF/error patch" "yes" "$([ -s "$R/tasks/t-rf/deliveries/t-rf.error.patch" ] && echo yes || echo no)"
 
@@ -116,7 +116,7 @@ sess gT
 chk "T/preflight" 0 "$(pf --task t-t --import calc.py --allow calc.py $(b t-t) --tests 'test -f calc.py' --model llama/LLaMA --save-model --quiet)"
 chk "T/model 在仓库" "yes" "$([ -f "$R/model" ] && echo yes || echo no)"
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
-TX=$(bash $SK/scripts/postflight.sh --root "$B" --task t-t --stop completed --quiet 2>&1); TRC=$?
+TX=$(bash $SK/scripts/postflight.sh --root "$B" --task t-t --child test-child --stop completed --quiet 2>&1); TRC=$?
 chk "T/postflight" 0 "$TRC"
 chk "T/manifest 记录模型" "llama/LLaMA" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-t/MANIFEST.json'))['model'])" 2>/dev/null)"
 chk "T/单分支" "main" "$(git -C "$R" branch --format='%(refname:short)')"
@@ -188,11 +188,11 @@ sess gAH
 chk "AH/preflight" 0 "$(pf --task t-ah --import calc.py --allow calc.py $(b t-ah) --tests true)"
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 touch "$R/.git/index.lock"
-OUT_AH=$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --quiet 2>&1); RC_AH=$?
+OUT_AH=$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --child test-child --quiet 2>&1); RC_AH=$?
 chk "AH/锁存在时拒绝" 3 "$RC_AH"
 chk "AH/提示删除锁" "yes" "$(printf '%s' "$OUT_AH" | grep -q 'index.lock' && echo yes || echo no)"
 rm -f "$R/.git/index.lock"
-chk "AH/解锁后可判定" 0 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --quiet >/dev/null 2>&1; echo $?)"
+chk "AH/解锁后可判定" 0 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-ah --child test-child --quiet >/dev/null 2>&1; echo $?)"
 
 echo "── AI 合规审计 ──"
 mkdir -p "$B/audit"
@@ -244,7 +244,7 @@ mkdir -p "$B/fakebin"
 REAL_PY=$(command -v python3)
 printf '#!/bin/sh\nif [ "$1" = "-" ]; then exit 1; fi\nexec %s "$@"\n' "$REAL_PY" > "$B/fakebin/python3"
 chmod +x "$B/fakebin/python3"
-chk "MF/应 3" 3 "$(PATH="$B/fakebin:$PATH" bash "$SK/scripts/postflight.sh" --root "$B" --task t-mf --quiet >/dev/null 2>&1; echo $?)"
+chk "MF/应 3" 3 "$(PATH="$B/fakebin:$PATH" bash "$SK/scripts/postflight.sh" --root "$B" --task t-mf --child test-child --quiet >/dev/null 2>&1; echo $?)"
 chk "MF/manifest 降级" "error" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-mf/MANIFEST.json'))['verdict'])" 2>/dev/null)"
 chk "MF/patch 改名" "yes" "$([ -f "$R/tasks/t-mf/deliveries/t-mf.error.patch" ] && echo yes || echo no)"
 
@@ -320,14 +320,14 @@ chk "Z2/childSession=null" "None" "$(python3 -c "import json;print(json.load(ope
 sess gAA
 chk "AA/preflight" 0 "$(pf --task t-aa --import calc.py --allow calc.py $(b t-aa) --tests true)"
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
-chk "AA/默认 stop 通过" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --quiet >/dev/null 2>&1; echo $?)"
-chk "AA/重跑被拒" 3 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --quiet >/dev/null 2>&1; echo $?)"
+chk "AA/默认 stop 通过" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --child test-child --quiet >/dev/null 2>&1; echo $?)"
+chk "AA/重跑被拒" 3 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --child test-child --quiet >/dev/null 2>&1; echo $?)"
 chk "AA/归档未被覆盖" "t-aa.patch" "$(ls "$R/tasks/t-aa/deliveries/")"
 # AB：越界 → reject，MANIFEST 指向 abandoned patch
 sess gAB
 chk "AB/preflight" 0 "$(pf --task t-ab --import calc.py --allow calc.py $(b t-ab) --tests true)"
 printf 'oob\n' > "$R/oob.txt"; git -C "$R" add -A; git -C "$R" commit -qm oob
-chk "AB/越界拒绝" 2 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ab --quiet >/dev/null 2>&1; echo $?)"
+chk "AB/越界拒绝" 2 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ab --child test-child --quiet >/dev/null 2>&1; echo $?)"
 chk "AB/MANIFEST 指向 abandoned" "t-ab.abandoned.patch" "$(python3 -c "import json,os;print(os.path.basename(json.load(open('$R/tasks/t-ab/MANIFEST.json'))['patch']['file']))" 2>/dev/null)"
 chk "W/无 usage 时不建文件" "no" "$([ -f "$R/tasks/usage.tsv" ] && echo yes || echo no)"
 
@@ -347,7 +347,7 @@ chk "AL/缺 tests 被拒" 3 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh 
 chk "AL/失败不留仓库" "no" "$([ -d "$B/gAL/repo" ] && echo yes || echo no)"
 chk "AL/允许后 preflight" 0 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --model test/model --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
-bash $SK/scripts/postflight.sh --root "$B" --task t-al --stop completed --quiet >"$B/al.out" 2>&1; RC_AL=$?
+bash $SK/scripts/postflight.sh --root "$B" --task t-al --child test-child --stop completed --quiet >"$B/al.out" 2>&1; RC_AL=$?
 chk "AL/postflight 通过" 0 "$RC_AL"
 chk "AL/quiet 记 skipped" "1" "$(grep -c 'testexit=skipped' "$B/al.out")"
 chk "AL/testsRun=false" "False" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-al/MANIFEST.json'))['testsRun'])" 2>/dev/null)"
@@ -372,14 +372,14 @@ printf 'x=1\n' > "$B/fix/中文.py"
 mkbrief t-aw true
 chk "AW/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-aw --import 中文.py --allow 中文.py --brief "$B/fix/brief-t-aw.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 printf 'x=2\n' > "$R/中文.py"; git -C "$R" commit -qam cn
-chk "AW/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aw --quiet >/dev/null 2>&1; echo $?)"
+chk "AW/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aw --child test-child --quiet >/dev/null 2>&1; echo $?)"
 # AX：白名单条目前后空格会被裁剪
 sess gAX
 printf 'x=1\n' > "$B/fix/sp.py"
 mkbrief t-ax true
 chk "AX/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ax --import sp.py --allow ' sp.py , other.py ' --brief "$B/fix/brief-t-ax.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 printf 'x=2\n' > "$R/sp.py"; git -C "$R" commit -qam sp
-chk "AX/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ax --quiet >/dev/null 2>&1; echo $?)"
+chk "AX/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ax --child test-child --quiet >/dev/null 2>&1; echo $?)"
 # AX2/AX3：白名单归一化 —— 绝对路径当场拒绝，前导 ./ 正常接受
 chk "AX2/绝对白名单被拒" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ax2 --import sp.py --allow /sp.py --brief "$B/fix/brief-t-ax.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 chk "AX3/前导 ./ 被归一化" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ax3 --import sp.py --allow './sp.py' --brief "$B/fix/brief-t-ax.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
@@ -389,7 +389,7 @@ printf 'x=1\n' > "$B/fix/uy.py"
 mkbrief t-ay true
 chk "AY/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ay --import uy.py --allow uy.py --brief "$B/fix/brief-t-ay.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 printf 'x=2\n' > "$R/uy.py"; git -C "$R" commit -qam uy
-chk "AY/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ay --quiet --usage 'steps=7, in=100, out=9, cache=5' >/dev/null 2>&1; echo $?)"
+chk "AY/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ay --child test-child --quiet --usage 'steps=7, in=100, out=9, cache=5' >/dev/null 2>&1; echo $?)"
 chk "AY/用量字段" "7	100	9	5" "$(tail -1 "$R/tasks/usage.tsv" | cut -f5-8)"
 
 echo

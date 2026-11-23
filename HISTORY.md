@@ -513,6 +513,10 @@ stop 和 usage 都从 `~/.dsh/sessions` 读。这让核心验收和 DSH 的内�
 验证：135 条断言（有 zstd）/ 102 条（无 zstd）全绿；另用一个 `echo` 最小任务验证
 “不传 `--child`、PATH 无 zstd”也能 pass（changed=1、childSession=null、testexit=0）。
 
+**后续修正（同日）**：既然技能只面向 DSH，`--child` 恢复为必填；zstd 不再作为独立依赖
+检查或说明，DSH 环境已保证。代码里仍保留“一次解压合并 stop/usage”和“首行 head 匹配”的
+优化，但工作流不再支持无 `--child` 的核心用法。断言仍是 135 条。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

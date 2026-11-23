@@ -7,7 +7,7 @@ set -uo pipefail
 
 usage() {
   cat <<'EOF'
-用法: postflight.sh --task <id> [--stop <reason>] [--child <id|auto>] [--usage <用量>]
+用法: postflight.sh --task <id> --child <id|auto> [--stop <reason>] [--usage <用量>]
                    [--root <工作区>] [--quiet]
 
 判定不通过时自动丢弃：归档 patch → 还原工作区（丢弃前的 patch 存为 deliveries/<task>.abandoned.patch）。
@@ -16,8 +16,7 @@ usage() {
   --stop         子代理的 stopReason，默认 completed。子代理非正常结束时必须显式传入
                    （aborted/error/max-tokens/refusal），否则按 completed 处理。
   --root         工作区根目录（默认当前目录），用于定位 <root>/<session>/repo。
-  --child        子代理会话 id（或 auto）。给出后从会话日志读取用量并写入 tasks/usage.tsv；
-                  不给则 MANIFEST.childSession 为 null、不记录用量。
+  --child        子代理会话 id（或 auto）。必填；从 DSH 会话日志读取 stop 与用量。
   --usage        手工指定用量（覆盖 --child 的自动读取）。
   依赖 preflight.sh 写出的 <任务目录>/dispatch.env。
 EOF
@@ -38,6 +37,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$TASK" ] || { echo "postflight: 必须指定 --task" >&2; usage; }
+[ -n "${CHILD:-}" ] || { echo "postflight: 必须指定 --child <子代理 id|auto>" >&2; usage; }
 
 ROOT="${TASK_ROOT:-$PWD}"
 SESSION="${DSH_SESSION_ID:-unknown}"
@@ -74,7 +74,7 @@ if git cat-file -e "HEAD:tasks/$TASK/MANIFEST.json" 2>/dev/null; then
   exit 3
 fi
 
-# --child 是 DSH 适配器；不给 --child 时完全不读 DSH 日志。
+# --child 读 DSH 会话日志；压缩工具由 DSH 环境保证。
 child_log() {
   local id="$1"
   find "${DSH_HOME:-$HOME/.dsh}/sessions" -type f -path "*/$id/session.v4.jsonl.zstd" 2>/dev/null | head -1
