@@ -160,10 +160,12 @@ boundary. Token savings depend on `r`, task size and batching — see the next s
 
 ## When to use
 
-The first three are hard requirements; the fourth decides whether this is also a token saving:
+Dispatch directly when the user explicitly asks for it; otherwise the first three decide, and the
+fourth decides whether this is also a token saving:
 
 1. The deliverable is a **file change** (code, data, config, or a document whose structure can be checked).
-2. Acceptance can be **checked mechanically** (a test or script, not a human read).
+2. Acceptance can be **checked mechanically** (a test or script, not a human read); for reviews or
+   reports without a mechanical check, declare `--allow-no-tests` and verify conclusions manually.
 3. The change needs **iteration** (first pass is usually not the last).
 4. If token savings are the goal: lower `r` is better; large or batched work needs roughly
    `r ≤ 0.3`, while `r > 0.38` is usually for audit, not savings. A local model (`r = 0`) clears
