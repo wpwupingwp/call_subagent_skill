@@ -346,6 +346,26 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 修：README 中英与 SKILL 的解析顺序补全为四级。断言仍为 113——这是纯文档偏差，没有可机械判定
 的行为差异。极简简报没有提高命中率，反而多出 3 条假阳性；但成本只有上一轮盲审的八成。
 
+### 第五次尝试（第四次成功）：极简简报第二轮（2026-11-23 晚）
+
+同一份四行简报再跑一次（`self-review-5`）。32 步，`in 64,634 / out 9,317 / cache 1,608,006`，
+加权约 **134,062**；postflight `verdict=pass`（changed=1、violations=0、dirty=0、testexit=skipped）。
+
+7 条核对后：2 条真缺陷、2 条假阳性、2 条确认、1 条意见级。
+
+- 真缺陷（已修）：
+  - `audit_compliance.py` 的 bash 检测漏掉带引号的重定向、`2>file` 与 `mv`/`rm`；实跑
+    `echo x > "code/a.py"`、`2> code/a.py`、`mv x code/a.py` 都返回合规。已修，并加三条断言。
+  - `postflight` 的 MANIFEST 生成失败路径：error 判定仍写 `<task>.patch`、不写 MANIFEST，且不检查
+    python 的退出码（非空残缺文件可能漏过 `! -s`）。已修：校验退出码与 JSON 有效性；失败时 patch
+    改名 `<task>.error.patch`，写入不依赖 python 的兜底 MANIFEST；加 MF 四条断言。
+- 假阳性：#1「`edit code.txt` 应判违规」——`code.txt` 不在 `code/` 目录内，判合规正确（它把文件名
+  当成了目录名）；#4「`EXCL` 悬空变量」——赋值与兜底引用都在同一个 `[ -n "$TOP" ]` 分支里，
+  `set -e` 差异是 postflight 有意的（大量 `if !`），不是缺陷。
+- 意见级未修：`version_ge` 把 `2.30.0.rc1` 判为 `>= 2.30`；git 正式版不带这种后缀，影响可忽略。
+
+断言 113 → **120**。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

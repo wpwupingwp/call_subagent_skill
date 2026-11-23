@@ -61,7 +61,8 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
 ```
 
 Merge `deliveries/t1.patch` back if it passes. If it fails, the repo has already returned to
-`BASE` and the changes are kept as `deliveries/t1.abandoned.patch`.
+`BASE` and the changes are kept as `deliveries/t1.abandoned.patch`. If the verdict degrades to
+`error`, the patch is kept as `deliveries/<task>.error.patch` and a fallback `MANIFEST.json` is written.
 
 Review or document tasks with nothing structural to check must pass `--allow-no-tests` and state
 the manual review in the brief; `preflight` otherwise exits 3. The manifest then records
@@ -266,8 +267,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 113 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 80 when zstd is unavailable
+bash tests/run.sh                    # 120 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 87 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
@@ -305,7 +306,7 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **3** (self-review-2 / -3 / -4, review) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **4** (self-review-2 / -3 / -4 / -5, review) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License
