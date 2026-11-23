@@ -259,6 +259,29 @@ else
   echo "  (跳过消耗记录相关断言：未安装 zstd，或 SKIP_USAGE_TESTS=1)"
 fi
 
+# AL：评审/文档类显式 --allow-no-tests
+sess gAL
+printf '# 简报\n## 范围\n白名单：只允许改动 calc.py\n## 验收\n人工核对\n## 交付\n1. 提交\n' > "$B/fix/brief-nt.md"
+chk "AL/缺 tests 被拒" 3 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --quiet >/dev/null 2>&1; echo $?)"
+chk "AL/失败不留仓库" "no" "$([ -d "$B/gAL/repo" ] && echo yes || echo no)"
+chk "AL/允许后 preflight" 0 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
+git -C "$R" commit -q --allow-empty -m child
+bash $SK/scripts/postflight.sh --root "$B" --task t-al --stop completed --quiet >"$B/al.out" 2>&1; RC_AL=$?
+chk "AL/postflight 通过" 0 "$RC_AL"
+chk "AL/quiet 记 skipped" "1" "$(grep -c 'testexit=skipped' "$B/al.out")"
+chk "AL/testsRun=false" "False" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-al/MANIFEST.json'))['testsRun'])" 2>/dev/null)"
+chk "AL/testExitCode=null" "None" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-al/MANIFEST.json'))['testExitCode'])" 2>/dev/null)"
+# AL2：声明了 --allow-no-tests 但简报没写人工核对 → 拒绝
+mkdir -p "$B/nt2"; printf '# 简报\n## 范围\n白名单：calc.py\n## 验收\n无\n## 交付\n1. 提交\n' > "$B/nt2/b.md"
+chk "AL2/缺人工核对被拒" 3 "$(DSH_SESSION_ID=gAL2 bash $SK/scripts/preflight.sh --root "$B/nt2" --task t-al2 --import "$B/fix/calc.py" --allow calc.py --brief "$B/nt2/b.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
+# AM：校验失败不写 exclude、不建仓库
+mkdir -p "$B/gw3/site/fix"
+( cd "$B/gw3" && git init -q -b main && git config user.name t && git config user.email t@t && git commit -q --allow-empty -m init )
+printf '坏简报，没有任何必填字样\n' > "$B/gw3/site/fix/bad.md"
+chk "AM/坏简报被拒" 3 "$( cd "$B/gw3/site/fix" && DSH_SESSION_ID=session-am1 bash $SK/scripts/preflight.sh --root "$B/gw3/site" --task t-am --import bad.md --allow bad.md --brief bad.md --quiet >/dev/null 2>&1; echo $?)"
+chk "AM/未建会话目录" "no" "$([ -d "$B/gw3/site/session-am1" ] && echo yes || echo no)"
+chk "AM/exclude 未追加" "no" "$(grep -q 'git-task-bus' "$B/gw3/.git/info/exclude" && echo yes || echo no)"
+
 echo
 echo "结果: $pass 通过 / $fail 失败"
 exit $((fail>0))

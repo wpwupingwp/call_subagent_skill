@@ -63,6 +63,9 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 **文档/报告类交付没有行为可断言**：验收命令只能验证结构与引用（字段、锚点、链接），
 它是过滤器，不是判决。这类任务的结论仍由父代理逐条核对，并在 review 记录里写明核对方式。
 
+确实没有可机械检查的结构时，用 `--allow-no-tests` 显式声明「本次不跑验收命令」，并在简报里
+写明「人工核对」；缺 `--tests` 又没这个开关，`preflight` 直接拒绝派发。
+
 简报写清四件事：目标、允许改动的范围、验收命令（与 `--tests` **完全一致**）、交付要求。
 
 简报可以写在任意位置，用 `--brief <路径>` 传给 `preflight`；它会被拷进仓库的 `tasks/<task>/brief.md` 并提交，成为唯一来源。
@@ -96,6 +99,9 @@ MODEL=llama/LLaMA
 
 `--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。
 
+没有验收命令时（`--allow-no-tests`），`MANIFEST.json` 记 `testsRun=false`、`testExitCode=null`，
+`postflight` 的 `testexit=skipped`，判定只剩白名单、历史与工作树三项。
+
 **首次使用要问用户，不是替用户决定**（候选见硬规则 5）：
 
 1. 用 `--model <选择> --save-model` 派发一次，选择会写进**对话级配置仓库** `<工作区>/<会话 id>/repo/model` 并提交；
@@ -109,7 +115,7 @@ MODEL=llama/LLaMA
 
 | 校验 | 判据 |
 |---|---|
-| 含验收命令 | 简报正文包含 `--tests` 的字面文本 |
+| 含验收命令 | 简报正文包含 `--tests` 的字面文本；用 `--allow-no-tests` 时改为包含「人工核对」 |
 | 含交付要求 | 出现「提交」 |
 | 含改动范围 | 出现「白名单」或「只允许改动」 |
 
@@ -154,7 +160,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 - 层级 2：仅在触发时读净 diff——测试红、越界、体量失衡、触及权限/并发/IO/exec、新增依赖、断言明显弱于改动
 - 层级 3：安全与数据破坏类任务全量细读
 
-**父代理必须自己重跑一次验收命令。**
+**父代理必须自己重跑一次验收命令。** 没有验收命令的评审任务，改为逐条核对结论并留下记录。
 
 `stop=max-tokens` 表示本次尝试被预算截断，不要原样重派：先缩小任务（减少导入文件或拆成多个任务）。
 

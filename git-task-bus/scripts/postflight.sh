@@ -210,20 +210,22 @@ STASH_COUNT=$(count_lines "$TMPD/stash.txt")
 WORKTREE_COUNT=$(count_lines "$TMPD/worktrees.txt"); WORKTREE_COUNT=$(( WORKTREE_COUNT > 0 ? WORKTREE_COUNT - 1 : 0 ))
 
 # ---- 6. 测试：父代理自己跑一次，不采信子代理的自述 ----
-TEST_EXIT=0
+TEST_EXIT=""
 if [ -n "${TESTS:-}" ]; then
   ( bash -c "$TESTS" ) > "$TDIR/test.log" 2>&1
   TEST_EXIT=$?
 else
-  printf '（未配置验收命令，未执行测试）\n' > "$TDIR/test.log"
-  TEST_EXIT=127
+  printf '（未配置验收命令：判定只覆盖白名单、历史与工作树）\n' > "$TDIR/test.log"
 fi
+TEST_DISPLAY="${TEST_EXIT:-skipped}"
 
 # ---- 7. 判定 ----
 VERDICT="pass"; EXIT=0
 if [ "$VIOLATION_COUNT" -gt 0 ] || [ "$REWRITTEN" = yes ] || [ "$PROTO_VIOLATION" = yes ]; then
   VERDICT="reject"; EXIT=2
-elif [ "$TEST_EXIT" -ne 0 ] || [ "$STOP" != "completed" ]; then
+elif [ "$STOP" != "completed" ]; then
+  VERDICT="fail"; EXIT=1
+elif [ -n "$TEST_EXIT" ] && [ "$TEST_EXIT" -ne 0 ]; then
   VERDICT="fail"; EXIT=1
 fi
 
@@ -295,7 +297,8 @@ doc = {
     "childSession": child or None,
     "stopReason": stop,
     "tests": tests or None,
-    "testExitCode": int(texit),
+    "testsRun": bool(tests),
+    "testExitCode": int(texit) if texit.strip().isdigit() else None,
     "verdict": verdict,
     "changedFiles": lines("changed.txt"),
     "violations": lines("violations.txt"),
@@ -363,10 +366,10 @@ fi
 if [ "$QUIET" -eq 1 ]; then
   if [ "$STOP" = "completed" ]; then
     printf 'verdict=%s changed=%s violations=%s history=%s dirty=%s testexit=%s patch=%s\n' \
-      "$VERDICT" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_EXIT" "$PATCH"
+      "$VERDICT" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_DISPLAY" "$PATCH"
   else
     printf 'verdict=%s stop=%s changed=%s violations=%s history=%s dirty=%s testexit=%s patch=%s\n' \
-      "$VERDICT" "$STOP" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_EXIT" "$PATCH"
+      "$VERDICT" "$STOP" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_DISPLAY" "$PATCH"
   fi
   exit "$EXIT"
 fi
@@ -381,7 +384,7 @@ printf '历史改写    %s\n' "$REWRITTEN"
 printf '交付时未提交 %s 项（%s）/ stash %s / 额外 worktree %s\n' "$DIRTY_COUNT" \
   "$([ "$PROTO_VIOLATION" = yes ] && echo 判违规 || echo 无)" \
   "$STASH_COUNT" "$WORKTREE_COUNT"
-printf '测试退出码  %s（日志 %s/test.log）\n' "$TEST_EXIT" "$TDIR"
+printf '测试退出码  %s（日志 %s/test.log）\n' "$TEST_DISPLAY" "$TDIR"
 printf 'patch       %s（%s 行, sha %s）\n' "$PATCH" "$PATCH_LINES" "${PATCH_SHA:0:12}"
 printf '判定        %s%s\n' "$VERDICT" "$([ "$DISCARDED" = yes ] && echo '  → 已归档并还原' || echo '')"
 if [ "$VIOLATION_COUNT" -gt 0 ]; then

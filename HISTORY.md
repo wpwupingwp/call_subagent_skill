@@ -74,6 +74,8 @@
 | 文档写「子代理在 `work/<task>` 分支提交」 | 全改为「直接在 `main` 提交」 |
 | 会话目录出现在用户的 `git status` 里 | `preflight` 把 `/session-*/` 追加进 `.git/info/exclude`；写不成才退回会话目录内的 `*` |
 | 版本门槛来回调了三次（2.23 → 1.8.0 → 2.0 → 2.28） | 最终定 2.28（2020-07）：`init -b`、`switch`、`worktree list` 都可直接用，不再为老版本写兼容分支 |
+| 评审类没有验收命令时 preflight 放行、postflight 用 127 丢弃 | 新增 `--allow-no-tests`：缺 `--tests` 必须显式声明并写「人工核对」，MANIFEST 记 `testsRun=false`、`testexit=skipped` |
+| 简报校验失败仍建了会话目录、改了 `.git/info/exclude` | 校验提前到建目录与写 exclude 之前 |
 
 文档侧同步瘦身：删掉解释性段落，只留可执行规则；理由进 `README` 与 `subagent_test.md`。
 

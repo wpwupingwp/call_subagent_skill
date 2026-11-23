@@ -63,6 +63,10 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
 Merge `deliveries/t1.patch` back if it passes. If it fails, the repo has already returned to
 `BASE` and the changes are kept as `deliveries/t1.abandoned.patch`.
 
+Review or document tasks with nothing structural to check must pass `--allow-no-tests` and state
+the manual review in the brief; `preflight` otherwise exits 3. The manifest then records
+`testsRun=false` and `testExitCode=null` instead of a silent pass.
+
 ## How it works
 
 ![Interaction timeline](docs/flow-en.png)
@@ -157,7 +161,9 @@ All four have to hold:
 | A second opinion on a diff | Reviews purely to save tokens |
 
 **Review-style work** can only be checked for structure and references (fields, anchors, links); it
-cannot catch a wrong conclusion. Findings still need to be verified one by one. The same is true
+cannot catch a wrong conclusion, and when there is nothing structural to check it needs
+`--allow-no-tests` plus a manual-review note in the brief. Findings still need to be verified one by
+one. The same is true
 for document deliverables: they are worth dispatching for a second read, not for token savings.
 
 The savings below come from an extrapolated model, not from measurements per scenario:
@@ -254,8 +260,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 86 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 56 when zstd is unavailable
+bash tests/run.sh                    # 97 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 67 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

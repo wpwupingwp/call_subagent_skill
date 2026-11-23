@@ -15,7 +15,8 @@ usage() {
   --allow        仓库相对路径白名单，文件或目录前缀，必填
   --import       从当前目录复制进仓库的路径，逗号分隔；以 git hash-object 记录内容哈希
   --tests           验收命令，postflight 原样执行并记录退出码
-  --allow-dirty     允许工作树不干净（会把脏文件清单记录进 dispatch.env）
+  --allow-dirty     允许工作树不干净（dispatch.env 记 DIRTY=yes）
+  --allow-no-tests  声明本次不需要验收命令（评审/文档类）；简报必须写明人工核对方式
   --brief           简报路径，默认 <任务目录>/brief.md（该默认仅适用于目录已存在
                     的复用场景，首次任务必须显式指定）；必须存在且含
                     验收命令、白名单、交付要求，否则拒绝派发
@@ -27,7 +28,7 @@ EOF
   exit 3
 }
 
-TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 QUIET=0
+TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 ALLOW_NO_TESTS=0 QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -37,6 +38,7 @@ while [ $# -gt 0 ]; do
     --tests)       TESTS="${2:-}"; shift 2 ;;
     --root)        ROOT="${2:-}"; shift 2 ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+    --allow-no-tests) ALLOW_NO_TESTS=1; shift ;;
     --brief)         BRIEF="${2:-}"; shift 2 ;;
     --model)         MODEL="${2:-}"; shift 2 ;;
     --save-model)    SAVE_MODEL=1; shift ;;
@@ -102,6 +104,28 @@ command -v git >/dev/null 2>&1 || die "git 不可用（PATH 中找不到）。�
 GV=$(git --version 2>/dev/null); GV=${GV#git version }
 version_ge "$GV" 2.28 || die "git 版本过低: ${GV:-未知}，需要 >= 2.28。先跑 doctor.sh。"
 
+# ---- 简报：先校验，再落盘（校验失败不留任何状态）----
+SRC_BRIEF="$BRIEF"
+[ -n "$SRC_BRIEF" ] || SRC_BRIEF="$TDIR/brief.md"
+[ -f "$SRC_BRIEF" ] || die "缺少简报: $SRC_BRIEF。首次任务请用 --brief 指定简报路径（含验收命令/白名单/交付要求）。"
+if [ -z "$TESTS" ]; then
+  [ "$ALLOW_NO_TESTS" -eq 1 ] || die "缺少 --tests。行为类交付必须有验收命令；评审/文档类请显式 --allow-no-tests 并在简报写明人工核对方式。"
+  grep -qE "人工核对|manual review" "$SRC_BRIEF" || die "使用 --allow-no-tests 时，简报必须写明人工核对方式（例如「人工核对」）。"
+elif ! grep -qF -- "$TESTS" "$SRC_BRIEF"; then
+  die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
+fi
+grep -qF -- "提交" "$SRC_BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
+grep -qE "白名单|只允许改动|允许改动" "$SRC_BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
+
+if [ -n "$IMPORT" ]; then
+  IFS=',' read -ra _items <<< "$IMPORT"
+  for _it in "${_items[@]}"; do
+    _it="${_it#./}"
+    [ -z "$_it" ] && continue
+    [ -e "$_it" ] || die "导入源不存在: $_it"
+  done
+fi
+
 mkdir -p "$SESS_DIR" 2>/dev/null || die "无法创建会话目录: $SESS_DIR（权限或路径问题）。先跑 doctor.sh。"
 
 # 让外层 git 仓库看不见这个目录。优先写 git 的本地忽略文件 .git/info/exclude：
@@ -151,25 +175,6 @@ else
       exit 3
     fi
   fi
-fi
-
-# ---- 简报：先校验，再落盘（校验失败不留任何状态）----
-SRC_BRIEF="$BRIEF"
-[ -n "$SRC_BRIEF" ] || SRC_BRIEF="$TDIR/brief.md"
-[ -f "$SRC_BRIEF" ] || die "缺少简报: $SRC_BRIEF。首次任务请用 --brief 指定简报路径（含验收命令/白名单/交付要求）。"
-if [ -n "$TESTS" ] && ! grep -qF -- "$TESTS" "$SRC_BRIEF"; then
-  die "简报未包含验收命令「$TESTS」。子代理将无法知道如何自检，拒绝派发。"
-fi
-grep -qF -- "提交" "$SRC_BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
-grep -qE "白名单|只允许改动|允许改动" "$SRC_BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
-
-if [ -n "$IMPORT" ]; then
-  IFS=',' read -ra _items <<< "$IMPORT"
-  for _it in "${_items[@]}"; do
-    _it="${_it#./}"
-    [ -z "$_it" ] && continue
-    [ -e "$_it" ] || die "导入源不存在: $_it"
-  done
 fi
 
 mkdir -p "$TDIR" "$SESS_DIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
