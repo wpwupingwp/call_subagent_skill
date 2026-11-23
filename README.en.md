@@ -286,18 +286,13 @@ still growing):
 
 | Item | Value |
 |---|---|
-| Steps | 1,161 |
-| Turns | 297 (275 human inputs) |
-| Uncached input | 1,800,513 tok |
-| Cache reads | 462,736,896 tok |
-| Output | 1,035,114 tok |
-| Cache hit rate | 99.61% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | 15,195,707 |
-
-This is the **cost of building the tool and running the experiments**, not the cost of using it:
-99.61% of the tokens are the same growing context re-read on every step (about 399k per step,
-against 1,551 tok of new input). It shows the cost structure of a long session — a single task's
-savings get drowned by that fixed context, so the skill has to be judged over many tasks.
+| Steps | 1,406 |
+| Turns | 317 (295 human inputs) |
+| Uncached input | 1,911,413 tok |
+| Cache reads | 513,640,320 tok |
+| Output | 1,227,313 tok |
+| Cache hit rate | 99.63% |
+| Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
 
 ## License
 
