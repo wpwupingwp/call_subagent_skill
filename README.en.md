@@ -215,6 +215,10 @@ Delete `<workspace>/<session id>/` if you want it gone. The skill does not clean
 the directory keeps the patch, `MANIFEST.json` and the commit history used for audit and rollback.
 It is ignored by any outer repository, so leaving it in place does not dirty `git status`.
 
+**How do I undo the ignore rule?**
+Delete the two lines `preflight` appended to `.git/info/exclude` (`# git-task-bus session workspaces`
+and `/session-*/`); existing session directories will show up in `git status` again.
+
 **The subagent says the tests pass — can I trust it?**
 No. `postflight` runs the acceptance command itself and records the exit code, and the parent runs
 it once more. A self-report is not evidence.

@@ -84,10 +84,6 @@ bash "$SKILL/scripts/preflight.sh" \
 
 脚本会：校验简报 → 建/复用**会话仓库**（`<工作区>/<会话 id>/repo`）→ 导入新文件并提交 → 要求工作树干净 → 记录 `BASE`（= `main` 当前 HEAD）→ 写 `dispatch.env` 与 `dispatch.prompt`。
 
-工作区在别的 git 仓库内时，脚本顺手让它看不见会话目录：把 `/session-*/` 追加进该仓库的
-`.git/info/exclude`（本地忽略文件，不进版本控制，不改用户的 `.gitignore`）；写不成才退回
-会话目录内的 `*`。
-
 **父代理不手工 `git init`**：仓库由脚本创建，每个对话一个，从头到尾只有 `main` 一条分支。任务不单独建仓、不建分支。
 
 `--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
@@ -186,7 +182,6 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 ```
 <工作区>/
   <会话 id>/
-    .gitignore               # 仅当 .git/info/exclude 写不成时才生成，内容 *
     repo/                    # 会话仓库：单分支 main，所有任务共用
       model                  # 会话级模型选择
       <源码…>                # 子代理可写（白名单内）

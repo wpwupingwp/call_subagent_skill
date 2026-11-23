@@ -199,6 +199,10 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 需要的话删掉 `<工作区>/<会话 id>/` 即可，技能不会自动删：那里留着 patch、`MANIFEST.json` 和提交
 历史，是事后审计和回滚的依据。已被外层仓库忽略，放着不会弄脏 `git status`。
 
+**怎么撤销这条忽略？**
+删掉 `.git/info/exclude` 里由 `preflight` 追加的两行（`# git-task-bus session workspaces` 和
+`/session-*/`）即可；删掉后已有会话目录会重新出现在 `git status` 里。
+
 **子代理说测试通过，能信吗？**
 不能。`postflight` 会自己跑验收命令拿退出码，父代理还要再重跑一次。自述不是证据。
 

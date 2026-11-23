@@ -72,8 +72,15 @@
 | `MANIFEST.patch.sha256` 实为 SHA-1 | 改名 `contentHash` |
 | 复用仓库时源文件变了不报警 | 记 `tasks/imports.tsv`，比对后警告 |
 | 文档写「子代理在 `work/<task>` 分支提交」 | 全改为「直接在 `main` 提交」 |
+| 会话目录出现在用户的 `git status` 里 | `preflight` 把 `/session-*/` 追加进 `.git/info/exclude`；写不成才退回会话目录内的 `*` |
 
 文档侧同步瘦身：删掉解释性段落，只留可执行规则；理由进 `README` 与 `subagent_test.md`。
+
+会话目录的可见性修了三次，顺序也有记录价值：最早是提醒用户自己把 `<会话 id>/` 加进 `.gitignore`；
+后来改成在会话目录里放一个内容为 `*` 的 `.gitignore`；最后改成写 `.git/info/exclude`——git 的
+本地忽略文件，不进版本控制，用户的 `.gitignore` 与 `git status` 都不受影响。改名到
+`node_modules/`、`build/`、`dist/` 这类「常见已忽略路径」被否决：它们会被包管理器或构建脚本清空，
+没有哪个路径是所有 `.gitignore` 模板都有的。
 
 ## 角色
 
