@@ -1,3 +1,4 @@
 session-*/
 .dsh/
 test-run/
+.archify/

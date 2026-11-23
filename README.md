@@ -1,5 +1,7 @@
 # git-task-bus
 
+[English](README.en.md) · 中文
+
 把会改文件的活派给便宜的子代理：父代理冻结 `BASE` 与路径白名单，子代理在独立的 git 仓库里
 干活并提交，父代理只做机械验收（diff + 白名单 + 测试退出码），最后收下可回滚的 patch。
 
@@ -63,19 +65,14 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
 
 ## 工作原理
 
-```
-父代理                              子代理
-  │ 写简报 + 冻结测试                  │
-  │ preflight → 会话仓库 ─────────────► 读 dispatch.prompt
-  │ 冻结 BASE + 白名单                 │ 改代码 → 在 main 上提交
-  │                                   │
-  │ postflight ◄────── main 上的提交 ──┘
-  │  ├─ BASE..HEAD 是否干净、是否越界
-  │  ├─ 跑验收命令，取退出码
-  │  └─ 产出 patch + MANIFEST.json
-  │
-  └─ 通过：交付 patch        不通过：reset --hard BASE + clean -fd
-```
+![协作时序](docs/flow-zh.png)
+
+图上一条横向箭头是一次交互，纵轴是时间。关键的三段都画出来了：父代理先向 Harness 要可用模型、
+再问人用哪个，`preflight` 冻结 `BASE` 与白名单，`subagent` 派发后由 Harness 创建子会话，
+子代理在 `main` 上提交，Harness 把结果与结束原因交回父代理，父代理跑 `postflight` 验收，
+最后 patch 交给**人**——合并、push、丢弃都由人执行，技能不写回主树。
+
+[交互版 HTML](docs/flow-zh.html)：自包含单文件，可在本地打开，或在仓库设置里开启 GitHub Pages 后直接访问。
 
 每对话一个仓库，从头到尾只有 `main` 一条分支；任务不建分支，靠 `BASE` 划分。
 
@@ -103,6 +100,9 @@ tests/audit_compliance.py    合规审计：派发前有没有先动手
 usage_of.sh, usage_stats.sh  用量读取与汇总（不属于技能本体）
 subagent_test.md             实测记录与设计决策
 HISTORY.md                   开发史与角色记录
+docs/flow-zh.png             协作时序图（中文）
+docs/flow-zh.html            同一张图的交互版（自包含单文件）
+README.en.md                 English version
 ```
 
 ## 为什么值得用
