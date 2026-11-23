@@ -133,8 +133,8 @@ README.md                    Chinese version
 
 ## Why use it
 
-One line: **buy a rollbackable, traceable delivery first; a reader not primed by the parent's
-context second. Token savings are conditional, not the default.**
+One line: **make the delivery rollbackable and traceable first; then give it a reader not primed
+by the parent's context. Token savings are conditional, not the default.**
 
 - **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
   the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
@@ -203,7 +203,7 @@ batch ten of them:                  about 210 each → saves 51%
 ```
 
 **Batching is what pays, not a cheaper model.** Review/document work usually fails the savings
-test (measured 109k–147k per run); what you buy is a second independent read.
+test (measured 109k–147k per run); what you get is a second independent read.
 
 ## Requirements
 
