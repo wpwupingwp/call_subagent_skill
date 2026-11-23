@@ -171,8 +171,15 @@ The first three are hard requirements; the fourth decides whether this is also a
 | A 30–50 line change, or ten 10-line changes batched | A one-line change (orchestration costs about 2,100) |
 | Bug fixes with a repro test | Model choice, copy, architecture trade-offs, research |
 | Bulk mechanical edits (rename, migrate, format) | Tasks that need steering mid-flight |
-| Unattended batch work | Interactive debugging (serial + async is slow) |
+| Unattended batch work, or serial multi-round edits/reviews | Interactive debugging (serial + async is slow) |
 | A second opinion on a diff | Reviews purely to save tokens |
+| | Needs concurrency (the skill is serial) |
+
+**Concurrency and multiple rounds.** The skill is serial: dispatch one subagent, wait for its
+commit and acceptance, then dispatch the next. The parent can drive unattended multi-round edits or
+reviews this way, still running preflight → dispatch → postflight per round, with automatic rollback
+on failure. It cannot dispatch concurrently, and it does not decide whether a review's conclusions
+are correct.
 
 **Review-style work** can only be checked for structure and references (fields, anchors, links); it
 cannot catch a wrong conclusion, and when there is nothing structural to check it needs
