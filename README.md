@@ -51,7 +51,10 @@ POINTER=读 .../repo/tasks/t1/dispatch.prompt 并按其执行
 MODEL=llama/LLaMA
 ```
 
-测试文件用 `--import` 拷进仓库，但**不要放进 `--allow`**：子代理改了它，白名单比对就会判越界。
+这里的测试由父代理先写、派发前冻结：验收命令写进简报，测试文件用 `--import` 拷进仓库，但
+**不要放进 `--allow`**——子代理只能改实现，改了测试就是越界。`postflight` 最后以父代理身份
+重跑同一条命令，不采信子代理的自述。修 bug 时基线测试可以是红的（`envcheck` 返回 1），
+派发后必须转绿。
 
 评审/文档类如果没有可机械检查的结构，用 `--allow-no-tests` 显式声明，并在简报里写「人工核对」；
 否则 `preflight` 以 exit 3 拒绝。这样“没有验收命令”会成为 MANIFEST 里可见的状态（`testsRun=false`），

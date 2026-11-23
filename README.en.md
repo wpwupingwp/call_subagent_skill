@@ -54,6 +54,13 @@ MODEL=llama/LLaMA
 ```
 
 4. Pass the `POINTER` line verbatim to the subagent (`cwd` = the repo), then end the turn.
+
+The tests are written by the parent and frozen before dispatch: the acceptance command goes into
+the brief, and test files are copied in with `--import` but **not** placed in `--allow` — the
+subagent may change the implementation, not the tests. `postflight` re-runs the same command as
+the parent and does not trust the subagent's own report. For a bug fix the baseline test may be red
+(`envcheck` returns 1); after the dispatch it has to turn green.
+
 5. After it commits, run acceptance:
 
 ```bash
