@@ -103,6 +103,7 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
 仓库清单：
 
 ```
+.gitattributes               LF 换行约束（Windows 检出）
 git-task-bus/SKILL.md        模型读的规范与流程
 git-task-bus/references/     probe：首次换环境或换模型时的三层探测
 git-task-bus/scripts/        doctor / envcheck / preflight / postflight
@@ -245,8 +246,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 121 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 88 项
+bash tests/run.sh                    # 124 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 91 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、
@@ -279,7 +280,7 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 1,227,313 tok |
 | 缓存命中率 | 99.63% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 17,093,471 |
-| 使用本技能自举（preflight/postflight 跑自己） | **5 次**（self-review-2 / -3 / -4 / -5 / -6，审查） |
+| 使用本技能自举（preflight/postflight 跑自己） | **6 次**（self-review-2 / -3 / -4 / -5 / -6 / -7，审查） |
 | 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
 ## License

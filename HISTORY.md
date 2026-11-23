@@ -383,6 +383,28 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 
 断言 120 → **121**。
 
+### 第七次尝试（第六次成功）：极简简报第四轮（2026-11-23 晚）
+
+同一份四行简报第四次跑（`self-review-7`）。38 步，`in 77,991 / out 12,755 / cache 2,273,830`，
+加权约 **174,488**；postflight `verdict=pass`（changed=1、violations=0、dirty=0、testexit=skipped）。
+
+14 条核对后：3 条修、1 条仓库补齐、4 条假阳性、4 条 minor/意见、1 条未决。
+
+- 修：
+  - `postflight` 对 `BASE..HEAD` 无文件变更的交付判 `fail`（此前 `changed=0` 也 pass）；
+    新增 NO 用例，并把多处「空 commit 模拟子代理」的测试改成真实改动。
+  - `W/无 usage 时不建文件` 断言从 `usage.tsv.bak` 改回 `usage.tsv`（原断言恒真）。
+  - 增加 `dispatch.prompt` 逐行列出白名单的回归断言（此前无覆盖）。
+  - 补 `.gitattributes`（`* text=auto eol=lf`），落实 README 的 Windows LF 要求。
+- 假阳性：#1「`dirty` 取自 dispatch.env」——postflight 开头就重拍 `git status`，实跑
+  `junk.txt` 被判 reject；#4 `DIRTY=no no`——实跑是 `DIRTY=no`；#5 `usage_stats` 无表头——
+  表头本就可选；#8 「711 owner 不可读」——711 的 owner 是 rwx，且索引模式是 755。
+- minor/意见未修：显式 `--child` 同 id 多会话时 `find | head -1`；audit 对转义引号/内联混淆的
+  漏检；`usage_of --latest` 的 O(n) 遍历；测试辅助函数的风格。
+- 未决：`docs/flow-*.html` 与同名 PNG 是否逐像素同源。
+
+断言 121 → **124**。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

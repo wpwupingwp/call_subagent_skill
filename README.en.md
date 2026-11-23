@@ -108,6 +108,7 @@ no entry. If `.git` is not writable it falls back to a `*` ignore file in the se
 Repository files:
 
 ```
+.gitattributes              LF line endings (Windows checkout)
 git-task-bus/SKILL.md        spec the model reads
 git-task-bus/references/     probe: three-layer check for a new environment or model
 git-task-bus/scripts/        doctor / envcheck / preflight / postflight
@@ -268,8 +269,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 121 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 88 when zstd is unavailable
+bash tests/run.sh                    # 124 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 91 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
@@ -307,7 +308,7 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **5** (self-review-2 / -3 / -4 / -5 / -6, review) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **6** (self-review-2 / -3 / -4 / -5 / -6 / -7, review) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License
