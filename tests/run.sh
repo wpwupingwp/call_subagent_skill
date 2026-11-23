@@ -240,6 +240,12 @@ git -C "$R" commit -qam child --allow-empty
 chk "Z/auto 应通过" 0 "$(DSH_HOME="$FH2" bash $SK/scripts/postflight.sh --root "$B" --task t-z --stop completed --child auto --quiet >/dev/null 2>&1; echo $?)"
 chk "Z/匹配到 sid-auto" "sid-auto" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-z/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 chk "Z/用量已记录" "t-z	test/model	pass	1	5	6	7" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
+# Z2：--child auto 匹配失败时记 null，而不是字面量 "auto"
+sess gZ2
+chk "Z2/preflight" 0 "$(pf --task t-z2 --import calc.py --allow calc.py $(b t-z2) --tests true)"
+git -C "$R" commit -qam child --allow-empty
+chk "Z2/auto 失败仍通过" 0 "$(DSH_HOME="$B/nohome" bash $SK/scripts/postflight.sh --root "$B" --task t-z2 --stop completed --child auto --quiet >/dev/null 2>&1; echo $?)"
+chk "Z2/childSession=null" "None" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-z2/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 # AA：不传 --stop 默认 completed
 sess gAA
 chk "AA/preflight" 0 "$(pf --task t-aa --import calc.py --allow calc.py $(b t-aa) --tests true)"
@@ -304,6 +310,9 @@ mkbrief t-ax true
 chk "AX/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ax --import sp.py --allow ' sp.py , other.py ' --brief "$B/fix/brief-t-ax.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 printf 'x=2\n' > "$R/sp.py"; git -C "$R" commit -qam sp
 chk "AX/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ax --quiet >/dev/null 2>&1; echo $?)"
+# AX2/AX3：白名单归一化 —— 绝对路径当场拒绝，前导 ./ 正常接受
+chk "AX2/绝对白名单被拒" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ax2 --import sp.py --allow /sp.py --brief "$B/fix/brief-t-ax.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "AX3/前导 ./ 被归一化" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ax3 --import sp.py --allow './sp.py' --brief "$B/fix/brief-t-ax.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 # AY：--usage 里逗号后的空格不应吞字段
 sess gAY
 printf 'x=1\n' > "$B/fix/uy.py"

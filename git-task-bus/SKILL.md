@@ -201,6 +201,8 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
         MANIFEST.json        # 判定与证据
         deliveries/<task>.patch
         dispatch.env  dispatch.prompt  test.log  tmp/   # 派生文件，.gitignore
+        # 会话目录默认由外层 <仓库>/.git/info/exclude 挡住；
+        # 该文件不可写时退化为 <会话目录>/.gitignore（内容 *）
         # test.log 由 postflight 写（父代理自己跑的验收输出），子代理不写日志
 ```
 

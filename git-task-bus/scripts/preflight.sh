@@ -96,6 +96,22 @@ resolve_model
 
 [ -n "$ALLOW" ] || die "--allow 不能为空。白名单是硬约束，不允许默认全量。"
 
+# 白名单规范化：去空白、前导 ./、尾随 /。git diff 给出的是仓库相对路径，
+# 绝对路径永远匹配不上，必须当场拒绝而不是留到 postflight 判成越界。
+IFS=',' read -ra _allow_raw <<< "$ALLOW"
+ALLOW=""
+for _a in "${_allow_raw[@]}"; do
+  _a="${_a#"${_a%%[![:space:]]*}"}"; _a="${_a%"${_a##*[![:space:]]}"}"
+  while [ "${_a#./}" != "$_a" ]; do _a="${_a#./}"; done
+  _a="${_a%/}"
+  [ -z "$_a" ] && continue
+  case "$_a" in
+    /*) die "--allow 只接受仓库内相对路径（不要以 / 开头）: $_a" ;;
+  esac
+  ALLOW="${ALLOW:+$ALLOW,}$_a"
+done
+[ -n "$ALLOW" ] || die "--allow 不能为空。白名单是硬约束，不允许默认全量。"
+
 # 任务 id 只允许安全字符，因为它进入路径
 case "$TASK" in
   *[!A-Za-z0-9._-]*) die "任务 id 只允许字母数字与 . _ -，实际: $TASK" ;;

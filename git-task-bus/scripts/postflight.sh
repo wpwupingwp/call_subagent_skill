@@ -145,7 +145,12 @@ if kind: print(kind)
 }
 
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
-resolve_child || true
+if [ "$CHILD" = "auto" ]; then
+  if ! resolve_child; then
+    printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
+    CHILD=""
+  fi
+fi
 
 # 用子会话日志的结束原因校正 --stop：日志是事实，命令行是转述
 if CHILD_KIND=$(read_child_stop); then
@@ -170,11 +175,14 @@ count_lines() {
 is_allowed() {
   local f="$1" e
   local -a _al
+  f="${f#./}"
   IFS=',' read -ra _al <<< "$ALLOW"
   for e in "${_al[@]}"; do
     e="${e#"${e%%[![:space:]]*}"}"; e="${e%"${e##*[![:space:]]}"}"
+    while [ "${e#./}" != "$e" ]; do e="${e#./}"; done
     e="${e%/}"
     [ -z "$e" ] && continue
+    case "$e" in /*) continue ;; esac   # 旧 dispatch.env 里的绝对路径不匹配任何仓库相对路径
     [ "$f" = "$e" ] && return 0
     case "$f" in "$e"/*) return 0 ;; esac
   done
