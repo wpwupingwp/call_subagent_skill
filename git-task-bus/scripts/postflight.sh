@@ -74,9 +74,18 @@ if git cat-file -e "HEAD:tasks/$TASK/MANIFEST.json" 2>/dev/null; then
   exit 3
 fi
 
+HAVE_ZSTD=0
+command -v zstd >/dev/null 2>&1 && HAVE_ZSTD=1
+
+child_log() {
+  local id="$1"
+  find "${DSH_HOME:-$HOME/.dsh}/sessions" -type f -path "*/$id/session.v4.jsonl.zstd" 2>/dev/null | head -1
+}
+
 # --child auto：按 parentSession + createdAt 找本次派发的子会话
 resolve_child() {
   [ "$CHILD" = "auto" ] || return 0
+  [ "$HAVE_ZSTD" -eq 1 ] || return 1
   local parent="${DSH_SESSION_ID:-}" best="" best_t=0
   [ -n "$parent" ] || return 1
   local home="${DSH_HOME:-$HOME/.dsh}"
@@ -100,11 +109,9 @@ except Exception:
 }
 
 read_child_usage() {
-  [ -n "$CHILD" ] || return 1
-  command -v zstd >/dev/null 2>&1 || return 1
-  local home="${DSH_HOME:-$HOME/.dsh}"
+  [ -n "$CHILD" ] && [ "$HAVE_ZSTD" -eq 1 ] || return 1
   local log
-  log=$(find "$home/sessions" -type f -path "*/$CHILD/session.v4.jsonl.zstd" 2>/dev/null | head -1)
+  log=$(child_log "$CHILD")
   [ -n "$log" ] || return 1
   local out
   out=$(zstd -dc "$log" 2>/dev/null | python3 -c '
@@ -125,13 +132,10 @@ print(f"steps={steps},in={ti},out={to},cache={tc}")
   return 0
 }
 
-
 read_child_stop() {
-  [ -n "$CHILD" ] || return 1
-  command -v zstd >/dev/null 2>&1 || return 1
-  local home="${DSH_HOME:-$HOME/.dsh}"
+  [ -n "$CHILD" ] && [ "$HAVE_ZSTD" -eq 1 ] || return 1
   local log kind
-  log=$(find "$home/sessions" -type f -path "*/$CHILD/session.v4.jsonl.zstd" 2>/dev/null | head -1)
+  log=$(child_log "$CHILD")
   [ -n "$log" ] || return 1
   kind=$(zstd -dc "$log" 2>/dev/null | python3 -c '
 import json, sys
@@ -150,7 +154,11 @@ if kind: print(kind)
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
 if [ "$CHILD" = "auto" ]; then
   if ! resolve_child; then
-    printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
+    if [ "$HAVE_ZSTD" -eq 0 ]; then
+      printf 'postflight: 未安装 zstd，无法匹配 --child auto，childSession 记为 null\n' >&2
+    else
+      printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
+    fi
     CHILD=""
   fi
 fi
@@ -249,16 +257,21 @@ elif [ -n "$TEST_EXIT" ] && [ "$TEST_EXIT" -ne 0 ]; then
   VERDICT="fail"; EXIT=1
 fi
 
-# 丢弃失败时也要留下判定：否则仓库停在半还原态且没有 MANIFEST/patch 可查。
-write_discard_error() {
-  local reason="$1" src="${2:-}" p=""
+# 丢弃/生成失败时也要留下判定：否则仓库停在半还原态且没有 MANIFEST/patch 可查。
+error_patch() {
+  local src="${1:-}" dest="$TDIR/deliveries/$TASK.error.patch"
+  [ -n "$src" ] && [ -s "$src" ] || return 0
   mkdir -p "$TDIR/deliveries" 2>/dev/null || true
-  if [ -n "$src" ] && [ -s "$src" ]; then
-    p="$TDIR/deliveries/$TASK.error.patch"
-    cp "$src" "$p" 2>/dev/null || p=""
+  if [ "$src" != "$dest" ]; then
+    mv "$src" "$dest" 2>/dev/null || cp "$src" "$dest" 2>/dev/null || return 0
   fi
+  printf '%s' "$dest"
+}
+
+write_error_manifest() {
+  local reason="$1" patch="${2:-}"
   printf '{\n  "task": "%s",\n  "session": "%s",\n  "base": "%s",\n  "head": "%s",\n  "verdict": "error",\n  "error": "%s",\n  "patch": {"file": "%s"}\n}\n' \
-    "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$reason" "${p:-}" > "$TDIR/MANIFEST.json" 2>/dev/null || true
+    "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$reason" "$patch" > "$TDIR/MANIFEST.json" 2>/dev/null || true
 }
 
 # ---- 8. 未通过则丢弃：先归档到仓库外，再还原 ----
@@ -267,22 +280,22 @@ if [ "$VERDICT" != "pass" ]; then
   ARCHIVE=$(mktemp)
   if ! git add -A >/dev/null 2>&1; then
     printf 'postflight: 丢弃失败 —— git add 出错（仓库可能仍在被占用）\n' >&2
-    write_discard_error "git add failed"
+    write_error_manifest "git add failed"
     exit 3
   fi
   if ! git diff --cached --binary --no-renames "$BASE" > "$ARCHIVE"; then
     printf 'postflight: 丢弃失败 —— 导出 patch 出错\n' >&2
-    write_discard_error "patch export failed" "$ARCHIVE"
+    write_error_manifest "patch export failed" "$(error_patch "$ARCHIVE")"
     exit 3
   fi
   if ! git reset -q --hard "$BASE"; then
     printf 'postflight: 丢弃失败 —— git reset --hard 出错，仓库未还原\n' >&2
-    write_discard_error "git reset --hard failed" "$ARCHIVE"
+    write_error_manifest "git reset --hard failed" "$(error_patch "$ARCHIVE")"
     exit 3
   fi
   if ! git clean -qfd; then
     printf 'postflight: 丢弃失败 —— git clean 出错\n' >&2
-    write_discard_error "git clean failed" "$ARCHIVE"
+    write_error_manifest "git clean failed" "$(error_patch "$ARCHIVE")"
     exit 3
   fi
   DISCARDED=yes
@@ -364,22 +377,21 @@ if [ "$MANIFEST_OK" -ne 1 ]; then
   printf 'postflight: MANIFEST.json 生成失败，判定降级为 error\n' >&2
   rm -f "$TDIR/MANIFEST.json"
   # patch 改名，避免 error 判定留下一个看起来像 pass 的 <task>.patch
-  if [ -f "$PATCH" ] && [ "${PATCH##*/}" = "$TASK.patch" ]; then
-    mv "$PATCH" "$TDIR/deliveries/$TASK.error.patch"
-    PATCH="$TDIR/deliveries/$TASK.error.patch"
+  if [ "${PATCH##*/}" = "$TASK.patch" ]; then
+    PATCH=$(error_patch "$PATCH")
     PATCH_SHA=$(git hash-object -- "$PATCH")
     PATCH_LINES=$(count_lines "$PATCH")
   fi
-  # 兜底 MANIFEST 不依赖 python：python 不可用时仍要留下判定
-  printf '{\n  "task": "%s",\n  "session": "%s",\n  "base": "%s",\n  "head": "%s",\n  "verdict": "error",\n  "error": "MANIFEST generation failed",\n  "patch": {"file": "%s"}\n}\n' \
-    "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$PATCH" > "$TDIR/MANIFEST.json"
+  write_error_manifest "MANIFEST generation failed" "$PATCH"
   VERDICT="error"; EXIT=3
 fi
 
 # ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
 
 if [ -z "$USAGE" ] && [ -n "$CHILD" ]; then
-  if ! read_child_usage; then
+  if [ "$HAVE_ZSTD" -eq 0 ]; then
+    echo "postflight: 未安装 zstd，跳过 $CHILD 的用量读取" >&2
+  elif ! read_child_usage; then
     echo "postflight: 无法从会话日志读取 $CHILD 的用量（环境不同或日志缺失），本次不记录" >&2
   fi
 fi
@@ -403,12 +415,6 @@ if [ -n "$USAGE" ]; then
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$(now_utc)" "$TASK" "${MODEL:-}" "$VERDICT" \
     "$u_steps" "$u_in" "$u_out" "$u_cache" >> "$USAGE_FILE"
-fi
-
-# MANIFEST 缺失意味着出处与判定无法留痕：先降级，再决定提交信息
-if [ ! -s "$TDIR/MANIFEST.json" ]; then
-  echo "postflight: MANIFEST.json 生成失败，判定降级为 error" >&2
-  VERDICT="error"; EXIT=3
 fi
 
 # ---- 11. 记录物入历史（无论判定如何）----
@@ -437,7 +443,7 @@ fi
 
 echo "──────── postflight: $TASK ────────"
 printf 'BASE        %s\n' "${BASE:0:12}"
-printf 'HEAD        %s (%s)\n' "${HEAD_SHA:0:12}" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+printf 'HEAD        %s (%s)\n' "${HEAD_SHA:0:12}" "$HEAD_BRANCH"
 printf 'stopReason  %s\n' "$STOP"
 printf '变更文件    %s\n' "$CHANGED_COUNT"
 printf '越界违规    %s\n' "$VIOLATION_COUNT"
