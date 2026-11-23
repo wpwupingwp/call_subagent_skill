@@ -228,7 +228,7 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 **怎么选模型？**
 技能不判断模型价格，也不替用户决定。首次派发时列出候选、问用户选哪个，用
 `--model <provider/model> --save-model` 落盘到会话仓库的 `model`；之后 `--model` 可省。
-解析顺序：`--model` > 会话仓库的 `model` > `<工作区>/model`。两者都没有时 `preflight` 直接
+解析顺序：`--model` > 会话仓库的 `model` > `<会话目录>/model` > `<工作区>/model`。都没有时 `preflight` 直接
 exit 3——不会退化成父模型。
 
 **怎么记录子代理用量？**
@@ -277,7 +277,7 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 1,227,313 tok |
 | 缓存命中率 | 99.63% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 17,093,471 |
-| 使用本技能自举（preflight/postflight 跑自己） | **2 次**（self-review-2 / self-review-3，审查） |
+| 使用本技能自举（preflight/postflight 跑自己） | **3 次**（self-review-2 / -3 / -4，审查） |
 | 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
 ## License

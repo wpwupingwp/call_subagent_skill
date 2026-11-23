@@ -249,8 +249,8 @@ row usually mean the brief is unclear — fix the brief instead of trying a thir
 **How do I choose a model?**
 The skill does not judge prices or pick for you. On first use, list the candidates and ask the
 human, then persist the answer with `--model <provider/model> --save-model`. Resolution order:
-`--model` > session repo `model` > `<workspace>/model`; with none of them `preflight` exits 3
-instead of silently falling back to the parent model.
+`--model` > session repo `model` > `<session-dir>/model` > `<workspace>/model`; with none of
+them `preflight` exits 3 instead of silently falling back to the parent model.
 
 **How is subagent usage recorded?**
 `--child auto` matches the child session through `parentSession` and reads its log into
@@ -305,7 +305,7 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **2** (self-review-2 / self-review-3, review) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **3** (self-review-2 / -3 / -4, review) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License

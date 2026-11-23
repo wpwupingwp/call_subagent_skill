@@ -324,6 +324,28 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 盲审没有发现新的 P0；它的价值是确认上一轮修法没有引入回归，并找出几处上一轮漏掉的
 「只在特定入口才触发」的小问题。
 
+### 第四次尝试（第三次成功）：极简简报（2026-11-23 晚）
+
+按「直接审查代码，不要多余的说明」把简报压到四行：范围（白名单 `findings.md`）、任务（审查代码、
+写进 `findings.md`）、验收（人工核对）、交付（提交），不提示审查角度、条数或格式。
+
+任务 `self-review-4`，同样 preflight → 子代理提交 → postflight。26 步，
+`in 53,549 / out 8,538 / cache 1,204,631`，加权约 **111,794**；`verdict=pass`
+（changed=1、violations=0、dirty=0、testexit=skipped）。
+
+它报 10 条（5 采纳 / 4 意见 / 1 拒绝）。父代理逐条核对后只有 **1 条有效**：
+
+- 有效：模型解析顺序代码是四级（`--model` > 会话仓库 `model` > 会话目录 `model` > 工作区
+  `model`），README 中英都漏了会话目录一级，SKILL 漏了会话仓库一级；代码注释本身是对的。
+- 假阳性 3 条：`export MODEL` 在 `set -u` 下未赋值不会报错（实测 `survived`）；
+  `dispatch.env`/`dispatch.prompt` 确实在 `.gitignore` 里，`git ls-files` 也不含它们；
+  `usage_of.sh --raw` 实跑输出 JSON（参数确实到达了 `sys.argv`）。
+- 其余 4 条是意见（`--allow-dirty` 不留痕、`audit_compliance` scope 偏宽、`imports.tsv` 单点、
+  quiet 摘要粒度），1 条（`envcheck --cwd`）拒绝。
+
+修：README 中英与 SKILL 的解析顺序补全为四级。断言仍为 113——这是纯文档偏差，没有可机械判定
+的行为差异。极简简报没有提高命中率，反而多出 3 条假阳性；但成本只有上一轮盲审的八成。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），
