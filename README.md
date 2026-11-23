@@ -224,7 +224,8 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 **怎么选模型？**
 技能不判断模型价格，也不替用户决定。首次派发时列出候选、问用户选哪个，用
 `--model <provider/model> --save-model` 落盘到会话仓库的 `model`；之后 `--model` 可省。
-解析顺序：`--model` > 会话仓库的 `model` > `<工作区>/model`。
+解析顺序：`--model` > 会话仓库的 `model` > `<工作区>/model`。两者都没有时 `preflight` 直接
+exit 3——不会退化成父模型。
 
 **怎么记录子代理用量？**
 `--child auto` 会按 `parentSession` 匹配本次派发的子会话，读日志并记进 `tasks/usage.tsv`；
@@ -238,8 +239,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 97 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 67 项
+bash tests/run.sh                    # 99 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 69 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、

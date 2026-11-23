@@ -89,7 +89,7 @@ resolve_model() {
   done
 }
 resolve_model
-[ -n "$MODEL" ] || echo "preflight: 未指定模型（--model / $REPO/model），将沿用子代理默认模型" >&2
+[ -n "$MODEL" ] || die "未指定子代理模型：用 --model <provider/model> 指定，或先 --model … --save-model 落盘。"
 
 [ -n "$ALLOW" ] || die "--allow 不能为空。白名单是硬约束，不允许默认全量。"
 

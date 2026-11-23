@@ -244,7 +244,8 @@ row usually mean the brief is unclear — fix the brief instead of trying a thir
 **How do I choose a model?**
 The skill does not judge prices or pick for you. On first use, list the candidates and ask the
 human, then persist the answer with `--model <provider/model> --save-model`. Resolution order:
-`--model` > session repo `model` > `<workspace>/model`.
+`--model` > session repo `model` > `<workspace>/model`; with none of them `preflight` exits 3
+instead of silently falling back to the parent model.
 
 **How is subagent usage recorded?**
 `--child auto` matches the child session through `parentSession` and reads its log into
@@ -260,8 +261,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 97 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 67 when zstd is unavailable
+bash tests/run.sh                    # 99 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 69 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

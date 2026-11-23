@@ -19,7 +19,7 @@ chk() { if [ "$2" = "$3" ]; then echo "  ✅ $1 (= $3)"; pass=$((pass+1));
 sess() { export DSH_SESSION_ID="$1"; R="$B/$1/repo"; }
 mkbrief() { printf '# 简报：%s\n## 范围\n白名单：只允许改动约定路径\n## 验收\n```bash\n%s\n```\n## 交付\n1. 提交（工作树干净）\n' "$1" "$2" > "$B/fix/brief-$1.md"; }
 pf() { local t="" tests=""; local a=("$@"); for ((i=0;i<${#a[@]};i++)); do case "${a[i]}" in --task) t="${a[i+1]}";; --tests) tests="${a[i+1]}";; esac; done
-       [ -n "$t" ] && mkbrief "$t" "$tests"; bash "$SK/scripts/preflight.sh" --root "$B" "$@" >/dev/null 2>&1; echo $?; }
+       [ -n "$t" ] && mkbrief "$t" "$tests"; bash "$SK/scripts/preflight.sh" --model test/model --root "$B" "$@" >/dev/null 2>&1; echo $?; }
 po() { bash "$SK/scripts/postflight.sh" --root "$B" --task "$1" --stop "${2:-completed}" >"$B/$1.out" 2>&1; echo $?; }
 b() { echo "--brief $B/fix/brief-$1.md"; }
 cd "$B/fix"
@@ -75,9 +75,9 @@ chk "J/归档存在" "yes" "$([ -s "$R/tasks/t-j/deliveries/t-j.abandoned.patch"
 
 echo "── S 简报校验 ──"
 sess gS
-chk "S1/无简报" 3 "$(bash $SK/scripts/preflight.sh --task s-1 --allow a.py --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "S1/无简报" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task s-1 --allow a.py --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 mkdir -p "$R/tasks/s-2"; printf '# 简报\n白名单：只允许改动 a.py\n提交\n' > "$R/tasks/s-2/brief.md"
-chk "S2/缺验收命令" 3 "$(bash $SK/scripts/preflight.sh --task s-2 --allow a.py --tests 'python3 x.py' --root "$B" >/dev/null 2>&1; echo $?)"
+chk "S2/缺验收命令" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task s-2 --allow a.py --tests 'python3 x.py' --root "$B" >/dev/null 2>&1; echo $?)"
 
 echo "── T 模型与最小模式 ──"
 sess gT
@@ -94,7 +94,7 @@ chk "T/复用模型" "MODEL=llama/LLaMA" "$(printf '%s\n' "$OUT" | grep '^MODEL=
 echo "── U 共享基线 ──"
 sess gA
 mkbrief t-u2 "true"
-chk "U/preflight" 0 "$(bash $SK/scripts/preflight.sh --task t-u2 --allow calc.py --brief "$B/fix/brief-t-u2.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "U/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-u2 --allow calc.py --brief "$B/fix/brief-t-u2.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 chk "U/BASE=HEAD" "$(git -C "$R" rev-parse HEAD)" "$(sed -n 's/^BASE=//p' "$R/tasks/t-u2/dispatch.env")"
 
 echo "── V 重复导入不覆盖 ──"
@@ -116,7 +116,7 @@ mkdir -p "$B/gw/site/fix"
 cd "$B/gw/site/fix"
 printf 'x=1\n' > a.py
 printf '# 简报\n白名单：只允许改动 a.py\n验收 test -f a.py\n提交\n' > brief.md
-OUT=$(DSH_SESSION_ID=session-ad1 bash "$SK/scripts/preflight.sh" --task ad-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw/site" --quiet 2>&1)
+OUT=$(DSH_SESSION_ID=session-ad1 bash "$SK/scripts/preflight.sh" --model test/model --task ad-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw/site" --quiet 2>&1)
 chk "AD/本地忽略已追加" "yes" "$(grep -qxF '/site/session-*/' "$B/gw/.git/info/exclude" && echo yes || echo no)"
 chk "AD/外层 status 干净" "" "$(git -C "$B/gw" status --porcelain --untracked-files=all -- site/session-ad1)"
 chk "AD/不建 .gitignore" "no" "$([ -f "$B/gw/.gitignore" ] && echo yes || echo no)"
@@ -129,7 +129,7 @@ mkdir -p "$B/gw2/site/fix"
 cd "$B/gw2/site/fix"
 printf 'x=1\n' > a.py
 printf '# 简报\n白名单：只允许改动 a.py\n验收 test -f a.py\n提交\n' > brief.md
-DSH_SESSION_ID=session-ed1 bash "$SK/scripts/preflight.sh" --task ed-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw2/site" >/dev/null 2>&1
+DSH_SESSION_ID=session-ed1 bash "$SK/scripts/preflight.sh" --model test/model --task ed-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw2/site" >/dev/null 2>&1
 chk "AD2/保留原规则" "yes" "$(grep -qxF 'keepme/' "$B/gw2/.gitignore" && echo yes || echo no)"
 chk "AD2/未改 .gitignore" "no" "$(grep -q 'git-task-bus' "$B/gw2/.gitignore" && echo yes || echo no)"
 chk "AD2/本地忽略已追加" "yes" "$(grep -qxF '/site/session-*/' "$B/gw2/.git/info/exclude" && echo yes || echo no)"
@@ -141,10 +141,10 @@ echo "── AE 导入源变更 ──"
 sess gAE
 printf 'x=1\n' > "$B/fix/ae.py"
 mkbrief t-ae1 true
-chk "AE/preflight1" 0 "$(bash "$SK/scripts/preflight.sh" --root "$B" --task t-ae1 --import ae.py --allow ae.py --brief "$B/fix/brief-t-ae1.md" --tests true >/dev/null 2>&1; echo $?)"
+chk "AE/preflight1" 0 "$(bash "$SK/scripts/preflight.sh" --model test/model --root "$B" --task t-ae1 --import ae.py --allow ae.py --brief "$B/fix/brief-t-ae1.md" --tests true >/dev/null 2>&1; echo $?)"
 printf 'x=2\n' > "$B/fix/ae.py"
 mkbrief t-ae2 true
-OUT_AE=$(bash "$SK/scripts/preflight.sh" --root "$B" --task t-ae2 --import ae.py --allow ae.py --brief "$B/fix/brief-t-ae2.md" --tests true 2>&1 >/dev/null)
+OUT_AE=$(bash "$SK/scripts/preflight.sh" --model test/model --root "$B" --task t-ae2 --import ae.py --allow ae.py --brief "$B/fix/brief-t-ae2.md" --tests true 2>&1 >/dev/null)
 chk "AE/源变更时警告" "yes" "$(printf '%s' "$OUT_AE" | grep -q '已变' && echo yes || echo no)"
 chk "AE/索引已记录" "yes" "$([ -f "$R/tasks/imports.tsv" ] && echo yes || echo no)"
 chk "AE/审查目录在仓库外" "yes" "$([ -d "$B/gAE/reviews" ] && echo yes || echo no)"
@@ -212,7 +212,7 @@ git -C "$R" commit -qam child --allow-empty
 chk "W/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-w --stop completed --child child-123 --usage 'steps=7,in=100,out=200,cache=300' --quiet >/dev/null 2>&1; echo $?)"
 chk "W/记录 childSession" "child-123" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-w/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 chk "W/usage 有表头+一行" 2 "$(grep -c '' "$R/tasks/usage.tsv")"
-chk "W/行内容" "t-w		pass	7	100	200	300" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
+chk "W/行内容" "t-w	test/model	pass	7	100	200	300" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
 # 自动读取：伪造一个子代理会话日志
 FH="$B/fakehome"; mkdir -p "$FH/sessions/p/sid-1"
 printf '%s\n' '{"type":"assistant/message","data":{"usage":{"inputTokens":10,"outputTokens":20,"cacheReadTokens":30}}}' \
@@ -222,7 +222,7 @@ sess gX
 chk "X/preflight" 0 "$(pf --task t-x --import calc.py --allow calc.py $(b t-x) --tests true)"
 git -C "$R" commit -qam child --allow-empty
 chk "X/postflight" 0 "$(DSH_HOME="$FH" bash $SK/scripts/postflight.sh --root "$B" --task t-x --stop completed --child sid-1 --quiet >/dev/null 2>&1; echo $?)"
-chk "X/自动记录用量" "t-x		pass	2	11	22	33" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
+chk "X/自动记录用量" "t-x	test/model	pass	2	11	22	33" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
 sess gY
 chk "Y/preflight" 0 "$(pf --task t-y --import calc.py --allow calc.py $(b t-y) --tests true)"
 git -C "$R" commit -qam child --allow-empty
@@ -239,7 +239,7 @@ NOW=$(date +%s)000
 git -C "$R" commit -qam child --allow-empty
 chk "Z/auto 应通过" 0 "$(DSH_HOME="$FH2" bash $SK/scripts/postflight.sh --root "$B" --task t-z --stop completed --child auto --quiet >/dev/null 2>&1; echo $?)"
 chk "Z/匹配到 sid-auto" "sid-auto" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-z/MANIFEST.json'))['childSession'])" 2>/dev/null)"
-chk "Z/用量已记录" "t-z		pass	1	5	6	7" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
+chk "Z/用量已记录" "t-z	test/model	pass	1	5	6	7" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
 # AA：不传 --stop 默认 completed
 sess gAA
 chk "AA/preflight" 0 "$(pf --task t-aa --import calc.py --allow calc.py $(b t-aa) --tests true)"
@@ -259,12 +259,17 @@ else
   echo "  (跳过消耗记录相关断言：未安装 zstd，或 SKIP_USAGE_TESTS=1)"
 fi
 
+# AN：未指定模型直接拒绝
+sess gAN
+chk "AN/缺模型被拒" 3 "$(DSH_SESSION_ID=gAN bash "$SK/scripts/preflight.sh" --task t-an --import calc.py --allow calc.py $(b t-an) --tests true --root "$B" --quiet >/dev/null 2>&1; echo $?)"
+chk "AN/未建仓库" "no" "$([ -d "$B/gAN/repo" ] && echo yes || echo no)"
+
 # AL：评审/文档类显式 --allow-no-tests
 sess gAL
 printf '# 简报\n## 范围\n白名单：只允许改动 calc.py\n## 验收\n人工核对\n## 交付\n1. 提交\n' > "$B/fix/brief-nt.md"
-chk "AL/缺 tests 被拒" 3 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --quiet >/dev/null 2>&1; echo $?)"
+chk "AL/缺 tests 被拒" 3 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --model test/model --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --quiet >/dev/null 2>&1; echo $?)"
 chk "AL/失败不留仓库" "no" "$([ -d "$B/gAL/repo" ] && echo yes || echo no)"
-chk "AL/允许后 preflight" 0 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
+chk "AL/允许后 preflight" 0 "$(DSH_SESSION_ID=gAL bash $SK/scripts/preflight.sh --model test/model --root "$B" --task t-al --import calc.py --allow calc.py --brief "$B/fix/brief-nt.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
 git -C "$R" commit -q --allow-empty -m child
 bash $SK/scripts/postflight.sh --root "$B" --task t-al --stop completed --quiet >"$B/al.out" 2>&1; RC_AL=$?
 chk "AL/postflight 通过" 0 "$RC_AL"
@@ -273,12 +278,12 @@ chk "AL/testsRun=false" "False" "$(python3 -c "import json;print(json.load(open(
 chk "AL/testExitCode=null" "None" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-al/MANIFEST.json'))['testExitCode'])" 2>/dev/null)"
 # AL2：声明了 --allow-no-tests 但简报没写人工核对 → 拒绝
 mkdir -p "$B/nt2"; printf '# 简报\n## 范围\n白名单：calc.py\n## 验收\n无\n## 交付\n1. 提交\n' > "$B/nt2/b.md"
-chk "AL2/缺人工核对被拒" 3 "$(DSH_SESSION_ID=gAL2 bash $SK/scripts/preflight.sh --root "$B/nt2" --task t-al2 --import "$B/fix/calc.py" --allow calc.py --brief "$B/nt2/b.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
+chk "AL2/缺人工核对被拒" 3 "$(DSH_SESSION_ID=gAL2 bash $SK/scripts/preflight.sh --model test/model --root "$B/nt2" --task t-al2 --import "$B/fix/calc.py" --allow calc.py --brief "$B/nt2/b.md" --allow-no-tests --quiet >/dev/null 2>&1; echo $?)"
 # AM：校验失败不写 exclude、不建仓库
 mkdir -p "$B/gw3/site/fix"
 ( cd "$B/gw3" && git init -q -b main && git config user.name t && git config user.email t@t && git commit -q --allow-empty -m init )
 printf '坏简报，没有任何必填字样\n' > "$B/gw3/site/fix/bad.md"
-chk "AM/坏简报被拒" 3 "$( cd "$B/gw3/site/fix" && DSH_SESSION_ID=session-am1 bash $SK/scripts/preflight.sh --root "$B/gw3/site" --task t-am --import bad.md --allow bad.md --brief bad.md --quiet >/dev/null 2>&1; echo $?)"
+chk "AM/坏简报被拒" 3 "$( cd "$B/gw3/site/fix" && DSH_SESSION_ID=session-am1 bash $SK/scripts/preflight.sh --model test/model --root "$B/gw3/site" --task t-am --import bad.md --allow bad.md --brief bad.md --quiet >/dev/null 2>&1; echo $?)"
 chk "AM/未建会话目录" "no" "$([ -d "$B/gw3/site/session-am1" ] && echo yes || echo no)"
 chk "AM/exclude 未追加" "no" "$(grep -q 'git-task-bus' "$B/gw3/.git/info/exclude" && echo yes || echo no)"
 
