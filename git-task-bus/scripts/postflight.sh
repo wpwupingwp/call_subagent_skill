@@ -62,9 +62,6 @@ fi
 
 if [ -z "$STOP" ]; then
   STOP="completed"
-  if [ -z "${STOP_GIVEN:-}" ] && [ -z "${CHILD:-}" ]; then
-    printf 'postflight: 未提供 --stop 与 --child，按 completed 处理；子代理非正常结束时请显式传入\n' >&2
-  fi
 fi
 
 # 同一任务已判定过就拒绝重跑：产物已进历史，重跑会把它们当成越界改动，

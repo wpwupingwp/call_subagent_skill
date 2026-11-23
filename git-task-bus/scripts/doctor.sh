@@ -47,11 +47,6 @@ version_ge() {  # version_ge A B —— A >= B 时为真；按数字段逐段比
   return 0
 }
 
-hash_stdin() { git hash-object --stdin; }   # 内容哈希：git 已在前提内，免去 sha256sum
-hash_file()  { git hash-object -- "$1"; }
-
-now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
-
 FAIL=0
 ok()   { printf '  ✅ %s\n' "$1"; }
 bad()  { printf '  ❌ %s\n' "$1" >&2; FAIL=1; }
