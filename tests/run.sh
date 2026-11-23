@@ -246,6 +246,7 @@ printf '#!/bin/sh\nif [ "$1" = "-" ]; then exit 1; fi\nexec %s "$@"\n' "$REAL_PY
 chmod +x "$B/fakebin/python3"
 chk "MF/应 3" 3 "$(PATH="$B/fakebin:$PATH" bash "$SK/scripts/postflight.sh" --root "$B" --task t-mf --child test-child --quiet >/dev/null 2>&1; echo $?)"
 chk "MF/manifest 降级" "error" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-mf/MANIFEST.json'))['verdict'])" 2>/dev/null)"
+chk "MF/error 提交主题" "task t-mf: error" "$(git -C "$R" log --format=%s -1)"
 chk "MF/patch 改名" "yes" "$([ -f "$R/tasks/t-mf/deliveries/t-mf.error.patch" ] && echo yes || echo no)"
 
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then

@@ -179,7 +179,7 @@ each time: the first three decide fit, and the fourth decides whether this is al
 | Bug fixes with a repro test | Model choice, copy, architecture trade-offs, research |
 | Bulk mechanical edits (rename, migrate, format) | Tasks that need steering mid-flight |
 | Unattended batch work, or serial multi-round edits/reviews | Interactive debugging (serial + async is slow) |
-| A second opinion on a diff | Reviews purely to save tokens |
+| A second opinion (clean-context review, diff or not) | Reviews purely to save tokens |
 | | Needs concurrency (the skill is serial) |
 
 **Concurrency and multiple rounds.** The skill is serial: dispatch one subagent, wait for its
@@ -361,8 +361,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 135 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 102 total
+bash tests/run.sh                    # 136 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 103 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
