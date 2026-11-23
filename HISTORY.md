@@ -517,6 +517,23 @@ stop 和 usage 都从 `~/.dsh/sessions` 读。这让核心验收和 DSH 的内�
 检查或说明，DSH 环境已保证。代码里仍保留“一次解压合并 stop/usage”和“首行 head 匹配”的
 优化，但工作流不再支持无 `--child` 的核心用法。断言仍是 135 条。
 
+### 为什么保留 `--child` / stop（2026-11-24 复核）
+
+复核 `stop`/`usage` 的用途时确认了三件事：
+
+- 父代理拿不到子会话 id：`subagent` 的返回和完成通知正文都只有 name，`list_agents` 对有 name
+  的子代理也不显示 id。但父会话日志里有 `subagent/catalog`（`childId`、`childCreatedAt`）和
+  通知的 `source.senderSessionId`，脚本能读——所以 `--child auto` 可行，只是模型侧没有入口。
+- DSH 的 settlement notice 只给散文结论（`finished` / `was stopped before it finished` /
+  `ran out of room`），精确 `stopReason` 在元数据里，脚本读不到。要核对 `--stop` 并记录精确
+  枚举，只能读子会话日志。
+- usage 与判定无关，只用于审计和 `r`；但一次解压已经同时产出 stop 和 usage，单独去掉 usage
+  省不到解压，因此不拆。
+
+实测代价（220 个会话）：`--child auto` 约 0.8s（首次 1.06s），其中读 stop/usage 约 20ms；
+显式 id 约 30ms；读父日志的 `subagent/catalog` 约 0.66s。结论是维持现状：`--child` 必填、
+zstd 由 DSH 保证、不单独检查；移植相关的接口说明集中到 README 的“移植到其他 harness”一节。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

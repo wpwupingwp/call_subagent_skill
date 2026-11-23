@@ -147,7 +147,8 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ```
 
-`--child` 是必填的 DSH 日志适配器：从子会话日志读真实结束原因和用量，不一致时以日志为准。
+`--child` 是必填的 DSH 日志适配器：从子会话日志读真实结束原因和用量，不一致时以日志为准；
+用量只用于审计，不参与判定。移植到其他 harness 时替换该适配器（见 README 的移植章节）。
 `--stop` 用于子代理非正常结束或日志不可读时的兜底（默认 `completed`）。
 
 不要为了看细节重跑 `postflight`；需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新任务 id。

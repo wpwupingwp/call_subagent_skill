@@ -12,7 +12,8 @@ before handing back a patch you can inspect.
 - Reads, failed attempts and test logs stay in the subagent's own session
 
 > **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**; `--child`
-> reads DSH child-session logs and is required. Other harnesses must port that adapter.
+> reads DSH child-session logs and is required. Other harnesses must port that adapter; see
+> [Porting to another harness](#porting-to-another-harness).
 
 Human-facing docs. The model-facing spec is [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md).
 
@@ -224,13 +225,68 @@ test (measured 109k–147k per run); what you get is a second independent read.
 | Commands | bash, POSIX basics, `python3` (hard dependency) |
 | Workspace | writable; does not have to be a git repository |
 
-Scripts only use POSIX tools plus `python3` (for `MANIFEST.json` and usage parsing); no `sort -V`,
-`date -Iseconds` or `sha256sum` that BSD/macOS lacks. Content hashes use `git hash-object`.
+The acceptance logic only uses POSIX tools plus `python3` (for `MANIFEST.json` and usage parsing);
+no `sort -V`, `date -Iseconds` or `sha256sum` that BSD/macOS lacks. Decompressing child logs uses
+the zstd that ships with DSH. Content hashes use `git hash-object`.
 On the git side it uses the 2.28 commands directly: `git init -b`, `git switch`, `git worktree list`;
 no compatibility branches for older releases.
 
 On Windows: scripts must be LF (add `.gitattributes` or set `core.autocrlf=false`), and pass POSIX
 paths (`/c/work/...`), not `C:\...`.
+
+## Porting to another harness
+
+The acceptance core (`preflight`/`postflight`: diff, whitelist, history, tests, patch, MANIFEST,
+rollback) only needs git + bash + `python3`. DSH appears only in the **child-session adapter**.
+Porting means replacing that adapter; the verdict logic does not change.
+
+### What the adapter provides
+
+| Capability | Source on DSH | When unreadable |
+|---|---|---|
+| child session id | not available model-side: `subagent` returns only a name and so does the settlement notice; `--child auto` matches the child log's first line by `parentSession` + `createdAt` | `childSession=null` |
+| stopReason | `reason.kind` of the last `turn/end` in the child log | falls back to `--stop` (default `completed`) |
+| usage | `assistant/message.usage`: `inputTokens` / `outputTokens` / `cacheReadTokens`, summed per step | not recorded; `--usage` can be passed by hand |
+
+- **stop is a verdict latch**: anything other than `completed` fails, so a truncated delivery cannot
+  pass just because tests happen to be green.
+- **usage is audit-only**: it lands in `MANIFEST.json` and `tasks/usage.tsv` and does not affect the
+  verdict; use `usage_of.sh` or explicit `--usage` when measuring `r`.
+- **The DSH settlement notice is not a substitute**: the parent gets prose (`finished`, `was stopped
+  before it finished`, `ran out of room`), the text carries no id, and the exact `stopReason` lives
+  only in metadata no script can read. The adapter reads the log for the exact enum and `childSession`.
+- **zstd is not a separate dependency**: logs are
+  `<DSH_HOME>/sessions/<slug>/<id>/session.v4.jsonl.zstd` and DSH ships zstd; `doctor.sh` does not
+  check it. On a harness without zstd, replace the decompression.
+
+Cost (measured here, 220 sessions): one child-log read ~20ms; `--child auto` scans first lines in
+~0.8s; explicit id ~30ms; reading the parent log's `subagent/catalog` (the other id source) ~0.66s.
+`auto` spends its time finding the id, not parsing.
+
+### Porting checklist
+
+| Where | DSH-specific | Replace with |
+|---|---|---|
+| `postflight.sh`'s `child_log` / `resolve_child` / `read_child_meta` | log path, `parentSession`, `turn/end`, `usage`, zstd | the target harness's session store and parser; keep the "return stop/usage" interface |
+| `--child auto` | matching by parent session + `createdAt` | if the harness exposes the child id, drop `auto` and pass the id |
+| stopReason values | `completed` / `aborted` / `max-tokens` / `error` / `refusal` | map to the target harness's stop reasons; the verdict still accepts only `completed` |
+| `--usage` format | `steps=..,in=..,out=..,cache=..` | rename fields, or keep this string format for the parent to pass by hand |
+| `DSH_SESSION_ID` / `DSH_HOME` / `CREATED` in `dispatch.env` | locating the parent, matching the child | the target harness's equivalents; if none, require an explicit `--child <id>` |
+| `doctor.sh` | does not check zstd | add a check if the target environment lacks zstd, or replace the decompression |
+
+The log format is tied to DSH v0.2.2's session v4; if it changes in a DSH upgrade, update the adapter.
+
+### Harness without session logs
+
+Minimal change: delete the three adapter functions and the `--child` parsing, make `--stop`
+**required** (otherwise the `completed` default is fail-open), keep `--usage` manual only, and set
+MANIFEST's `childSession` to `null`. The acceptance logic is unchanged.
+
+### Tests
+
+Every postflight call in `tests/run.sh` passes `--child test-child` with no matching log, which
+covers the "log unreadable" fallback (use `--stop` if given, otherwise the `completed` default).
+To verify an adapter on another harness, add a minimal session-log fixture.
 
 ## FAQ
 
@@ -257,8 +313,8 @@ No. `postflight` runs the acceptance command itself and records the exit code, a
 it once more. A self-report is not evidence.
 
 **What if the subagent dies or runs out of budget?**
-Pass the real stop reason with `--stop` (`aborted` / `error` / `max-tokens` / `refusal`); with
-`--child` the tool also reads it from the session log. `max-tokens` means the task was too big —
+Pass the real stop reason with `--stop` (`aborted` / `error` / `max-tokens` / `refusal`);
+`postflight` also corrects it from the child-session log. `max-tokens` means the task was too big —
 narrow it or split it, don't re-dispatch unchanged.
 
 **Does the acceptance command run sandboxed?**
@@ -278,7 +334,8 @@ them `preflight` exits 3 instead of silently falling back to the parent model.
 
 **How is subagent usage recorded?**
 `--child auto` matches the child session through `parentSession` and reads stop/usage from the
-DSH log into `tasks/usage.tsv`; `--child` is required. You can also pass
+DSH log into `tasks/usage.tsv` (usage is audit-only and does not affect the verdict); `--child` is
+required. You can also pass
 `--usage 'steps=12,in=2689,out=1926,cache=143545'` by hand to skip automatic reading.
 `usage_stats.sh` rolls up by model.
 

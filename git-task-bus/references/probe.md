@@ -42,7 +42,7 @@ bash <本技能目录>/scripts/preflight.sh --task probe-$(date +%m%d) \
   --model <provider/model> --quiet
 ```
 
-派发 `POINTER` 那一行，完成后 `postflight --stop completed --quiet`。四项判据：
+派发 `POINTER` 那一行，完成后 `postflight --child auto --stop completed --quiet`。四项判据：
 
 | 检查 | 判据 | 失败说明 |
 |---|---|---|

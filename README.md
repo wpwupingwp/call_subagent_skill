@@ -11,7 +11,7 @@
 - 子代理读的文件、失败的尝试、测试日志都留在它自己的会话里
 
 > **Harness 版本**：本技能基于 DeepSeek Harness **v0.2.2** 开发和验证；`--child` 依赖 DSH
-> 子会话日志，是必需项。其他 harness 需要重写该适配器。
+> 子会话日志，是必需项。其他 harness 需要重写该适配器，见[移植到其他 harness](#移植到其他-harness)。
 
 给**人**看的说明。给模型读的规范在 [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md)。
 
@@ -203,13 +203,65 @@ README.en.md                 English version
 | 命令 | bash、POSIX 基本工具、`python3`（硬依赖） |
 | 工作区 | 可写；不要求是 git 仓库 |
 
-脚本只用 POSIX 工具和 `python3`（生成 `MANIFEST.json`、解析用量），不依赖 `sort -V`、
-`date -Iseconds`、`sha256sum` 这些 BSD/macOS 上没有的东西。内容哈希用 `git hash-object`。
+验收逻辑只用 POSIX 工具和 `python3`（生成 `MANIFEST.json`、解析用量），不依赖 `sort -V`、
+`date -Iseconds`、`sha256sum` 这些 BSD/macOS 上没有的东西；子会话日志的解压用 DSH 自带的
+zstd。内容哈希用 `git hash-object`。
 git 侧直接用 2.28 的命令：`git init -b`、`git switch`、`git worktree list`，不再为老版本保留
 兼容分支。
 
 Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或设 `core.autocrlf=false`）；
 路径用 POSIX 风格（`/c/work/...`），不要传 `C:\...`。
+
+## 移植到其他 harness
+
+验收本体（`preflight`/`postflight` 的 diff、白名单、历史、测试、patch、MANIFEST、回滚）只依赖
+git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness 只需要替换适配器，判定逻辑
+不用动。
+
+### 适配器做三件事
+
+| 能力 | DSH 上的来源 | 读不到时 |
+|---|---|---|
+| 子会话 id | 模型侧拿不到：`subagent` 只返回 name，完成通知正文也只有 name；`--child auto` 用子日志首行的 `parentSession` + `createdAt` 匹配 | `childSession=null` |
+| stopReason | 子会话日志最后一个 `turn/end` 的 `reason.kind` | 回退到 `--stop`（默认 `completed`） |
+| usage | `assistant/message.usage` 的 `inputTokens` / `outputTokens` / `cacheReadTokens`，按步累加 | 不记录；`--usage` 可手填 |
+
+- **stop 是判定闩锁**：非 `completed` 一律 fail，避免被截断的交付因为测试碰巧通过而被接受。
+- **usage 只用于审计**：写进 `MANIFEST.json` 和 `tasks/usage.tsv`，不参与判定；要算 `r` 时用
+  `usage_of.sh` 或显式 `--usage`。
+- **DSH 的完成通知不是替代品**：父代理收到的是自然语言（`finished`、`was stopped before it
+  finished`、`ran out of room`），正文里没有 id，精确 `stopReason` 只在元数据里；脚本读不到，
+  也无法据此核对 `--stop`。所以适配器读日志，拿精确枚举和 `childSession`。
+- **zstd 不是独立依赖**：日志是 `<DSH_HOME>/sessions/<slug>/<id>/session.v4.jsonl.zstd`，由
+  DSH 环境自带 zstd；`doctor.sh` 不检查它。非 DSH 环境没有 zstd 时，替换解压方式即可。
+
+代价（本机实测，220 个会话）：读一次子日志约 20ms；`--child auto` 扫首行约 0.8s；显式 id 约
+30ms；读父日志的 `subagent/catalog`（另一种 id 来源）约 0.66s。`auto` 的成本在“找 id”，不在
+解析。
+
+### 移植清单
+
+| 位置 | DSH 专有内容 | 换法 |
+|---|---|---|
+| `postflight.sh` 的 `child_log` / `resolve_child` / `read_child_meta` | 日志路径、`parentSession`、`turn/end`、`usage`、zstd | 换成目标 harness 的会话存储与解析；保持“返回 stop/usage”的接口 |
+| `--child auto` | 按父会话 + `createdAt` 匹配 | harness 能直接给子会话 id 时删掉 auto，直接传 id |
+| stopReason 取值 | `completed` / `aborted` / `max-tokens` / `error` / `refusal` | 映射到目标 harness 的结束原因；判定仍只认 `completed` |
+| `--usage` 格式 | `steps=..,in=..,out=..,cache=..` | 换字段名，或保留这个字符串格式由父代理手填 |
+| `DSH_SESSION_ID` / `DSH_HOME` / `dispatch.env` 的 `CREATED` | 定位父会话、匹配子会话 | 换成目标 harness 的等价物；没有就要求显式 `--child <id>` |
+| `doctor.sh` | 不检查 zstd | 目标环境没有 zstd 时补一条检查，或改掉解压 |
+
+日志格式与 DSH v0.2.2 的 session v4 绑定；升级 DSH 后如果格式变了，同步改适配器即可。
+
+### 没有会话日志的 harness
+
+最小改法：删掉三个适配函数和 `--child` 解析，把 `--stop` 设为**必填**（否则默认 `completed`
+是 fail-open），`--usage` 仅手工；MANIFEST 的 `childSession` 为 `null`。验收逻辑完全不变。
+
+### 测试
+
+`tests/run.sh` 里的 postflight 调用都带 `--child test-child`，但没有对应日志，覆盖的正是
+“日志不可读时回退”的路径（有 `--stop` 用它，没有则用默认 `completed`）。要在目标 harness 上
+验证适配器，另造一个最小会话日志 fixture。
 
 ## 常见问题
 
@@ -232,8 +284,8 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 不能。`postflight` 会自己跑验收命令拿退出码，父代理还要再重跑一次。自述不是证据。
 
 **子代理中途挂了或超预算？**
-把真实结束原因传给 `--stop`（`aborted` / `error` / `max-tokens` / `refusal`）；给了 `--child`
-时 `postflight` 还会从子会话日志校正。`max-tokens` 说明任务太大，缩小范围或拆开，别原样重派。
+把真实结束原因传给 `--stop`（`aborted` / `error` / `max-tokens` / `refusal`）；`postflight` 还会
+从子会话日志校正。`max-tokens` 说明任务太大，缩小范围或拆开，别原样重派。
 
 **验收命令有执行权限吗？**
 `--tests` 是以父代理的身份、在会话仓库里直接执行的 shell 命令，没有沙箱；把它当成可执行代码，
@@ -251,7 +303,7 @@ exit 3——不会退化成父模型。
 
 **怎么记录子代理用量？**
 `--child auto` 会按 `parentSession` 匹配本次派发的子会话，并从 DSH 日志读取 stop/用量，记进
-`tasks/usage.tsv`；`--child` 是必填项。也可以手填
+`tasks/usage.tsv`（用量只用于审计和 `r`，不影响判定）；`--child` 是必填项。也可以手填
 `--usage 'steps=12,in=2689,out=1926,cache=143545'` 跳过自动读取。`usage_stats.sh` 按模型汇总。
 
 **换环境或换模型前要做什么？**
