@@ -272,6 +272,8 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 1,227,313 tok |
 | 缓存命中率 | 99.63% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 17,093,471 |
+| 使用本技能自举（派发改它自己） | **0 次** |
+| 其中子代理审查自身（普通 subagent，未走技能） | 1 次，加权约 600,656 |
 
 ## License
 
