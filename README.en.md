@@ -83,16 +83,20 @@ There is one repository per conversation, with a single `main` branch; tasks are
 ## Repository layout
 
 ```
-<workspace>/<session id>/
-├── .gitignore              # contains "*": hides the whole session dir from an outer repo
-└── repo/                   # the session repo, single main branch
-    ├── <source>            # writable by the subagent (whitelist)
-    ├── model               # session-level model choice
-    └── tasks/<task>/
-        ├── brief.md        # single source of truth, committed by preflight
-        ├── MANIFEST.json   # verdict and evidence
-        └── deliveries/<task>.patch
+<workspace>/
+├── .gitignore              # if present: one line /<prefix>/session-*/ is appended, nothing overwritten
+└── <session id>/
+    └── repo/               # the session repo, single main branch
+        ├── <source>        # writable by the subagent (whitelist)
+        ├── model           # session-level model choice
+        └── tasks/<task>/
+            ├── brief.md        # single source of truth, committed by preflight
+            ├── MANIFEST.json   # verdict and evidence
+            └── deliveries/<task>.patch
 ```
+
+When the workspace has no `.gitignore`, the skill leaves your repository alone and puts a
+`*` ignore file inside the session directory instead.
 
 Repository files:
 
@@ -200,8 +204,11 @@ paths (`/c/work/...`), not `C:\...`.
 No. All git operations happen in `<workspace>/<session id>/repo`; your repo is only read
 (`--import` copies files). Discarding uses `git reset --hard` + `git clean -fd`, which would wipe
 uncommitted and untracked files if run in your tree — that is exactly why the skill keeps its own
-repo. `preflight` also writes a `.gitignore` containing `*` into the session directory, so an outer
-repository never shows `<session id>/` in `git status`; you don't need to edit your own `.gitignore`.
+repo. When the workspace is itself a git repo, `preflight` keeps `<session id>/` out of `git status`:
+if a `.gitignore` exists it appends one line (for example `/site/session-*/`) without touching the
+existing rules; otherwise it drops a `*` ignore file inside the session directory. After an append
+you will see `M .gitignore` — the only place the skill touches a workspace file; committing it is
+your call.
 
 **Should I delete the directory when the task is done?**
 Delete `<workspace>/<session id>/` if you want it gone. The skill does not clean up automatically:
@@ -241,8 +248,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 80 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 50 when zstd is unavailable
+bash tests/run.sh                    # 84 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 54 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

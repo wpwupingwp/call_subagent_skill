@@ -121,6 +121,19 @@ chk "AD/自动写入忽略" "*" "$(cat "$B/gw/site/session-ad1/.gitignore" 2>/de
 chk "AD/外层 status 干净" "" "$(git -C "$B/gw" status --porcelain --untracked-files=all -- site/session-ad1)"
 chk "AD/不再提示手动忽略" "no" "$(printf '%s' "$OUT" | grep -q '仍出现在 git status' && echo yes || echo no)"
 
+echo "── AD2 工作区已有 .gitignore ──"
+mkdir -p "$B/gw2/site/fix"
+( cd "$B/gw2" && git init -q -b main && git config user.name t && git config user.email t@t
+  printf 'keepme/\n*.log\n' > .gitignore && git add .gitignore && git commit -qm init )
+cd "$B/gw2/site/fix"
+printf 'x=1\n' > a.py
+printf '# 简报\n白名单：只允许改动 a.py\n验收 test -f a.py\n提交\n' > brief.md
+DSH_SESSION_ID=session-ed1 bash "$SK/scripts/preflight.sh" --task ed-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw2/site" >/dev/null 2>&1
+chk "AD2/保留原规则" "yes" "$(grep -qxF 'keepme/' "$B/gw2/.gitignore" && echo yes || echo no)"
+chk "AD2/追加会话规则" "yes" "$(grep -qxF '/site/session-*/' "$B/gw2/.gitignore" && echo yes || echo no)"
+chk "AD2/会话目录不可见" "" "$(git -C "$B/gw2" status --porcelain --untracked-files=all -- site/session-ed1)"
+chk "AD2/不重复追加" "1" "$(grep -cF '/site/session-*/' "$B/gw2/.gitignore")"
+
 cd "$B/fix"
 
 echo "── AE 导入源变更 ──"

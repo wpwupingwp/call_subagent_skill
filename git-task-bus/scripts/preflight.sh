@@ -104,9 +104,28 @@ version_ge "$GV" 2.23 || die "git 版本过低: ${GV:-未知}，需要 >= 2.23�
 
 mkdir -p "$SESS_DIR" 2>/dev/null || die "无法创建会话目录: $SESS_DIR（权限或路径问题）。先跑 doctor.sh。"
 
-# 让外层 git 仓库看不见这个目录：目录内的 .gitignore 只影响外层，不进入会话仓库的历史。
-if [ ! -f "$SESS_DIR/.gitignore" ]; then
-  printf '*\n' > "$SESS_DIR/.gitignore" 2>/dev/null || true
+# 让外层 git 仓库看不见这个目录。工作区已有 .gitignore 时向它追加一行（不覆盖），
+# 否则在会话目录内放一个 .gitignore；两者都只影响外层仓库，不进入会话仓库的历史。
+TOP=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)
+if [ -n "$TOP" ]; then
+  REL=$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$SESS_DIR" "$TOP" 2>/dev/null || true)
+  if [ -n "$REL" ] && ! git -C "$TOP" check-ignore -q -- "$REL/" 2>/dev/null; then
+    GI="$TOP/.gitignore"
+    if [ -f "$GI" ]; then
+      DIR=$(dirname "$REL")
+      case "$SESSION" in
+        session-*) [ "$DIR" = "." ] && PAT="/session-*/" || PAT="/$DIR/session-*/" ;;
+        *)         PAT="/$REL/" ;;
+      esac
+      if ! grep -qxF "$PAT" "$GI" 2>/dev/null; then
+        [ -n "$(tail -c 1 "$GI" 2>/dev/null)" ] && printf '\n' >> "$GI" 2>/dev/null
+        printf '# git-task-bus session workspaces\n%s\n' "$PAT" >> "$GI" 2>/dev/null \
+          || printf '*\n' > "$SESS_DIR/.gitignore" 2>/dev/null || true
+      fi
+    else
+      printf '*\n' > "$SESS_DIR/.gitignore" 2>/dev/null || true
+    fi
+  fi
 fi
 
 CREATED=0
