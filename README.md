@@ -89,6 +89,7 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
     └── repo/               # 会话仓库，单分支 main
         ├── <源码>          # 子代理可改（白名单内）
         ├── model           # 会话级模型选择
+        ├── tasks/imports.tsv  # 全局导入索引（跨任务 contentHash）
         └── tasks/<task>/
             ├── brief.md        # 规格唯一来源，preflight 提交
             ├── MANIFEST.json   # 判定与证据
@@ -244,8 +245,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 120 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 87 项
+bash tests/run.sh                    # 121 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 88 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、
@@ -278,7 +279,7 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 1,227,313 tok |
 | 缓存命中率 | 99.63% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 17,093,471 |
-| 使用本技能自举（preflight/postflight 跑自己） | **4 次**（self-review-2 / -3 / -4 / -5，审查） |
+| 使用本技能自举（preflight/postflight 跑自己） | **5 次**（self-review-2 / -3 / -4 / -5 / -6，审查） |
 | 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
 ## License

@@ -93,6 +93,7 @@ There is one repository per conversation, with a single `main` branch; tasks are
     └── repo/               # the session repo, single main branch
         ├── <source>        # writable by the subagent (whitelist)
         ├── model           # session-level model choice
+        ├── tasks/imports.tsv  # global import index (contentHash across tasks)
         └── tasks/<task>/
             ├── brief.md        # single source of truth, committed by preflight
             ├── MANIFEST.json   # verdict and evidence
@@ -267,8 +268,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 120 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 87 when zstd is unavailable
+bash tests/run.sh                    # 121 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 88 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
@@ -306,7 +307,7 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **4** (self-review-2 / -3 / -4 / -5, review) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **5** (self-review-2 / -3 / -4 / -5 / -6, review) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License

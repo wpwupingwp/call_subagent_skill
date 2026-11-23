@@ -366,6 +366,23 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 
 断言 113 → **120**。
 
+### 第六次尝试（第五次成功）：极简简报第三轮（2026-11-23 晚）
+
+同一份四行简报第三次跑（`self-review-6`）。36 步，`in 74,074 / out 7,276 / cache 1,984,426`，
+加权约 **142,867**；postflight `verdict=pass`（changed=1、violations=0、dirty=0、testexit=skipped）。
+
+9 条核对后：2 条修（1 条代码、1 条文档）、1 条 minor、6 条设计取舍/拒绝。
+
+- 修：`audit_compliance.py` 漏 `tee`（含 `tee -a`）与变量目标重定向；变量目标现在只告警，无法
+  静态判定。已加 AI/tee 断言。README/SKILL 的目录布局补 `tasks/imports.tsv`（全局导入索引）。
+- minor 未修：`usage_of.sh <id>` 在同一 session id 出现在多个父目录时 `find | head -1` 非确定；
+  DSH id 是 UUID，影响可忽略。
+- 拒绝/设计：`--stop` 无 `--child` 时默认 `completed` 是 §4 已写明的取舍（父代理必须显式传）；
+  `is_allowed` 前缀匹配、`count_lines`、`in_scope`、`deliveries` 不 ignore 均复核无缺陷。
+- 范围外仍未核：`docs/flow-*.html` 与同名 PNG 是否逐像素同源。
+
+断言 120 → **121**。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

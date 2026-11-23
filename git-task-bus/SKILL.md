@@ -195,6 +195,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
     repo/                    # 会话仓库：单分支 main，所有任务共用
       model                  # 会话级模型选择
       <源码…>                # 子代理可写（白名单内）
+      tasks/imports.tsv      # 全局导入索引：路径 -> 最近一次 contentHash
       tasks/<task>/          # 任务产物，与源码同仓
         brief.md             # 规格唯一来源，preflight 校验并提交
         provenance.tsv       # 导入来源与 contentHash
