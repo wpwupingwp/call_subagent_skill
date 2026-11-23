@@ -165,7 +165,7 @@ README.en.md                 English version
 | 评审（第二意见） | 更贵（实测 10.9–14.7 万/次） | 只付编排费 |
 | 一次性脚本 | 太小则亏 | 只付编排费 |
 
-`r` 是子代理价格与父代理价格之比。实测门槛 `r*` 落在 17–38%：子代理要比父代理便宜 3–6 倍才
+`r` 是子代理价格与父代理价格之比。实测门槛 `r*` 落在 26–38%（100 行级任务外推下限约 17%）：子代理要比父代理便宜 3–4 倍才
 可能省。`r = 0` 也不免费——它免掉的是子代理 token，免不掉父侧的回合：
 
 ```
@@ -243,8 +243,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 108 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 78 项
+bash tests/run.sh                    # 113 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 80 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、
@@ -277,7 +277,7 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 1,227,313 tok |
 | 缓存命中率 | 99.63% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 17,093,471 |
-| 使用本技能自举（preflight/postflight 跑自己） | **1 次**（self-review-2，审查） |
+| 使用本技能自举（preflight/postflight 跑自己） | **2 次**（self-review-2 / self-review-3，审查） |
 | 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
 ## License

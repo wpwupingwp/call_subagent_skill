@@ -10,7 +10,7 @@ usage() {
 检查项：
   git 是否可用、版本是否 >= 2.28
   依赖命令：sed grep cp tar date tr dirname basename head tail awk python3
-  （前十个是 POSIX 基本工具；awk 用于 --import 的路径校验；python3 用于生成 MANIFEST.json 与解析用量）
+  （除 python3 外都是 POSIX 基本工具；awk 用于 --import 的路径校验，python3 用于生成 MANIFEST.json 与解析用量）
   任务根目录是否可创建、可写（默认当前目录；沙箱下请用 --root 指向可写工作区）
   --src 列出的源路径是否可读
 

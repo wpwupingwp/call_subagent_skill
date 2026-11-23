@@ -179,7 +179,8 @@ The savings below come from an extrapolated model, not from measurements per sce
 | One-off script | too small to pay off | orchestration only |
 
 `r` is the subagent price divided by the parent price. The measured break-even `r*` lands at
-17–38%: the subagent has to be 3–6× cheaper to win. And `r = 0` is not free — it removes the
+26–38% (extrapolated down to ~17% for 100-line changes): the subagent has to be 3–4× cheaper
+to win. And `r = 0` is not free — it removes the
 subagent's tokens, not the parent's turns:
 
 ```
@@ -265,8 +266,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 108 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 78 when zstd is unavailable
+bash tests/run.sh                    # 113 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 80 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
@@ -304,7 +305,7 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **1** (self-review-2, review) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **2** (self-review-2 / self-review-3, review) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License
