@@ -405,6 +405,30 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 
 断言 121 → **124**。
 
+### 第八次尝试（第七次成功）：极简简报第五轮（2026-11-23 晚）
+
+同一份四行简报第五次跑（`self-review-8`）。23 步，`in 50,130 / out 14,203 / cache 914,737`，
+加权约 **125,237**；postflight `verdict=pass`（changed=1、violations=0、dirty=0、testexit=skipped）。
+
+20 条核对后：10 条修/补文档、1 条不可观测的取舍、3 条假阳性、6 条 minor/意见。
+
+- 修：
+  - `postflight` 在 `HEAD` 不在 `main` 时判 `reject`；新增 BR 用例（切到 side 提交后不再 pass）。
+  - `DSH_SESSION_ID` 缺失时 preflight/postflight 明确警告会退化为 `unknown/`。
+  - `--child auto` 读会话首行由 `head -1` 改为 `sed -n '1p'`，避免 SIGPIPE 造成静默失配。
+  - `review.md` 模板的 `patch sha256` 改为 `sha1（git hash-object）`；`envcheck` 注释写明
+    126/127 都算环境缺失；`usage_of.sh` 补退出码 2/3 的说明。
+  - SKILL 补重复导入不覆盖、`git worktree` 不集成、父代理只提交简报的措辞。
+  - doctor 把 `zstd` 列为可选依赖并显式提示。
+- 不可观测的取舍：#8 子代理切到 side 后 `git branch -f main` 再切回，最终 HEAD 仍在 main；
+  postflight 无法从最终状态区分，内容与历史等价，不再追 reflog。
+- 假阳性：#3 `>&` 被误报（当前正则根本不匹配 `>&`）；#15 `tasks/*/…` 跨目录（gitignore 的
+  `*` 不跨 `/`）；#16 未跟踪文件不进 abandoned patch（丢弃前先 `git add -A`，已包含）。
+- minor/意见未修：目录哈希含 mtime、绝对白名单在 postflight 静默跳过、`in_scope` 对目录自身、
+  audit 不识别 workflow 派发、`usage_stats` 无测试、MANIFEST 参数个数硬编码。
+
+断言 124 → **126**。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

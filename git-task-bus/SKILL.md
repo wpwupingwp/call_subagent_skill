@@ -83,7 +83,9 @@ bash "$SKILL/scripts/preflight.sh" \
   --quiet
 ```
 
-`--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，改用 `git worktree` 更优。
+`--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，
+可自行用 `git worktree` 准备干净源（本脚本不集成）。已存在的导入路径不会被覆盖，只提示源已变；
+要更新请换新路径或手动同步。
 
 脚本会：校验简报 → 建/复用**会话仓库**（`<工作区>/<会话 id>/repo`）→ 导入新文件并提交 → 要求工作树干净 → 记录 `BASE`（= `main` 当前 HEAD）→ 写 `dispatch.env` 与 `dispatch.prompt`。
 
@@ -174,7 +176,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 
 `tasks/<task>/deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
 
-**父代理不为任务提交任何东西**：简报由 `preflight` 拷进仓库并提交，审查记录写在 `<会话目录>/reviews/`（仓库之外）。`BASE..HEAD` 就是本次任务；下一个任务从新的 `HEAD` 起步（`BASE` 重新取值），已验收的提交就是 `main` 的最新状态，不需要合并动作。
+**父代理不提交任务代码**：简报由 `preflight` 拷进仓库并提交，审查记录写在 `<会话目录>/reviews/`（仓库之外）。`BASE..HEAD` 就是本次任务；下一个任务从新的 `HEAD` 起步（`BASE` 重新取值），已验收的提交就是 `main` 的最新状态，不需要合并动作。
 
 验收结论写进 `<会话目录>/reviews/<task>.md`（模板 `templates/review.md`），一行即可。
 
