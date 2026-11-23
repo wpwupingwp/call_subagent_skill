@@ -249,7 +249,7 @@ exit 3——不会退化成父模型。
 **怎么记录子代理用量？**
 `--child auto` 会按 `parentSession` 匹配本次派发的子会话，读日志并记进 `tasks/usage.tsv`；
 也可以手填 `--usage 'steps=12,in=2689,out=1926,cache=143545'`。读取依赖 DSH 会话日志和
-zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总。
+zstd（DSH 的依赖，doctor 会检查）；日志不可用时只警告、不影响判定。`usage_stats.sh` 按模型汇总。
 
 **换环境或换模型前要做什么？**
 按 [`git-task-bus/references/probe.md`](git-task-bus/references/probe.md) 跑一次三层探测

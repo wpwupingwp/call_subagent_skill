@@ -276,7 +276,7 @@ them `preflight` exits 3 instead of silently falling back to the parent model.
 **How is subagent usage recorded?**
 `--child auto` matches the child session through `parentSession` and reads its log into
 `tasks/usage.tsv`; you can also pass `--usage 'steps=12,in=2689,out=1926,cache=143545'` by hand.
-Reading depends on DSH session logs and zstd; if they are unavailable it only warns. `usage_stats.sh`
+Reading depends on DSH session logs and zstd (a DSH dependency, checked by doctor); if they are unavailable it only warns. `usage_stats.sh`
 rolls up by model.
 
 **What before a new environment or model?**

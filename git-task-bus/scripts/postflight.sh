@@ -74,9 +74,7 @@ if git cat-file -e "HEAD:tasks/$TASK/MANIFEST.json" 2>/dev/null; then
   exit 3
 fi
 
-HAVE_ZSTD=0
-command -v zstd >/dev/null 2>&1 && HAVE_ZSTD=1
-
+# zstd 是 DSH 的依赖，由 doctor 检查；这里直接读会话日志。
 child_log() {
   local id="$1"
   find "${DSH_HOME:-$HOME/.dsh}/sessions" -type f -path "*/$id/session.v4.jsonl.zstd" 2>/dev/null | head -1
@@ -85,7 +83,6 @@ child_log() {
 # --child auto：按 parentSession + createdAt 找本次派发的子会话
 resolve_child() {
   [ "$CHILD" = "auto" ] || return 0
-  [ "$HAVE_ZSTD" -eq 1 ] || return 1
   local parent="${DSH_SESSION_ID:-}" best="" best_t=0
   [ -n "$parent" ] || return 1
   local home="${DSH_HOME:-$HOME/.dsh}"
@@ -109,7 +106,7 @@ except Exception:
 }
 
 read_child_usage() {
-  [ -n "$CHILD" ] && [ "$HAVE_ZSTD" -eq 1 ] || return 1
+  [ -n "$CHILD" ] || return 1
   local log
   log=$(child_log "$CHILD")
   [ -n "$log" ] || return 1
@@ -133,7 +130,7 @@ print(f"steps={steps},in={ti},out={to},cache={tc}")
 }
 
 read_child_stop() {
-  [ -n "$CHILD" ] && [ "$HAVE_ZSTD" -eq 1 ] || return 1
+  [ -n "$CHILD" ] || return 1
   local log kind
   log=$(child_log "$CHILD")
   [ -n "$log" ] || return 1
@@ -154,11 +151,7 @@ if kind: print(kind)
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
 if [ "$CHILD" = "auto" ]; then
   if ! resolve_child; then
-    if [ "$HAVE_ZSTD" -eq 0 ]; then
-      printf 'postflight: 未安装 zstd，无法匹配 --child auto，childSession 记为 null\n' >&2
-    else
-      printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
-    fi
+    printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
     CHILD=""
   fi
 fi
@@ -389,9 +382,7 @@ fi
 # ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
 
 if [ -z "$USAGE" ] && [ -n "$CHILD" ]; then
-  if [ "$HAVE_ZSTD" -eq 0 ]; then
-    echo "postflight: 未安装 zstd，跳过 $CHILD 的用量读取" >&2
-  elif ! read_child_usage; then
+  if ! read_child_usage; then
     echo "postflight: 无法从会话日志读取 $CHILD 的用量（环境不同或日志缺失），本次不记录" >&2
   fi
 fi
