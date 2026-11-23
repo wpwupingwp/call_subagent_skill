@@ -24,7 +24,7 @@ from pathlib import Path
 
 WRITE_TOOLS = {"write", "edit", "apply_patch"}
 COPY_HINTS = ("cp -a", "cp -r", "rsync", "git worktree")
-REDIRECT = re.compile(r"(?<![0-9])>>?\s*([^\s;&|]+)")
+REDIRECT = re.compile(r">>?\s*([^\s;&|]+)")
 SED_INPLACE = re.compile(r"sed\s+-i[^\s]*\s+(?:-e\s+)?['\"]?([^\s'\";]+)")
 DEVNULL = {"/dev/null", "/dev/stdout", "/dev/stderr"}
 
@@ -52,7 +52,7 @@ def bash_findings(cmd: str, scopes: list[str]) -> tuple[list[str], list[str]]:
     bad: list[str] = []
     warn: list[str] = []
     for m in REDIRECT.finditer(cmd):
-        target = m.group(1)
+        target = m.group(1).strip("'\"")
         if target in DEVNULL or target.startswith("&"):
             continue
         if in_scope(target, scopes):
@@ -60,6 +60,14 @@ def bash_findings(cmd: str, scopes: list[str]) -> tuple[list[str], list[str]]:
     for m in SED_INPLACE.finditer(cmd):
         if in_scope(m.group(1), scopes):
             bad.append(f"sed -i {m.group(1)}")
+    for m in re.finditer(r"\b(?:mv|rm)\b\s+([^;&|]+)", cmd):
+        for tok in re.findall(r"[^\s]+", m.group(1)):
+            tok = tok.strip("'\"")
+            if tok.startswith("-"):
+                continue
+            if any(p in scopes for p in parts(tok)):
+                bad.append(f"mv/rm 涉及 {tok}")
+                break
     if re.search(r"write_text\s*\(|open\s*\([^)]*['\"]w", cmd):
         targets = re.findall(r"Path\(\s*['\"]([^'\"]+)['\"]\s*\)", cmd)
         targets += re.findall(r"open\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"][wa]", cmd)

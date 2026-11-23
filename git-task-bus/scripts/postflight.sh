@@ -280,7 +280,8 @@ PATCH_SHA=$(git hash-object -- "$PATCH")
 PATCH_LINES=$(count_lines "$PATCH")
 
 export MODEL
-python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" "$ALLOW" \
+MANIFEST_OK=0
+if python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" "$ALLOW" \
          "$STOP" "$TEST_EXIT" "$VERDICT" "$PATCH_SHA" "$PATCH_LINES" \
          "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" \
          "$PROTO_VIOLATION" "$DISCARDED" \
@@ -329,6 +330,29 @@ with open(os.path.join(tdir, "MANIFEST.json"), "w", encoding="utf-8") as fh:
     json.dump(doc, fh, ensure_ascii=False, indent=2)
     fh.write("\n")
 PYEOF
+then
+  MANIFEST_OK=1
+fi
+
+# 生成成功不代表内容有效：python 中途失败可能留下非空残缺文件。
+if [ "$MANIFEST_OK" -eq 1 ] && ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$TDIR/MANIFEST.json" >/dev/null 2>&1; then
+  MANIFEST_OK=0
+fi
+if [ "$MANIFEST_OK" -ne 1 ]; then
+  printf 'postflight: MANIFEST.json 生成失败，判定降级为 error\n' >&2
+  rm -f "$TDIR/MANIFEST.json"
+  # patch 改名，避免 error 判定留下一个看起来像 pass 的 <task>.patch
+  if [ -f "$PATCH" ] && [ "${PATCH##*/}" = "$TASK.patch" ]; then
+    mv "$PATCH" "$TDIR/deliveries/$TASK.error.patch"
+    PATCH="$TDIR/deliveries/$TASK.error.patch"
+    PATCH_SHA=$(git hash-object -- "$PATCH")
+    PATCH_LINES=$(count_lines "$PATCH")
+  fi
+  # 兜底 MANIFEST 不依赖 python：python 不可用时仍要留下判定
+  printf '{\n  "task": "%s",\n  "session": "%s",\n  "base": "%s",\n  "head": "%s",\n  "verdict": "error",\n  "error": "MANIFEST generation failed",\n  "patch": {"file": "%s"}\n}\n' \
+    "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$PATCH" > "$TDIR/MANIFEST.json"
+  VERDICT="error"; EXIT=3
+fi
 
 # ---- 10. 消耗记录（可选）：--child 时尽力从会话日志读取，--usage 可覆盖 ----
 

@@ -177,6 +177,33 @@ EOF
 chk "AI/合规会话" 0 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/ok.jsonl" --scope code >/dev/null 2>&1; echo $?)"
 chk "AI/派发前改代码" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/bad.jsonl" --scope code >/dev/null 2>&1; echo $?)"
 chk "AI/无派发" 3 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/none.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+cat > "$B/audit/qredir.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"bash","arguments":"{\"command\":\"echo x > \\\"code/a.py\\\"\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
+EOF
+chk "AI/引号重定向" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/qredir.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+cat > "$B/audit/fdredir.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"bash","arguments":"{\"command\":\"echo x 2> code/a.py\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
+EOF
+chk "AI/fd 重定向" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/fdredir.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+cat > "$B/audit/mvrm.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"bash","arguments":"{\"command\":\"mv x code/a.py\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
+EOF
+chk "AI/mv 写入" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/mvrm.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+
+echo "── MF MANIFEST 生成失败 ──"
+sess gMF
+chk "MF/preflight" 0 "$(pf --task t-mf --import calc.py --allow calc.py $(b t-mf) --tests true)"
+git -C "$R" commit -qam child --allow-empty
+mkdir -p "$B/fakebin"
+REAL_PY=$(command -v python3)
+printf '#!/bin/sh\nif [ "$1" = "-" ]; then exit 1; fi\nexec %s "$@"\n' "$REAL_PY" > "$B/fakebin/python3"
+chmod +x "$B/fakebin/python3"
+chk "MF/应 3" 3 "$(PATH="$B/fakebin:$PATH" bash "$SK/scripts/postflight.sh" --root "$B" --task t-mf --quiet >/dev/null 2>&1; echo $?)"
+chk "MF/manifest 降级" "error" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-mf/MANIFEST.json'))['verdict'])" 2>/dev/null)"
+chk "MF/patch 改名" "yes" "$([ -f "$R/tasks/t-mf/deliveries/t-mf.error.patch" ] && echo yes || echo no)"
 
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── AF 子会话结束原因校验 ──"
