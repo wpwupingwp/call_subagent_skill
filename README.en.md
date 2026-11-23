@@ -300,7 +300,7 @@ still growing):
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
 | Self-dispatched changes to this skill | **0 times** |
-| Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run, ~600,656 weighted |
+| Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License
 
