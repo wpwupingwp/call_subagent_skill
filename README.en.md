@@ -280,8 +280,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 126 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 93 when zstd is unavailable
+bash tests/run.sh                    # 131 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 98 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
@@ -319,7 +319,7 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **7** (self-review-2 … -8); **86** reports, **39** valid after reproduction (36 fixed, 3 logged) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **8** (self-review-2 … -9); **94** reports, **42** valid after reproduction (39 fixed, 3 logged) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License

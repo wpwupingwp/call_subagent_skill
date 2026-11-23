@@ -429,6 +429,28 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 
 断言 124 → **126**。
 
+### 第九次尝试（第八次成功）（2026-11-23 晚）
+
+同一份四行简报第六次跑（`self-review-9`）。23 步，`in 49,786 / out 9,101 / cache 846,072`，
+加权约 **103,111**；postflight `verdict=pass`（changed=1、violations=0、dirty=0、testexit=skipped）。
+
+8 条核对后：3 条修、1 条假阳性、3 条拒绝、1 条确认。
+
+- 修：
+  - 丢弃流程的 `git add` / patch 导出 / `git reset --hard` / `git clean` 失败，现在都写一份
+    兜底 `MANIFEST.json`（verdict=error）并尽量把已导出的 patch 存为 `<task>.error.patch`；
+    此前 reset 失败会直接 exit 3，仓库停在半还原态且无审计记录。新增 RF 用例。
+  - `audit_compliance.py` 的派发识别加入 `subagent_fork`；此前用 fork 派发会被判「无派发记录」。
+  - `usage_stats.sh` 的用法说明写清：默认汇总 `--root` 下所有会话，单会话统计要把 `--root`
+    指到 `<工作区>/<会话 id>`。
+- 假阳性：重派 t2 reject 会抹掉 t1 的已验收提交——正常串行下 `BASE_t2` 就是 t1 的 HEAD，要出现
+  该场景须父代理先手工 rewind 或复用陈旧 dispatch.env，不属于技能的正常流程。
+- 拒绝：`--child auto` 不看 MODEL（串行约定已消解）、dispatch.env 篡改（不在信任边界）、
+  `steps` 计数口径（自洽且有断言）。
+- 确认：SKILL/README 的退出码、输出格式、模型解析顺序、简报校验与实现一致，自检全绿。
+
+断言 126 → **131**。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），
