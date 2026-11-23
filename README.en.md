@@ -300,7 +300,7 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched changes to this skill | **0 times** |
+| Self-dispatched tasks on this skill (preflight/postflight) | **1** (self-review-2, review) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 ## License
