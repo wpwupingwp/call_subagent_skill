@@ -41,6 +41,7 @@ done
 
 ROOT="${TASK_ROOT:-$PWD}"
 SESSION="${DSH_SESSION_ID:-unknown}"
+[ -n "${DSH_SESSION_ID:-}" ] || printf 'postflight: 警告 —— DSH_SESSION_ID 未设置，会话目录退化为 unknown/\n' >&2
 REPO="$ROOT/$SESSION/repo"
 TDIR="$REPO/tasks/$TASK"
 
@@ -86,7 +87,7 @@ except Exception:
     print(0)' "$since" 2>/dev/null || echo 0)
   while IFS= read -r f; do
     local first t
-    first=$(zstd -dc "$f" 2>/dev/null | head -1)
+    first=$(zstd -dc "$f" 2>/dev/null | sed -n '1p')
     case "$first" in *"\"parentSession\":\"$parent\""*) ;; *) continue ;; esac
     t=$(printf '%s' "$first" | sed -n 's/.*"createdAt":\([0-9]*\).*/\1/p')
     [ -n "$t" ] && [ "$t" -ge "$since" ] && [ "$t" -gt "$best_t" ] && { best_t=$t; best=$f; }
@@ -200,6 +201,7 @@ fi
 
 # ---- 2. 变更清单：只读提交历史，不碰索引 ----
 HEAD_SHA=$(git rev-parse HEAD)
+HEAD_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 git diff --no-renames --name-only "$BASE" "$HEAD_SHA" > "$TMPD/changed.txt"
 CHANGED_COUNT=$(count_lines "$TMPD/changed.txt")
 
@@ -235,7 +237,7 @@ TEST_DISPLAY="${TEST_EXIT:-skipped}"
 
 # ---- 7. 判定 ----
 VERDICT="pass"; EXIT=0
-if [ "$VIOLATION_COUNT" -gt 0 ] || [ "$REWRITTEN" = yes ] || [ "$PROTO_VIOLATION" = yes ]; then
+if [ "$VIOLATION_COUNT" -gt 0 ] || [ "$REWRITTEN" = yes ] || [ "$PROTO_VIOLATION" = yes ] || [ "$HEAD_BRANCH" != "main" ]; then
   VERDICT="reject"; EXIT=2
 elif [ "$STOP" != "completed" ]; then
   VERDICT="fail"; EXIT=1
@@ -283,7 +285,7 @@ PATCH_LINES=$(count_lines "$PATCH")
 
 export MODEL
 MANIFEST_OK=0
-if python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" "$ALLOW" \
+if python3 - "$TDIR" "$TASK" "$SESSION" "$BASE" "$HEAD_SHA" "$HEAD_BRANCH" "$ALLOW" \
          "$STOP" "$TEST_EXIT" "$VERDICT" "$PATCH_SHA" "$PATCH_LINES" \
          "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" \
          "$PROTO_VIOLATION" "$DISCARDED" \

@@ -11,13 +11,13 @@
 | 越界违规 | |
 | 历史改写 | 是 / 否 |
 | 测试退出码 | |
-| patch sha256 | |
+| patch sha1（git hash-object） | |
 
 ## 证据
 
 - 测试日志：`test.log`
 - 净 diff：`deliveries/<TASK_ID>.patch`
-- 出处：`provenance.tsv`（导入源与 sha256）
+- 出处：`provenance.tsv`（导入源与 sha1）
 
 ## 判断
 

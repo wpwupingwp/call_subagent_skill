@@ -30,7 +30,7 @@ done
 
 cd "$CWD" || exit 3
 
-# 直接执行，用 126/127 区分"命令缺失"与"测试失败"。
+# 直接执行：126（存在但不可执行）/127（不存在）都视为环境缺失；其他非 0 是基线红。
 # 不预检首个词：`PYTHONPATH=. python3 x.py` 这类带环境变量前缀的命令会把首个词误当成命令。
 LOG=$(mktemp "${TMPDIR:-/tmp}/envcheck.XXXXXX" 2>/dev/null) \
   || { echo "envcheck: 无法创建临时日志（${TMPDIR:-/tmp} 不可写）" >&2; exit 3; }

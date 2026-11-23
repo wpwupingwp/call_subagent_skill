@@ -79,6 +79,13 @@ sess gNO
 chk "NO/preflight" 0 "$(pf --task t-no --import calc.py --allow calc.py $(b t-no) --tests true)"
 chk "NO/无改动应 1" 1 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-no --quiet >/dev/null 2>&1; echo $?)"
 
+echo "── BR 非 main ──"
+sess gBR
+chk "BR/preflight" 0 "$(pf --task t-br --import calc.py --allow calc.py $(b t-br) --tests true)"
+git -C "$R" switch -q -c side
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam side
+chk "BR/非 main 拒绝" 2 "$(po t-br)"
+
 echo "── S 简报校验 ──"
 sess gS
 chk "S1/无简报" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task s-1 --allow a.py --tests true --root "$B" >/dev/null 2>&1; echo $?)"
