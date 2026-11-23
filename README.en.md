@@ -84,7 +84,6 @@ There is one repository per conversation, with a single `main` branch; tasks are
 
 ```
 <workspace>/
-├── .gitignore              # if present: one line /<prefix>/session-*/ is appended, nothing overwritten
 └── <session id>/
     └── repo/               # the session repo, single main branch
         ├── <source>        # writable by the subagent (whitelist)
@@ -95,8 +94,10 @@ There is one repository per conversation, with a single `main` branch; tasks are
             └── deliveries/<task>.patch
 ```
 
-When the workspace has no `.gitignore`, the skill leaves your repository alone and puts a
-`*` ignore file inside the session directory instead.
+When the workspace is inside another git repo, `preflight` adds `/session-*/` to that repo's
+`.git/info/exclude` (`/subdir/session-*/` when the workspace is a subdirectory). That is git's
+local ignore file: it is not versioned, your `.gitignore` stays untouched, and `git status` gains
+no entry. If `.git` is not writable it falls back to a `*` ignore file in the session directory.
 
 Repository files:
 
@@ -204,11 +205,10 @@ paths (`/c/work/...`), not `C:\...`.
 No. All git operations happen in `<workspace>/<session id>/repo`; your repo is only read
 (`--import` copies files). Discarding uses `git reset --hard` + `git clean -fd`, which would wipe
 uncommitted and untracked files if run in your tree — that is exactly why the skill keeps its own
-repo. When the workspace is itself a git repo, `preflight` keeps `<session id>/` out of `git status`:
-if a `.gitignore` exists it appends one line (for example `/site/session-*/`) without touching the
-existing rules; otherwise it drops a `*` ignore file inside the session directory. After an append
-you will see `M .gitignore` — the only place the skill touches a workspace file; committing it is
-your call.
+repo. When the workspace is itself a git repo, `preflight` keeps `<session id>/` out of `git status`
+by adding `/session-*/` to `.git/info/exclude` (git's local ignore file, never versioned). Your
+`.gitignore` is not modified and no `M .gitignore` appears; a subdirectory workspace uses
+`/subdir/session-*/`.
 
 **Should I delete the directory when the task is done?**
 Delete `<workspace>/<session id>/` if you want it gone. The skill does not clean up automatically:
@@ -248,8 +248,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 84 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 54 when zstd is unavailable
+bash tests/run.sh                    # 86 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 56 when zstd is unavailable
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

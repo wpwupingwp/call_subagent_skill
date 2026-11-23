@@ -80,7 +80,6 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
 
 ```
 <工作区>/
-├── .gitignore              # 已有时追加一行 /<前缀>/session-*/，不覆盖原内容
 └── <会话 id>/
     └── repo/               # 会话仓库，单分支 main
         ├── <源码>          # 子代理可改（白名单内）
@@ -91,8 +90,9 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
             └── deliveries/<task>.patch
 ```
 
-工作区里没有 `.gitignore` 时，就不动你的仓库，改为在 `<会话 id>/` 内放一个内容为 `*` 的
-`.gitignore`，效果一样。
+工作区在别的 git 仓库内时，`preflight` 把 `/session-*/` 追加进该仓库的 `.git/info/exclude`
+（工作区是子目录时是 `/子目录/session-*/`）。那是 git 的本地忽略文件：不进版本控制、不改你的
+`.gitignore`、`git status` 也不会多出任何条目。`.git` 不可写时退回在会话目录里放一个 `*`。
 
 仓库清单：
 
@@ -191,9 +191,9 @@ Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或�
 **会动我自己的仓库吗？**
 不会。所有 git 操作都在 `<工作区>/<会话 id>/repo` 里；你自己的仓库只被读（`--import` 拷文件）。
 丢弃用的是 `git reset --hard` + `git clean -fd`，这两条如果作用在你的仓库上会抹掉未提交的改动
-和未跟踪文件，所以技能只在自己建的仓库里回滚。工作区本身是 git 仓库时，`preflight` 会让它看不到 `<会话 id>/`：已经有 `.gitignore` 就追加一行
-（例如 `/site/session-*/`，不覆盖原有规则），没有就只在会话目录内放一个 `*` 的 `.gitignore`。
-追加后你会看到 `M .gitignore`——这是技能唯一会改到工作区文件的地方，是否提交由你决定。
+和未跟踪文件，所以技能只在自己建的仓库里回滚。工作区本身是 git 仓库时，`preflight` 会让它看不到 `<会话 id>/`：把 `/session-*/` 追加进
+`.git/info/exclude`（git 的本地忽略文件，不进版本控制）。你的 `.gitignore` 不会被改，也不会出现
+`M .gitignore`；工作区是仓库子目录时为 `/子目录/session-*/`。
 
 **任务完成后要自己删目录吗？**
 需要的话删掉 `<工作区>/<会话 id>/` 即可，技能不会自动删：那里留着 patch、`MANIFEST.json` 和提交
@@ -227,8 +227,8 @@ zstd，读不到只警告、不影响判定。`usage_stats.sh` 按模型汇总�
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 84 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 54 项
+bash tests/run.sh                    # 86 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 没有 zstd 时只跑 56 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、

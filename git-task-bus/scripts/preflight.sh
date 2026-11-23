@@ -104,25 +104,29 @@ version_ge "$GV" 2.23 || die "git 版本过低: ${GV:-未知}，需要 >= 2.23�
 
 mkdir -p "$SESS_DIR" 2>/dev/null || die "无法创建会话目录: $SESS_DIR（权限或路径问题）。先跑 doctor.sh。"
 
-# 让外层 git 仓库看不见这个目录。工作区已有 .gitignore 时向它追加一行（不覆盖），
-# 否则在会话目录内放一个 .gitignore；两者都只影响外层仓库，不进入会话仓库的历史。
+# 让外层 git 仓库看不见这个目录。优先写 git 的本地忽略文件 .git/info/exclude：
+# 它不进版本控制、不会让 git status 变脏，也不会动用户的 .gitignore。
 TOP=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)
 if [ -n "$TOP" ]; then
   REL=$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$SESS_DIR" "$TOP" 2>/dev/null || true)
   if [ -n "$REL" ] && ! git -C "$TOP" check-ignore -q -- "$REL/" 2>/dev/null; then
-    GI="$TOP/.gitignore"
-    if [ -f "$GI" ]; then
-      DIR=$(dirname "$REL")
-      case "$SESSION" in
-        session-*) [ "$DIR" = "." ] && PAT="/session-*/" || PAT="/$DIR/session-*/" ;;
-        *)         PAT="/$REL/" ;;
-      esac
-      if ! grep -qxF "$PAT" "$GI" 2>/dev/null; then
-        [ -n "$(tail -c 1 "$GI" 2>/dev/null)" ] && printf '\n' >> "$GI" 2>/dev/null
-        printf '# git-task-bus session workspaces\n%s\n' "$PAT" >> "$GI" 2>/dev/null \
-          || printf '*\n' > "$SESS_DIR/.gitignore" 2>/dev/null || true
-      fi
-    else
+    DIR=$(dirname "$REL")
+    case "$SESSION" in
+      session-*) [ "$DIR" = "." ] && PAT="/session-*/" || PAT="/$DIR/session-*/" ;;
+      *)         PAT="/$REL/" ;;
+    esac
+    EXCL=$(git -C "$TOP" rev-parse --git-path info/exclude 2>/dev/null || true)
+    case "$EXCL" in
+      "") ;;
+      /*) ;;
+      *) EXCL="$TOP/$EXCL" ;;
+    esac
+    if [ -n "$EXCL" ] && [ -f "$EXCL" ] && ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
+      [ -n "$(tail -c 1 "$EXCL" 2>/dev/null)" ] && printf '\n' >> "$EXCL" 2>/dev/null
+      printf '# git-task-bus session workspaces\n%s\n' "$PAT" >> "$EXCL" 2>/dev/null || true
+    fi
+    # 兜底：本地忽略没写成（或不在 git 仓库可写范围）时，用会话目录内的 *
+    if ! git -C "$TOP" check-ignore -q -- "$REL/" 2>/dev/null; then
       printf '*\n' > "$SESS_DIR/.gitignore" 2>/dev/null || true
     fi
   fi
