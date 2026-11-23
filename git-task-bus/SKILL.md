@@ -17,7 +17,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 1. **用户明确要求使用本技能时，必须按流程派发，不得改为自己做。** 本文件的「自己做」只是默认建议。
 2. 一次只派一个子代理；派发后结束回合，等待期间不写任何文件。
 3. 父代理不手工 `git init`：会话仓库由 `preflight` 创建；所有 git 操作只针对 `<会话仓库>`。
-4. `postflight` 必须带 `--child <子代理 id | auto>`；子代理非正常结束时还要带 `--stop <reason>`。
+4. `postflight` 必须带 `--child <子代理 id | auto>`；子代理非正常结束时再给 `--stop <reason>`（读不到日志时它是唯一来源）。
 5. 模型候选**排除父代理自己**（= 当前会话正在用的 provider/model）：不要列进候选，
    也不要问用户要不要用它。候选只剩父模型时，直接告诉用户「这条不值得派」。
 6. 判定不通过即自动丢弃；同一任务 id 只判定一次。
@@ -28,7 +28,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 | 角色 | 只写 | 职责 |
 |---|---|---|
-| 子代理 | `ALLOWED` 白名单内的路径，在 `main` 上 | 实现并提交 |
+| 子代理 | `ALLOW` 白名单内的路径，在 `main` 上 | 实现并提交 |
 | 父代理 | 简报（`tasks/<task>/brief.md`，仓库内）与审查记录（`<会话目录>/reviews/`，仓库外） | 冻结 BASE、核对、验收、产出 patch |
 
 ## 约束的分工
@@ -36,21 +36,11 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 | 机制 | 约束谁 | 性质 | 靠什么生效 |
 |---|---|---|---|
 | **回合边界** | 父代理 | 流程纪律 | 派发后结束回合，不与子代理并发写 |
-| **白名单 `ALLOWED`** | 子代理 | 事后判据 | `postflight` 用 `--name-only` 比对，不依赖它配合 |
-| **必须已提交** | 子代理 | 交付前提 | `postflight` 只读 `BASE..HEAD`，不碰索引 |
+| **白名单 `ALLOW`** | 子代理 | 事后判据 | `postflight` 用 `--name-only` 比对，不依赖它配合 |
+| **必须已提交** | 子代理 | 交付前提 | `postflight` 只读 `BASE..HEAD`，不碰索引；工作树脏即未完成，退出码 2 |
 | **只追加** | 子代理 | 可探测 | patch 副本使历史改写失去意义 |
 
-### 白名单由 postflight 事后核对
-
-白名单由 `postflight` 逐文件比对 `BASE..HEAD` 生效，不依赖子代理配合。
-
-### 交付必须已提交，否则自动丢弃
-
-`postflight` 只读 `BASE..HEAD`，不执行 `git add`。工作树脏即交付未完成，退出码 2。规则无例外：
-
-> **判定不通过 → 自动丢弃。**
-
-丢弃顺序不可调换：`git add -A` → 导出 patch → `git reset --hard <BASE>` → `git clean -fd`。归档必须在还原之前。
+**判定不通过 → 自动丢弃。** 丢弃顺序不可调换：`git add -A` → 导出 patch → `git reset --hard <BASE>` → `git clean -fd`。归档必须在还原之前。
 
 ## 流程
 
@@ -94,7 +84,7 @@ bash "$SKILL/scripts/preflight.sh" \
 
 脚本会：校验简报 → 建/复用**会话仓库**（`<工作区>/<会话 id>/repo`）→ 导入新文件并提交 → 要求工作树干净 → 记录 `BASE`（= `main` 当前 HEAD）→ 写 `dispatch.env` 与 `dispatch.prompt`。
 
-**父代理不手工 `git init`**：仓库由脚本创建，每个对话一个，位于 `<工作区>/<会话 id>/repo`，从头到尾只有 `main` 一条分支。任务不单独建仓、不建分支。
+**父代理不手工 `git init`**：仓库由脚本创建，每个对话一个，从头到尾只有 `main` 一条分支。任务不单独建仓、不建分支。
 
 `--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
 
@@ -106,7 +96,7 @@ MODEL=llama/LLaMA
 
 `--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。
 
-**首次使用要问用户，不是替用户决定**（候选筛选见「硬规则」第 4 条）：
+**首次使用要问用户，不是替用户决定**（候选见硬规则 5）：
 
 1. 用 `--model <选择> --save-model` 派发一次，选择会写进**对话级配置仓库** `<工作区>/<会话 id>/repo/model` 并提交；
 2. 之后 `--model` 可省略，`preflight` 按此顺序解析：`--model` > 对话级 `<会话 id>/model` > 工作区级 `<工作区>/model`。
@@ -133,9 +123,6 @@ MODEL=llama/LLaMA
 
 配上 `provider` / `model` / `cwd`（`cwd` = 仓库路径）即可。子代理会自己读 `dispatch.prompt`，再顺着它读简报。
 
-**派发后结束回合**：等待期间不写任何文件，否则与子代理并发写同一棵树。
-
-
 ### 4. postflight（父代理执行）
 
 ```bash
@@ -150,20 +137,13 @@ verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=<path>
 verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=0 patch=<path>
 ```
 
-把派发时拿到的子代理 id 传给 `--child`（或 `--child auto`）。
-给了 `--child` 时，`postflight` 从子会话日志读真实结束原因并覆盖 `--stop`；两者不一致时以日志为准。
+把派发时拿到的子代理 id 传给 `--child`（或 `--child auto`）。`postflight` 从子会话日志读真实结束原因
+并覆盖 `--stop`，不一致时以日志为准；读不到日志时才依赖 `--stop`（默认 `completed`）。
 
 不要为了看细节重跑 `postflight`；需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新任务 id。
 
-`--stop` 默认 `completed`；子代理非正常结束（`aborted`/`error`/`max-tokens`/`refusal`）时必须显式传入。
-
-非 quiet 模式依次产出：
-
-- `git status` 快照（工作树脏则判交付违规，退出码 2）
-- 变更文件清单与**越界违规清单**
-- 测试执行结果（日志落盘）
-- 净 diff 生成的 patch：`deliveries/<task>.patch`
-- `MANIFEST.json`：BASE、head、文件与 contentHash、测试退出码、verdict
+非 quiet 依次输出：`git status` 快照、越界违规清单、测试日志、`deliveries/<task>.patch`、
+`MANIFEST.json`（BASE、head、contentHash、测试退出码、verdict）。
 
 退出码：`0` 通过 · `1` 测试失败或 stopReason 异常 · `2` 违规（越界/改写历史/未提交交付）· `3` 配置或环境错误（含 MANIFEST 生成失败）。
 
@@ -184,9 +164,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 
 `tasks/<task>/deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
 
-**父代理不为任务提交任何东西**：简报由 `preflight` 拷进仓库并提交，审查记录写在 `<会话目录>/reviews/`（仓库之外）。`BASE` 只是本次任务的起点：它之前的提交是此前已完成的工作，`BASE..HEAD` 就是本次任务。
-
-下一个任务自动从新的 `HEAD` 起步（`BASE` 重新取值），所以**不需要合并动作**：已验收的提交就是 `main` 的最新状态。
+**父代理不为任务提交任何东西**：简报由 `preflight` 拷进仓库并提交，审查记录写在 `<会话目录>/reviews/`（仓库之外）。`BASE..HEAD` 就是本次任务；下一个任务从新的 `HEAD` 起步（`BASE` 重新取值），已验收的提交就是 `main` 的最新状态，不需要合并动作。
 
 验收结论写进 `<会话目录>/reviews/<task>.md`（模板 `templates/review.md`），一行即可。
 
@@ -197,8 +175,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 
 - **历史被改写 → 拒绝交付**（不是细读代码的触发条件）。
 - 真正需要细读的是“机械检查全绿但测试覆盖不到”的改动。
-- `ALLOWED` 为空时脚本拒绝执行。
-- 子代理写入 `tasks/**` 会被白名单判越界，并随丢弃一并回滚。
+- `ALLOW` 为空时脚本拒绝执行。
 
 ## 目录布局
 
@@ -217,23 +194,20 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 ```
 
 任务产物进历史：`plan` 提交（简报 + 导入）→ 子代理提交 → `result`/`discarded` 提交。
-派生文件不入历史，靠 `preflight` 生成、`postflight` 覆盖。
 
 ## 环境与限制
 
-首次使用跑 `scripts/doctor.sh --root <可写工作区>`（`0` 通过 · `3` 不满足）。
-`--root` 默认当前目录；沙箱里当前目录可能不可写，换工作区或 `/tmp` 再跑。环境失败要报告为**环境问题**，不是模型问题。
+环境失败报告为**环境问题**，不是模型问题；探测见 §0。`--root` 默认当前目录，沙箱里可能不可写，换工作区或 `/tmp` 再跑。
 
 限制：
 
-- **一次只派一个子代理**：单分支线性历史，两个任务同时写同一棵树没有意义。
+- **一次只派一个子代理，任务不可并行**：单分支线性历史，两个任务同时写同一棵树没有意义；后一个任务看到的是前一个已提交的结果。
 - **无任务依赖**：不能声明「B 依赖 A 的产出」，只能人工安排顺序。
 - **`ALLOW` 用逗号分隔**：路径本身含逗号无法表达。
-- **任务不可并行**：后一个任务看到的是前一个已提交的结果。
 
 ## 何时用、何时不用
 
-**只有当任务产出需要提交的代码改动，且改动要靠反复跑测试才能收敛时，才派。** 其余一律自己做：
+**只有当交付是文件改动（代码、数据、文档），且验收能机械核对时，才派。** 其余一律自己做：
 
 | 自己做的情况 |
 |---|
