@@ -160,8 +160,9 @@ boundary. Token savings depend on `r`, task size and batching — see the next s
 
 ## When to use
 
-Dispatch directly when the user explicitly asks for it; otherwise the first three decide, and the
-fourth decides whether this is also a token saving:
+Dispatch when the user explicitly asks for it, and do not dispatch when the user explicitly says
+not to. Otherwise the parent model decides autonomously from the criteria below — no need to ask
+each time: the first three decide fit, and the fourth decides whether this is also a token saving:
 
 1. The deliverable is a **file change** (code, data, config, or a document whose structure can be checked).
 2. Acceptance can be **checked mechanically** (a test or script, not a human read); for reviews or
