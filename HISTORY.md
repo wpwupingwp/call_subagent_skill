@@ -451,6 +451,26 @@ SKILL 布局补兜底说明；`r*` 统一为「实测 26–38%，100 行级外�
 
 断言 126 → **131**。
 
+### 第十次尝试（第九次成功）（2026-11-23 晚）
+
+同一份四行简报第七次跑（`self-review-10`）。22 步，`in 83,049 / out 10,136 / cache 1,413,344`，
+加权约 **151,860**；postflight `verdict=pass`（changed=1、violations=0、dirty=0、testexit=skipped）。
+
+10 条核对后：0 条新缺陷；2 条 minor、3 条确认、1 条拒绝、1 条设计、1 条口径澄清、1 条假阳性、
+1 条未决。
+
+- 假阳性：中文 README 的适合/不适合表并不缺「需要并发」行，当前文件里本来就有。
+- 设计/边界：`in_scope` 对 `/p/code.txt` 判合规是正确的（不在 `code/` 内）；`/code/x` 命中
+  「任意层级目录名」是文档写明的语义；写目录自身与变量重定向属边界，记录不改。
+- 口径澄清：README 的 42 条有效与逐轮「已修」相加的 38 条不是同一口径；42 含 3 条已确认但
+  未修的 minor/限制（sr5 `version_ge`、sr6 `usage_of`、sr8 强推 main）。README 已加注。
+- minor 记录：`usage_of <id>` 与 postflight 的两处 `find | head -1` 在同 id 多目录时非确定；
+  UUID 下概率极低，未修。
+- 确认：`usage_of --raw` 可用、envcheck 的 BASELINE_RED 文案与退出码一致；拒绝 `count_lines`
+  的权限误读；HTML/PNG 同源仍未核。
+
+断言未变：131。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

@@ -141,7 +141,7 @@ by the parent's context. Token savings are conditional, not the default.**
   and the patch, so it can be reproduced later.
 - **A second reader without the baggage.** The subagent only gets the frozen brief and `BASE`. It
   cannot see the assumptions of the previous dozens of turns, so it does not skip a check because
-  "we already decided X". Across multiple self-review rounds, about 45% survived the parent's item-by-item
+  "we already decided X". Across multiple self-review rounds, about 40% survived the parent's item-by-item
   reproduction: it can find invariants the parent missed, but its findings must be verified, not
   treated as a backlog.
 - **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
@@ -319,8 +319,10 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **8** (self-review-2 … -9); **94** reports, **42** valid after reproduction (39 fixed, 3 logged) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **9** (self-review-2 … -10); **104** reports, **44** valid after reproduction (39 fixed, 5 logged; includes minors/limits) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
+
+"Valid" means reproduced as real, including confirmed but unfixed minors/limits; "fixed" excludes logged-only items.
 
 ## License
 
