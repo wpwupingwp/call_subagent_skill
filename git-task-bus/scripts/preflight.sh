@@ -2,6 +2,8 @@
 # preflight.sh — 为一个任务建立专属 git 仓库，冻结 BASE 与白名单，打印派发块。
 set -euo pipefail
 
+git_in() { local d=$1; shift; ( cd "$d" && git "$@" ); }   # git < 1.8.5 没有 git -C
+
 usage() {
   cat <<'EOF'
 用法:
@@ -100,33 +102,34 @@ esac
 # 前置条件：本技能全部机制都依赖 git 与可写目录，缺任一项立即给出明确原因
 command -v git >/dev/null 2>&1 || die "git 不可用（PATH 中找不到）。本技能无法工作，先跑 doctor.sh。"
 GV=$(git --version 2>/dev/null); GV=${GV#git version }
-version_ge "$GV" 2.23 || die "git 版本过低: ${GV:-未知}，需要 >= 2.23（git switch）。先跑 doctor.sh。"
+version_ge "$GV" 1.8.0 || die "git 版本过低: ${GV:-未知}，需要 >= 1.8.0。先跑 doctor.sh。"
 
 mkdir -p "$SESS_DIR" 2>/dev/null || die "无法创建会话目录: $SESS_DIR（权限或路径问题）。先跑 doctor.sh。"
 
 # 让外层 git 仓库看不见这个目录。优先写 git 的本地忽略文件 .git/info/exclude：
 # 它不进版本控制、不会让 git status 变脏，也不会动用户的 .gitignore。
-TOP=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)
+TOP=$(git_in "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)
 if [ -n "$TOP" ]; then
   REL=$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$SESS_DIR" "$TOP" 2>/dev/null || true)
-  if [ -n "$REL" ] && ! git -C "$TOP" check-ignore -q -- "$REL/" 2>/dev/null; then
+  if [ -n "$REL" ]; then
     DIR=$(dirname "$REL")
     case "$SESSION" in
       session-*) [ "$DIR" = "." ] && PAT="/session-*/" || PAT="/$DIR/session-*/" ;;
       *)         PAT="/$REL/" ;;
     esac
-    EXCL=$(git -C "$TOP" rev-parse --git-path info/exclude 2>/dev/null || true)
-    case "$EXCL" in
+    GITDIR=$(git_in "$TOP" rev-parse --git-dir 2>/dev/null || true)
+    case "$GITDIR" in
       "") ;;
       /*) ;;
-      *) EXCL="$TOP/$EXCL" ;;
+      *) GITDIR="$TOP/$GITDIR" ;;
     esac
-    if [ -n "$EXCL" ] && [ -f "$EXCL" ] && ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
+    EXCL="$GITDIR/info/exclude"
+    if [ -n "$GITDIR" ] && [ -f "$EXCL" ] && ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
       [ -n "$(tail -c 1 "$EXCL" 2>/dev/null)" ] && printf '\n' >> "$EXCL" 2>/dev/null
       printf '# git-task-bus session workspaces\n%s\n' "$PAT" >> "$EXCL" 2>/dev/null || true
     fi
     # 兜底：本地忽略没写成（或不在 git 仓库可写范围）时，用会话目录内的 *
-    if ! git -C "$TOP" check-ignore -q -- "$REL/" 2>/dev/null; then
+    if ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
       printf '*\n' > "$SESS_DIR/.gitignore" 2>/dev/null || true
     fi
   fi
@@ -139,7 +142,7 @@ if [ ! -d "$REPO/.git" ]; then
   mkdir -p "$REPO"
 else
   # 复用仓库：先确认树干净，否则 BASE 不等于子代理实际看到的树
-  DIRTY=$(git -C "$REPO" status --porcelain)
+  DIRTY=$(git_in "$REPO" status --porcelain)
   if [ -n "$DIRTY" ]; then
     if [ "$ALLOW_DIRTY" -eq 1 ]; then
       echo "preflight: 警告 —— 工作树不干净，已按 --allow-dirty 放行：" >&2
@@ -178,9 +181,10 @@ BRIEF="$TDIR/brief.md"
 
 # 仓库不存在时现在才初始化（此前只做了只读校验）
 if [ "$CREATED" -eq 1 ]; then
-  git -C "$REPO" init -q -b main
-  git -C "$REPO" config user.name  "task-bus"
-  git -C "$REPO" config user.email "task-bus@localhost"
+  git_in "$REPO" init -q
+  git_in "$REPO" symbolic-ref HEAD refs/heads/main
+  git_in "$REPO" config user.name  "task-bus"
+  git_in "$REPO" config user.email "task-bus@localhost"
   printf '%s\n' '__pycache__/' '*.pyc' '.pytest_cache/' '.venv/' \
     'tasks/*/dispatch.env' 'tasks/*/dispatch.prompt' 'tasks/*/test.log' 'tasks/*/tmp/' \
     > "$REPO/.gitignore"
@@ -223,20 +227,20 @@ if [ -n "$IMPORT" ]; then
 fi
 
 if [ "$CREATED" -eq 1 ]; then
-  git -C "$REPO" commit -q --allow-empty -m "session init ($SESSION)"
+  git_in "$REPO" commit -q --allow-empty -m "session init ($SESSION)"
   echo "preflight: 已创建会话仓库 $REPO（分支 main）" >&2
   # 工作区若在别的 git 仓库内，确认会话目录没有污染它的 git status
-  if TOP=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null); then
+  if TOP=$(git_in "$ROOT" rev-parse --show-toplevel 2>/dev/null); then
     REL=$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$SESS_DIR" "$TOP" 2>/dev/null || true)
-    if [ -n "$REL" ] && [ -n "$(git -C "$TOP" status --porcelain --untracked-files=all -- "$REL" 2>/dev/null)" ]; then
+    if [ -n "$REL" ] && [ -n "$(git_in "$TOP" status --porcelain --untracked-files=all -- "$REL" 2>/dev/null)" ]; then
       echo "preflight: 工作区在 git 仓库内（$TOP），且 $REL 仍出现在 git status 里；建议把 $REL/ 加进 .gitignore" >&2
     fi
   fi
 fi
 
-git -C "$REPO" add -A
-if ! git -C "$REPO" diff --cached --quiet; then
-  git -C "$REPO" commit -q \
+git_in "$REPO" add -A
+if ! git_in "$REPO" diff --cached --quiet; then
+  git_in "$REPO" commit -q \
     -m "task $TASK: plan (brief=$(hash_file "$BRIEF"))"
 fi
 
@@ -244,19 +248,19 @@ fi
 if [ "$SAVE_MODEL" -eq 1 ]; then
   [ -n "$MODEL" ] || die "--save-model 需要同时给出 --model"
   printf '%s\n' "$MODEL" > "$REPO/model"
-  git -C "$REPO" add model
-  git -C "$REPO" diff --cached --quiet || git -C "$REPO" commit -q -m "model=$MODEL"
+  git_in "$REPO" add model
+  git_in "$REPO" diff --cached --quiet || git_in "$REPO" commit -q -m "model=$MODEL"
   echo "preflight: 已写入会话配置 $REPO/model = $MODEL" >&2
 fi
 resolve_model
 
 # 单分支线性历史：必须停在 main 上，本次任务的 BASE 就是它的 HEAD
-CUR=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
+CUR=$(git_in "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
 if [ "$CUR" != "main" ]; then
-  git -C "$REPO" switch -q main 2>/dev/null \
+  git_in "$REPO" checkout -q main 2>/dev/null \
     || die "会话仓库不在 main 分支（当前 $CUR），无法继续"
 fi
-BASE=$(git -C "$REPO" rev-parse HEAD)
+BASE=$(git_in "$REPO" rev-parse HEAD)
 
 # 白名单里的路径不存在时给出警告（新建文件的任务属正常）
 IFS=',' read -ra allow_items <<< "$ALLOW"

@@ -5,6 +5,8 @@
 # 退出码：0 通过 / 1 测试失败 / 2 违规 / 3 环境或用法错误
 set -uo pipefail
 
+git_in() { local d=$1; shift; ( cd "$d" && git "$@" ); }   # git < 1.8.5 没有 git -C
+
 usage() {
   cat <<'EOF'
 用法: postflight.sh --task <id> [--stop <reason>] [--child <id|auto>] [--usage <用量>]
@@ -205,9 +207,12 @@ VIOLATION_COUNT=$(count_lines "$TMPD/violations.txt")
 
 # ---- 5. 附加可疑线索（不直接判违规，但要看得见）----
 git stash list > "$TMPD/stash.txt" 2>/dev/null || true
-git worktree list > "$TMPD/worktrees.txt" 2>/dev/null || true
 STASH_COUNT=$(count_lines "$TMPD/stash.txt")
-WORKTREE_COUNT=$(count_lines "$TMPD/worktrees.txt"); WORKTREE_COUNT=$(( WORKTREE_COUNT > 0 ? WORKTREE_COUNT - 1 : 0 ))
+WORKTREE_COUNT=0
+GITDIR_NOW=$(git rev-parse --git-dir 2>/dev/null || true)
+if [ -n "$GITDIR_NOW" ] && [ -d "$GITDIR_NOW/worktrees" ]; then
+  WORKTREE_COUNT=$(ls -1 "$GITDIR_NOW/worktrees" 2>/dev/null | wc -l | tr -d ' ')
+fi
 
 # ---- 6. 测试：父代理自己跑一次，不采信子代理的自述 ----
 TEST_EXIT=0
@@ -342,12 +347,12 @@ if [ -n "$USAGE" ]; then
 fi
 
 # ---- 11. 记录物入历史（无论判定如何）----
-if ! git -C "$REPO" add -A -- tasks >/dev/null 2>&1; then
+if ! git_in "$REPO" add -A -- tasks >/dev/null 2>&1; then
   printf 'postflight: 记录入历史失败 —— git add 出错\n' >&2
   VERDICT="error"; EXIT=3
 fi
-if ! git -C "$REPO" diff --cached --quiet; then
-  if ! git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"; then
+if ! git_in "$REPO" diff --cached --quiet; then
+  if ! git_in "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"; then
     printf 'postflight: 记录入历史失败 —— git commit 出错\n' >&2
     VERDICT="error"; EXIT=3
   fi

@@ -176,12 +176,15 @@ README.en.md                 English version
 | 项 | 要求 |
 |---|---|
 | 系统 | Linux · macOS · Windows（Git Bash 或 WSL） |
-| git | ≥ 2.23（需要 `git switch`） |
+| git | ≥ 1.8.0（2012 年，CentOS 7 自带 1.8.3 可用） |
 | 命令 | bash、POSIX 基本工具、`python3`（硬依赖） |
 | 工作区 | 可写；不要求是 git 仓库 |
 
 脚本只用 POSIX 工具和 `python3`（生成 `MANIFEST.json`、解析用量），不依赖 `sort -V`、
 `date -Iseconds`、`sha256sum` 这些 BSD/macOS 上没有的东西。内容哈希用 `git hash-object`。
+git 侧也避开了新版本才有的命令：用 `git checkout` 而不是 `git switch`，用 `git init` +
+`git symbolic-ref` 而不是 `git init -b`，用 `cd` 子壳而不是 `git -C`，worktree 数量直接数
+`.git/worktrees/`。
 
 Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或设 `core.autocrlf=false`）；
 路径用 POSIX 风格（`/c/work/...`），不要传 `C:\...`。

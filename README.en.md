@@ -189,12 +189,15 @@ batch ten of them:                  about 210 each → saves 51%
 | Item | Requirement |
 |---|---|
 | OS | Linux · macOS · Windows (Git Bash or WSL) |
-| git | ≥ 2.23 (needs `git switch`) |
+| git | ≥ 1.8.0 (2012; CentOS 7 ships 1.8.3) |
 | Commands | bash, POSIX basics, `python3` (hard dependency) |
 | Workspace | writable; does not have to be a git repository |
 
 Scripts only use POSIX tools plus `python3` (for `MANIFEST.json` and usage parsing); no `sort -V`,
 `date -Iseconds` or `sha256sum` that BSD/macOS lacks. Content hashes use `git hash-object`.
+On the git side it avoids newer-only commands: `git checkout` instead of `git switch`, `git init` +
+`git symbolic-ref` instead of `git init -b`, `cd` subshells instead of `git -C`, and worktree count
+from `.git/worktrees/`.
 
 On Windows: scripts must be LF (add `.gitattributes` or set `core.autocrlf=false`), and pass POSIX
 paths (`/c/work/...`), not `C:\...`.
