@@ -250,8 +250,13 @@ Porting means replacing that adapter; the verdict logic does not change.
 
 - **stop is a verdict latch**: anything other than `completed` fails, so a truncated delivery cannot
   pass just because tests happen to be green.
-- **usage is audit-only**: it lands in `MANIFEST.json` and `tasks/usage.tsv` and does not affect the
-  verdict; use `usage_of.sh` or explicit `--usage` when measuring `r`.
+- **unreadable logs fall back semi-silently**: with an explicit `--child` whose log is missing,
+  `postflight` only warns that usage cannot be read, skips stop correction, and uses `--stop` as
+  given (or `completed` if omitted). Pass the correct `--stop` explicitly if you need a trustworthy
+  verdict.
+- **usage is audit-only**: it lands in `tasks/usage.tsv` (MANIFEST records only `childSession` and
+  `stopReason`) and does not affect the verdict; use `usage_of.sh` or explicit `--usage` when
+  measuring `r`.
 - **The DSH settlement notice is not a substitute**: the parent gets prose (`finished`, `was stopped
   before it finished`, `ran out of room`), the text carries no id, and the exact `stopReason` lives
   only in metadata no script can read. The adapter reads the log for the exact enum and `childSession`.
@@ -278,9 +283,15 @@ The log format is tied to DSH v0.2.2's session v4; if it changes in a DSH upgrad
 
 ### Harness without session logs
 
-Minimal change: delete the three adapter functions and the `--child` parsing, make `--stop`
-**required** (otherwise the `completed` default is fail-open), keep `--usage` manual only, and set
-MANIFEST's `childSession` to `null`. The acceptance logic is unchanged.
+Minimal change, in two steps:
+
+1. delete the three adapter functions and the `--child` parsing, including the `--child` required
+   check in argument parsing;
+2. delete the `completed` default for `--stop` and make it required — missing log correction plus a
+   missing explicit declaration is a double fail-open.
+
+Keep `--usage` manual only and set MANIFEST's `childSession` to `null`. The acceptance logic is
+unchanged.
 
 ### Tests
 
@@ -386,10 +397,13 @@ still growing):
 | Output | 1,227,313 tok |
 | Cache hit rate | 99.63% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **10** (self-review-2 … -11); **114** reports, **48** valid after reproduction (43 fixed, 5 logged; includes minors/limits) |
+| Self-dispatched tasks on this skill (preflight/postflight) | **10** (self-review-2 … -11, as of this snapshot); **114** reports, **48** valid after reproduction (43 fixed, 5 logged; includes minors/limits) |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 "Valid" means reproduced as real, including confirmed but unfixed minors/limits; "fixed" excludes logged-only items.
+
+`self-review-N` and `review-N` are two names for the same sequence; this table counts through
+`self-review-11`, and later rounds such as `review-12` are not included.
 
 ## License
 

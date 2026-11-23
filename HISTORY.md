@@ -534,6 +534,11 @@ stop 和 usage 都从 `~/.dsh/sessions` 读。这让核心验收和 DSH 的内�
 显式 id 约 30ms；读父日志的 `subagent/catalog` 约 0.66s。结论是维持现状：`--child` 必填、
 zstd 由 DSH 保证、不单独检查；移植相关的接口说明集中到 README 的“移植到其他 harness”一节。
 
+review-12 复核（同日）据此修正了文档与一处代码：README 的 usage 落点改为只写
+`tasks/usage.tsv`；补上“显式 `--child` 读不到日志时 stop 不校正”的半静默回退说明；error 路径的
+提交主题由 `error (error)` 改为 `error`；移植节的最小改法拆成两步；README 增加
+`self-review-N` / `review-N` 的编号脚注。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

@@ -410,7 +410,12 @@ if ! git -C "$REPO" add -A -- tasks >/dev/null 2>&1; then
   VERDICT="error"; EXIT=3
 fi
 if ! git -C "$REPO" diff --cached --quiet; then
-  if ! git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || { [ "$VERDICT" = error ] && echo error || echo discarded; }) ($VERDICT)"; then
+  case "$VERDICT" in
+    pass)  SUBJ="result (pass)" ;;
+    error) SUBJ="error" ;;
+    *)     SUBJ="discarded ($VERDICT)" ;;
+  esac
+  if ! git -C "$REPO" commit -q -m "task $TASK: $SUBJ"; then
     printf 'postflight: 记录入历史失败 —— git commit 出错\n' >&2
     VERDICT="error"; EXIT=3
   fi

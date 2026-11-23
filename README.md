@@ -227,8 +227,11 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 | usage | `assistant/message.usage` 的 `inputTokens` / `outputTokens` / `cacheReadTokens`，按步累加 | 不记录；`--usage` 可手填 |
 
 - **stop 是判定闩锁**：非 `completed` 一律 fail，避免被截断的交付因为测试碰巧通过而被接受。
-- **usage 只用于审计**：写进 `MANIFEST.json` 和 `tasks/usage.tsv`，不参与判定；要算 `r` 时用
-  `usage_of.sh` 或显式 `--usage`。
+- **日志读不到时是半静默回退**：显式 `--child` 但对应日志缺失时，`postflight` 只提示用量无法读取，
+  stop 校正整段跳过，`--stop` 按原样判定（未传则 `completed`）；此时要保证判定可信，必须显式传对
+  `--stop`。
+- **usage 只用于审计**：写进 `tasks/usage.tsv`（MANIFEST 只记 `childSession` 和 `stopReason`），
+  不参与判定；要算 `r` 时用 `usage_of.sh` 或显式 `--usage`。
 - **DSH 的完成通知不是替代品**：父代理收到的是自然语言（`finished`、`was stopped before it
   finished`、`ran out of room`），正文里没有 id，精确 `stopReason` 只在元数据里；脚本读不到，
   也无法据此核对 `--stop`。所以适配器读日志，拿精确枚举和 `childSession`。
@@ -254,8 +257,12 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 
 ### 没有会话日志的 harness
 
-最小改法：删掉三个适配函数和 `--child` 解析，把 `--stop` 设为**必填**（否则默认 `completed`
-是 fail-open），`--usage` 仅手工；MANIFEST 的 `childSession` 为 `null`。验收逻辑完全不变。
+最小改法分两步：
+
+1. 删掉三个适配函数和 `--child` 解析，连同参数解析里的 `--child` 必填检查；
+2. 删掉 `--stop` 的 `completed` 默认并改为必填——少了日志校正又少了显式声明，就是双重 fail-open。
+
+`--usage` 仅手工；MANIFEST 的 `childSession` 为 `null`。验收逻辑完全不变。
 
 ### 测试
 
@@ -347,10 +354,13 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 1,227,313 tok |
 | 缓存命中率 | 99.63% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 17,093,471 |
-| 使用本技能自举（preflight/postflight 跑自己） | **10 次**（self-review-2 … -11）；报告 **114** 条，复核后 **48** 条有效（43 条已修，5 条记录；含 minor/限制） |
+| 使用本技能自举（preflight/postflight 跑自己） | **10 次**（self-review-2 … -11，截至本表快照）；报告 **114** 条，复核后 **48** 条有效（43 条已修，5 条记录；含 minor/限制） |
 | 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
 「有效」指父代理复现后成立，含已确认但未修的 minor/限制；「已修」不含仅记录项。
+
+`self-review-N` 与 `review-N` 是同一序列的两种叫法；本表统计到 `self-review-11`，其后的自举
+（如 `review-12`）未计入。
 
 ## License
 
