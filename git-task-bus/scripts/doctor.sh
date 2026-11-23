@@ -8,7 +8,7 @@ usage() {
 用法: doctor.sh [--root <任务根目录>] [--src <路径[,路径...]>]
 
 检查项：
-  git 是否可用、版本是否 >= 1.8.0
+  git 是否可用、版本是否 >= 2.0
   依赖命令：sed grep cp tar date tr dirname basename head tail python3
   （前十个是 POSIX 基本工具；python3 用于生成 MANIFEST.json 与解析用量）
   任务根目录是否可创建、可写（默认当前目录；沙箱下请用 --root 指向可写工作区）
@@ -59,10 +59,10 @@ if ! command -v git >/dev/null 2>&1; then
   bad "git 不可用（PATH 中找不到）—— 本技能无法工作"
 else
   V=$(git --version 2>/dev/null); V=${V#git version }
-  if version_ge "$V" 1.8.0; then
-    ok "git $V（>= 1.8.0）"
+  if version_ge "$V" 2.0; then
+    ok "git $V（>= 2.0）"
   else
-    bad "git 版本过低: ${V:-未知}，需要 >= 1.8.0"
+    bad "git 版本过低: ${V:-未知}，需要 >= 2.0"
   fi
 fi
 

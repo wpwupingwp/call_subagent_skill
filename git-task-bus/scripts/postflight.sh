@@ -5,8 +5,6 @@
 # 退出码：0 通过 / 1 测试失败 / 2 违规 / 3 环境或用法错误
 set -uo pipefail
 
-git_in() { local d=$1; shift; ( cd "$d" && git "$@" ); }   # git < 1.8.5 没有 git -C
-
 usage() {
   cat <<'EOF'
 用法: postflight.sh --task <id> [--stop <reason>] [--child <id|auto>] [--usage <用量>]
@@ -347,12 +345,12 @@ if [ -n "$USAGE" ]; then
 fi
 
 # ---- 11. 记录物入历史（无论判定如何）----
-if ! git_in "$REPO" add -A -- tasks >/dev/null 2>&1; then
+if ! git -C "$REPO" add -A -- tasks >/dev/null 2>&1; then
   printf 'postflight: 记录入历史失败 —— git add 出错\n' >&2
   VERDICT="error"; EXIT=3
 fi
-if ! git_in "$REPO" diff --cached --quiet; then
-  if ! git_in "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"; then
+if ! git -C "$REPO" diff --cached --quiet; then
+  if ! git -C "$REPO" commit -q -m "task $TASK: $([ "$VERDICT" = pass ] && echo result || echo discarded) ($VERDICT)"; then
     printf 'postflight: 记录入历史失败 —— git commit 出错\n' >&2
     VERDICT="error"; EXIT=3
   fi
