@@ -158,6 +158,14 @@ our measurements); reviews usually cost more; the subagent's review can miss thi
 still need item-by-item checking; and "independent" means independent context, not a permission
 boundary. Token savings depend on `r`, task size and batching — see the next section.
 
+**Dispatching the same model (`r ≈ 1`)** keeps the first three benefits and loses only the savings.
+On the same code and brief: the cheap model (llama) produced 7 findings, 2 landed, mostly
+superficial; the parent-equivalent model (deepseek-flash) produced 10, 6 landed, including two
+"silent audit failures" (log suffix, `dispatch.env` fail-open), at about 3.2× the weighted cost.
+Use the cheap model for mechanical and surface-level issues, the same model for verdict logic,
+adapters and audit completeness — and re-verify every finding, because the same model shares the
+parent's blind spots.
+
 ## When to use
 
 Dispatch when the user explicitly asks for it, and do not dispatch when the user explicitly says
@@ -187,6 +195,9 @@ commit and acceptance, then dispatch the next. The parent can drive unattended m
 reviews this way, still running preflight → dispatch → postflight per round, with automatic rollback
 on failure. It cannot dispatch concurrently, and it does not decide whether a review's conclusions
 are correct.
+review-12 … review-23 are twelve consecutive recorded rounds: each keeps `BASE`/`HEAD`, patch,
+`MANIFEST` and usage, so rounds are comparable; the audit chain and the token bill both grow with
+the number of rounds — unattended saves human time, not the item-by-item verification.
 
 **Review-style work** can only be checked for structure and references (fields, anchors, links); it
 cannot catch a wrong conclusion, and when there is nothing structural to check it needs
@@ -218,6 +229,8 @@ batch ten of them:                  about 210 each → saves 51%
 
 **Batching is what pays, not a cheaper model.** Review/document work usually fails the savings
 test (measured 109k–147k per run); what you get is a second independent read.
+With the same model (`r ≈ 1`) you buy audit and isolation only; across unattended rounds the cost
+adds up linearly, so budget the rounds before starting.
 
 ## Requirements
 
