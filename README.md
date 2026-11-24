@@ -229,9 +229,9 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 | usage | `assistant/message.usage` 的 `inputTokens` / `outputTokens` / `cacheReadTokens`，按步累加 | 不记录；`--usage` 可手填 |
 
 - **stop 是判定闩锁**：非 `completed` 一律 fail，避免被截断的交付因为测试碰巧通过而被接受。
-- **日志读不到时回退到 `--stop`**：显式 `--child` 但对应日志缺失时，`postflight` 会提示日志不可读、
-  stop 校正跳过，按 `--stop` 判定（未传则 `completed`）；此时要保证判定可信，必须显式传对
-  `--stop`。
+- **`--child` 日志不可用时回退到 `--stop`**：显式 id 的日志缺失，或 `auto` 未匹配到子会话时，
+  `postflight` 会提示日志不可读、stop 校正跳过，按 `--stop` 判定（未传则 `completed`）；此时要
+  保证判定可信，必须显式传对 `--stop`。
 - **usage 只用于审计**：写进 `tasks/usage.tsv`（MANIFEST 只记 `childSession` 和 `stopReason`），
   不参与判定；要算 `r` 时用 `usage_of.sh` 或显式 `--usage`。
 - **DSH 的完成通知不是替代品**：父代理收到的是自然语言（`finished`、`was stopped before it
@@ -322,7 +322,7 @@ exit 3——不会退化成父模型。
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 136 项断言，不需要网络或子代理
+bash tests/run.sh                    # 138 项断言，不需要网络或子代理
 SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 103 项
 ```
 

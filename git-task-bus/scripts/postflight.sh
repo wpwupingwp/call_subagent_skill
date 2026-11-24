@@ -131,10 +131,20 @@ print(f"steps={steps},in={ti},out={to},cache={tc}" if steps else "")
   CHILD_META_OK=1
 }
 
+# 日志/子会话不可得时 stop 只能按 --stop 或默认值判定；把这件事说清楚。
+warn_stop_skipped() {
+  if [ -n "${STOP_GIVEN:-}" ]; then
+    printf 'postflight: %s，stop 校正已跳过；按 --stop=%s 判定\n' "$1" "$STOP" >&2
+  else
+    printf 'postflight: %s，stop 校正已跳过；按默认 completed 判定（非正常结束请显式传 --stop）\n' "$1" >&2
+  fi
+}
+
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
 if [ "$CHILD" = "auto" ]; then
   if ! resolve_child; then
     printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
+    warn_stop_skipped "子会话日志不可读"
     CHILD=""
   fi
 fi
@@ -142,11 +152,7 @@ fi
 CHILD_META_OK=0; CHILD_STOP=""; CHILD_USAGE=""
 if [ -n "${CHILD:-}" ]; then
   if ! read_child_meta; then
-    if [ -n "${STOP_GIVEN:-}" ]; then
-      printf 'postflight: 子会话日志不可读，stop 校正已跳过；按 --stop=%s 判定\n' "$STOP" >&2
-    else
-      printf 'postflight: 子会话日志不可读，stop 校正已跳过；按默认 completed 判定（非正常结束请显式传 --stop）\n' >&2
-    fi
+    warn_stop_skipped "子会话日志不可读"
   fi
 fi
 

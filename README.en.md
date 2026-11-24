@@ -253,10 +253,10 @@ Porting means replacing that adapter; the verdict logic does not change.
 
 - **stop is a verdict latch**: anything other than `completed` fails, so a truncated delivery cannot
   pass just because tests happen to be green.
-- **unreadable logs fall back to `--stop`**: with an explicit `--child` whose log is missing,
-  `postflight` warns that the log is unreadable, skips stop correction, and uses `--stop` as given
-  (or `completed` if omitted). Pass the correct `--stop` explicitly if you need a trustworthy
-  verdict.
+- **unreadable `--child` logs fall back to `--stop`**: when the explicit id has no log, or `auto`
+  matches no child session, `postflight` warns that the log is unreadable, skips stop correction,
+  and uses `--stop` as given (or `completed` if omitted). Pass the correct `--stop` explicitly if
+  you need a trustworthy verdict.
 - **usage is audit-only**: it lands in `tasks/usage.tsv` (MANIFEST records only `childSession` and
   `stopReason`) and does not affect the verdict; use `usage_of.sh` or explicit `--usage` when
   measuring `r`.
@@ -361,7 +361,7 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 136 assertions, no network or subagent needed
+bash tests/run.sh                    # 138 assertions, no network or subagent needed
 SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 103 total
 ```
 

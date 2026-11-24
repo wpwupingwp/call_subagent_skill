@@ -315,13 +315,17 @@ chk "Z/用量已记录" "t-z	test/model	pass	1	5	6	7" "$(tail -1 "$R/tasks/usage
 sess gZ2
 chk "Z2/preflight" 0 "$(pf --task t-z2 --import calc.py --allow calc.py $(b t-z2) --tests true)"
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
-chk "Z2/auto 失败仍通过" 0 "$(DSH_HOME="$B/nohome" bash $SK/scripts/postflight.sh --root "$B" --task t-z2 --stop completed --child auto --quiet >/dev/null 2>&1; echo $?)"
+OUT_Z2=$(DSH_HOME="$B/nohome" bash $SK/scripts/postflight.sh --root "$B" --task t-z2 --stop completed --child auto --quiet 2>&1); RC_Z2=$?
+chk "Z2/auto 失败仍通过" 0 "$RC_Z2"
+chk "Z2/auto 失败警告" "yes" "$(printf '%s' "$OUT_Z2" | grep -q '日志不可读' && echo yes || echo no)"
 chk "Z2/childSession=null" "None" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-z2/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 # AA：不传 --stop 默认 completed
 sess gAA
 chk "AA/preflight" 0 "$(pf --task t-aa --import calc.py --allow calc.py $(b t-aa) --tests true)"
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
-chk "AA/默认 stop 通过" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --child test-child --quiet >/dev/null 2>&1; echo $?)"
+OUT_AA=$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --child test-child --quiet 2>&1); RC_AA=$?
+chk "AA/默认 stop 通过" 0 "$RC_AA"
+chk "AA/日志不可读警告" "yes" "$(printf '%s' "$OUT_AA" | grep -q '日志不可读' && echo yes || echo no)"
 chk "AA/重跑被拒" 3 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-aa --child test-child --quiet >/dev/null 2>&1; echo $?)"
 chk "AA/归档未被覆盖" "t-aa.patch" "$(ls "$R/tasks/t-aa/deliveries/")"
 # AB：越界 → reject，MANIFEST 指向 abandoned patch
