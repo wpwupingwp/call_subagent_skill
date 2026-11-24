@@ -2,13 +2,13 @@
 
 **English** · [中文](README.md)
 
-This skill uses git to manage the handoff between parent and subagent: one repository per
-conversation, the parent freezes `BASE` and a path whitelist, the subagent commits on `main`, and
-the parent accepts mechanically with diff, whitelist and test exit code — rolling back and archiving
-a patch on failure, so the delivery stays **rollbackable and auditable**. It also gives the subagent
-a **clean-context, independent review** that does not inherit the parent conversation, while the
-parent context stays short; and when the subagent is clearly cheaper (low `r`) on a large enough
-task, it can also **save tokens** — dispatching the same model buys the first two, not the savings.
+This skill uses git to manage the handoff between parent and subagent: **with the parent context left
+unchanged, the subagent works in its own independent context** — one repository per conversation, the
+parent freezes `BASE` and a path whitelist, the subagent commits on `main`, and the parent accepts
+mechanically with diff, whitelist and test exit code, rolling back and archiving a patch on failure.
+The delivery is therefore **rollbackable and auditable**, and the review is not primed by the parent
+context; when the subagent is clearly cheaper (low `r`) on a large enough task it also **saves
+tokens** — dispatching the same model buys the first two, not the savings.
 
 > **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**; `--child`
 > reads DSH child-session logs and is required. Other harnesses must port that adapter; see
@@ -32,10 +32,11 @@ by the parent's context. Token savings are conditional, not the default.**
   still keep the evidence). Across multiple self-review rounds, about 40% survived the parent's item-by-item
   reproduction: it can find invariants the parent missed, but its findings must be verified, not
   treated as a backlog.
-- **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
-  own session. The parent reads the `postflight` summary, the `git diff --stat` of a passing task, and
-  the net diff only when a trigger fires. In long sessions most cost is context re-reading, so a
-  short parent context is lighter on every later step.
+- **An independent context, an unchanged parent context.** Files the subagent read, paths it tried
+  and test logs all stay in its own session. The parent reads the `postflight` summary, the
+  `git diff --stat` of a passing task, and the net diff only when a trigger fires. In long sessions
+  most cost is context re-reading, so a parent context that does not grow with each dispatch is
+  lighter on every later step.
 
 The trade-offs are real: the parent still pays for the brief and for orchestration (about 2,100 in
 our measurements); reviews usually cost more; the subagent's review can miss things, so findings
