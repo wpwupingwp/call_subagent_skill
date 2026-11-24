@@ -146,7 +146,8 @@ by the parent's context. Token savings are conditional, not the default.**
 - **A second reader without the baggage.** The subagent does not inherit the parent conversation:
   it gets the frozen brief and a repo snapshot, so it does not skip a check because "we already
   decided X". The repo itself may still hold previous tasks and last round's `findings.md`; real
-  independence depends on clearing those. Across multiple self-review rounds, about 40% survived the parent's item-by-item
+  independence depends on clearing those (`git rm findings.md` and commit; history and the patch
+  still keep the evidence). Across multiple self-review rounds, about 40% survived the parent's item-by-item
   reproduction: it can find invariants the parent missed, but its findings must be verified, not
   treated as a backlog.
 - **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
