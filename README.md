@@ -327,8 +327,8 @@ exit 3——不会退化成父模型。
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 134 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 99 项
+bash tests/run.sh                    # 139 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 104 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、

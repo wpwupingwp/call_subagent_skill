@@ -575,6 +575,8 @@ review-20（同日）：postflight 仓库不存在时保留原路径用于报错
 
 review-21（同日）：usage_of.sh 的用法行同步“显式 id 优先，--latest 被忽略”。其余为重复意见/边界，记录不改。
 
+review-22（同日）：postflight 在 `source` 前用 `bash -n` 校验 `dispatch.env`，损坏（如未闭合引号）时按既有的环境错误 `exit 3`，不再让 source 中途终止脚本、既无判定也不回滚；audit_compliance 的 sed 解析补上“`-i` 写在脚本之后”（`sed -e 's/a/b/' -i x`）。断言 134/99 → 139/104。
+
 ## 自举小结：review-12 … review-18（2026-11-24）
 
 | 轮次 | 报告 | 落地 | 本轮主题 |

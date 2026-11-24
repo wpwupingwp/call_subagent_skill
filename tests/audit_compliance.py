@@ -90,16 +90,17 @@ def _sed_targets(tokens: list[str]) -> list[str]:
             t = tokens[j]
             if t in OPS:
                 break
+            # 选项可以出现在脚本之后（sed -e 's/a/b/' -i x），所以在两个位置都要识别。
+            if not have_script and t in ("-e", "--expression", "-f", "--file"):
+                j += 2
+                have_script = True
+                continue
+            if t.startswith("-") and t != "-":
+                if t.startswith("--in-place") or (not t.startswith("--") and "i" in t[1:]):
+                    inplace = True
+                j += 1
+                continue
             if not have_script:
-                if t in ("-e", "--expression", "-f", "--file"):
-                    j += 2
-                    have_script = True
-                    continue
-                if t.startswith("-") and t != "-":
-                    if t.startswith("--in-place") or (not t.startswith("--") and "i" in t[1:]):
-                        inplace = True
-                    j += 1
-                    continue
                 have_script = True
                 j += 1
                 continue

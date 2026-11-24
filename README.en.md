@@ -367,8 +367,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 134 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 99 total
+bash tests/run.sh                    # 139 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 104 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

@@ -46,6 +46,12 @@ TDIR="$REPO/tasks/$TASK"
 
 TMPD="$TDIR/tmp"
 [ -f "$TDIR/dispatch.env" ] || { echo "postflight: 缺少 $TDIR/dispatch.env，先跑 preflight.sh" >&2; exit 3; }
+# 文件损坏（如未闭合引号）会让 source 中途终止整个脚本，判定与回滚都不执行；
+# 先做语法检查，归入与「文件缺失」相同的环境错误。
+if ! bash -n "$TDIR/dispatch.env" 2>/dev/null; then
+  echo "postflight: $TDIR/dispatch.env 语法损坏（例如未闭合引号），无法读取；修复后重跑" >&2
+  exit 3
+fi
 # shellcheck disable=SC1090
 . "$TDIR/dispatch.env"
 

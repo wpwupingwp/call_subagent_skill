@@ -207,6 +207,11 @@ cat > "$B/audit/qredir.jsonl" <<'EOF'
 {"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
 EOF
 chk "AI/引号重定向" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/qredir.jsonl" --scope code >/dev/null 2>&1; echo $?)"
+cat > "$B/audit/sedi.jsonl" <<'EOF'
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"bash","arguments":"{\"command\":\"sed -e \\\"s/a/b/\\\" -i code/a.py\"}"}]}}}
+{"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
+EOF
+chk "AI/sed 选项在脚本后" 2 "$(python3 "$HERE/audit_compliance.py" --session "$B/audit/sedi.jsonl" --scope code >/dev/null 2>&1; echo $?)"
 cat > "$B/audit/fdredir.jsonl" <<'EOF'
 {"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"bash","arguments":"{\"command\":\"echo x 2> code/a.py\"}"}]}}}
 {"type":"assistant/message","data":{"turn":1,"message":{"content":[{"type":"tool-call","name":"subagent","arguments":"{}"}]}}}
@@ -240,6 +245,14 @@ chk "MF/应 3" 3 "$(PATH="$B/fakebin:$PATH" bash "$SK/scripts/postflight.sh" --r
 chk "MF/manifest 降级" "error" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-mf/MANIFEST.json'))['verdict'])" 2>/dev/null)"
 chk "MF/error 提交主题" "task t-mf: error" "$(git -C "$R" log --format=%s -1)"
 chk "MF/patch 改名" "yes" "$([ -f "$R/tasks/t-mf/deliveries/t-mf.error.patch" ] && echo yes || echo no)"
+
+echo "── BE 损坏的 dispatch.env ──"
+sess gBE
+chk "BE/preflight" 0 "$(pf --task t-be --import calc.py --allow calc.py $(b t-be) --tests true)"
+printf 'x="\n' >> "$R/tasks/t-be/dispatch.env"
+chk "BE/应 3" 3 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-be --child test-child --quiet >"$B/be.out" 2>&1; echo $?)"
+chk "BE/提示语法损坏" "yes" "$(grep -q '语法损坏' "$B/be.out" && echo yes || echo no)"
+chk "BE/未产生判定提交" "yes" "$(git -C "$R" log -1 --format=%s | grep -q 'plan' && echo yes || echo no)"
 
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── AF 子会话结束原因校验 ──"
