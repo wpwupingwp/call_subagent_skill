@@ -571,6 +571,8 @@ review-18（同日）：preflight 把“切回 main”提前到写 plan 提交�
 
 review-19（同日）：README 中英把残留的 `/session-*/` 改为精确的 `/<会话 id>/`（各 3 处）；postflight 的 `--root` 变量改名 `ROOT_ARG`，与 preflight 命名一致。envcheck 的管道 127 两条边界（首段缺失判基线红、CMD_WORD 取首段）记录不改。
 
+review-20（同日）：postflight 仓库不存在时保留原路径用于报错；usage_of.sh 在同时给 id 与 `--latest` 时按 id 处理；audit_compliance 的两种 scope 语义加注释说明。envcheck 管道边界与其余重复意见记录不改。
+
 ## 自举小结：review-12 … review-18（2026-11-24）
 
 | 轮次 | 报告 | 落地 | 本轮主题 |

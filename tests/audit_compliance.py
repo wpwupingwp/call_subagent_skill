@@ -45,7 +45,7 @@ def parts(path: str) -> list[str]:
 
 
 def in_scope(target: str, scopes: list[str]) -> bool:
-    """目标路径的任一级目录名落在 scope 里即视为交付范围（不含文件名本身，精确匹配）。"""
+    """目标路径的任一级目录名落在 scope 里即视为交付范围（仅目录段，用于 write/edit 与重定向）。"""
     return any(p in scopes for p in parts(target)[:-1])
 
 
@@ -70,7 +70,7 @@ def _args_after(tokens: list[str], name: str) -> list[str]:
 
 
 def _write_targets(target: str, scopes: list[str]) -> bool:
-    """写入目标本身是 scope 目录，或位于 scope 目录下。"""
+    """写入目标本身是 scope 目录，或位于 scope 目录下（用于 bash 写命令；同名文件可能误判）。"""
     return any(p in scopes for p in parts(target))
 
 

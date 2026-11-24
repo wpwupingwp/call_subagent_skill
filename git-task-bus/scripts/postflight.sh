@@ -51,7 +51,11 @@ TMPD="$TDIR/tmp"
 . "$TDIR/dispatch.env"
 
 # 兼容旧 dispatch.env 里的相对路径：先归一化，再 cd；之后的输出路径都是绝对的。
-REPO=$(cd "$REPO" 2>/dev/null && pwd) || { echo "postflight: 仓库不存在: $REPO" >&2; exit 3; }
+REPO_RAW="$REPO"
+if ! REPO=$(cd "$REPO" 2>/dev/null && pwd); then
+  echo "postflight: 仓库不存在: $REPO_RAW" >&2
+  exit 3
+fi
 TDIR="$REPO/tasks/$TASK"
 TMPD="$TDIR/tmp"
 

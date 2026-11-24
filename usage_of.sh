@@ -31,7 +31,7 @@ done
 SESS_ROOT="${DSH_HOME:-$HOME/.dsh}/sessions"
 [ -d "$SESS_ROOT" ] || { echo "usage_of: 找不到会话目录 $SESS_ROOT" >&2; exit 3; }
 
-if [ "$LATEST" -eq 1 ] || [ -z "$ID" ]; then
+if [ -z "$ID" ]; then
   # 不用 find -printf（GNU 专有）：python3 已是本脚本的依赖，遍历也更可靠
   LOG=$(python3 - "$SESS_ROOT" <<'PY'
 import os, sys
@@ -51,6 +51,7 @@ print(best)
 PY
 )
 else
+  [ "$LATEST" -eq 1 ] && echo "usage_of: 同时给了 id 与 --latest，按 id 处理" >&2
   LOG=$(find "$SESS_ROOT" -type f -path "*/$ID/session.v4.jsonl.zstd" 2>/dev/null | head -1)
 fi
 
