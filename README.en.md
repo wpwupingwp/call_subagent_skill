@@ -2,14 +2,13 @@
 
 **English** · [中文](README.md)
 
-This skill uses git to manage the handoff between parent and subagent: **the parent keeps its own
-context, while the subagent starts from an independent context and does not inherit whatever
-biases and blind spots may be there** — one repository per conversation, the parent freezes
-`BASE` and a path whitelist, the subagent commits on `main`, and the parent accepts mechanically
-with diff, whitelist and test exit code, rolling back and archiving a patch on failure.
-The delivery is therefore **rollbackable and auditable**, and the review is not primed by the parent
-context; when the subagent is clearly cheaper (low `r`) on a large enough task it also **saves
-tokens**.
+This skill uses git to manage the handoff between parent and subagent: one repository per
+conversation, the parent freezes `BASE` and a path whitelist, the subagent commits on `main`, and the
+parent accepts mechanically with diff, whitelist and test exit code, rolling back and archiving a
+patch on failure. **The goal is to hand work to a smaller, cheaper model while keeping its failure
+cheap and clean**: acceptance never trusts the child's own report, a failed attempt is undone as a
+whole, and the delivery stays reproducible and auditable. On a large enough task with a low enough
+`r` it also **saves tokens**.
 
 This document is the user-facing guide; the model-facing spec is
 [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md).
@@ -19,27 +18,28 @@ This document is the user-facing guide; the model-facing spec is
 
 ## ✨ Why use it
 
-- **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
-  the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
-  and the patch, so it can be reproduced later.
-- **A second reader, within limits.** The subagent does not inherit the parent conversation: it gets
-  the frozen brief and a repo snapshot, so it does not skip a check because "we already decided X".
-  The repo itself may still hold previous tasks and last round's `findings.md`; real independence
-  depends on clearing those (`preflight --clear findings.md`; history and the patch still keep the
-  evidence). It can find invariants the parent missed, but its findings must be verified, not treated
-  as a backlog.
-- **The parent keeps its context; the subagent judges independently.** Files the subagent read,
-  paths it tried and test logs all stay in its own session. The parent reads the `postflight`
-  summary, the `git diff --stat` of a passing task, and the net diff only when a trigger fires. In
-  long sessions most cost is context re-reading, so a parent context that does not grow with each
-  dispatch is lighter on every later step.
+- **A failure ends cleanly.** A failed verdict discards the attempt: staged and uncommitted changes
+  are exported to `<task>.abandoned.patch`, then `reset --hard BASE` and `clean -fd` put the repo
+  back where dispatch started, with the verdict and evidence recorded in `MANIFEST.json`. A passing
+  delivery is just as reversible — `BASE` is still there.
+- **The child's own report is not evidence.** The parent re-runs the acceptance command itself, in
+  the frozen tree, and records the exit code in `MANIFEST`; the whitelist is checked against the
+  union of committed paths, not against what the child says it touched.
+- **Traceable delivery.** `BASE..HEAD` is exactly this task; patch, `provenance.tsv`, `usage.tsv`
+  and the commit history line up, so a third party can verify without the session transcript.
+- **Built for small models.** Cheaper models break conventions more often, so running the probe
+  before the first dispatch and checking mechanically afterwards is the default. Price the overhead
+  per successful task, including the rejected ones.
+- **Review findings still need checking.** A second model reading the change does not make it
+  correct: it can find invariants the parent missed, but every finding must be reproduced. The skill
+  improves the process, not the child's judgement.
 
 ⚠️ **The trade-offs are real**: the parent still pays for the brief and for orchestration (about
 2,100); reviews usually cost more; the subagent's review can miss things, so findings still need
-item-by-item checking; and "independent" only means independent context — the child runs with the
-same uid and filesystem, and the boundary is a whitelist over **committed paths** in the session
-repo, so files outside it or ignored by `.gitignore` are not contained. Real isolation needs the
-harness sandbox. Token savings depend on `r`, task size and batching — see below.
+item-by-item checking. The boundary stops at the whitelist over **committed paths** in the session
+repo: the child runs with the same uid and filesystem, so files outside that repo or ignored by
+`.gitignore` are neither contained nor rolled back. Real isolation needs the harness sandbox. Token
+savings depend on `r`, task size and batching — see below.
 
 ## 📦 Install
 
@@ -120,11 +120,13 @@ hits all three is the best case; everything in between is in the table below.
 |---|---|
 | — | **Needs concurrency (the skill is serial)** |
 | New implementation of 100+ lines, a single-file refactor | Checking state, reading files, one command |
-| A 30–50 line change, or ten 10-line changes batched | A one-line change or a new constant (orchestration costs about 2,100) |
+| Work handed to a smaller/cheaper model that must stay traceable | A one-line change or a new constant (orchestration costs about 2,100) |
+| Ten 10-line changes batched | A single 30–50 line change: at `r ≈ 1` it measured 30–50% more child tokens for process only |
 | Bug fixes with a repro test | Model choice, copy, architecture trade-offs, research |
 | Bulk mechanical edits (rename, migrate, format) | Tasks that need steering mid-flight |
 | Unattended batch work, or serial multi-round edits/reviews | Interactive debugging (serial + async is slow) |
-| A second opinion (clean-context review, diff or not) | Reviews purely to save tokens |
+| A second opinion (a second read, diff or not) | Reviews purely to save tokens |
+| | **Throwaway output** (scratch directories, one-off experiments): rollback and traceability buy nothing |
 
 ### Serial, but multi-round
 
@@ -174,11 +176,11 @@ batch ten of them:                  about 210 each → saves 51%
 
 A single task pays the orchestration first, and only batching amortizes it; a cheaper model (lower
 `r`) is a different lever, not a substitute. Review and document work usually fails the savings
-test; what you get is a second independent read.
+test; what you get is a second read.
 
 ### Dispatching the same model (`r ≈ 1`)
 
-Not in that table — it buys no savings, only an independent pair of eyes and a rollbackable delivery. A workable split: hand mechanical and surface-level changes
+Not in that table — it buys no savings, only a rollbackable, auditable delivery and a second read. A workable split: hand mechanical and surface-level changes
 to the cheap model, and keep verdict logic, adapters and audit completeness — the places where a
 mistake stays silent — for a stronger model, including a same-model subagent. Either way the same
 model tends to inherit the parent's blind spots, so verify findings item by item; and across
