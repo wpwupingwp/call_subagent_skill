@@ -146,7 +146,7 @@ by the parent's context. Token savings are conditional, not the default.**
 - **A second reader without the baggage.** The subagent does not inherit the parent conversation:
   it gets the frozen brief and a repo snapshot, so it does not skip a check because "we already
   decided X". The repo itself may still hold previous tasks and last round's `findings.md`; real
-  independence depends on clearing those (`git rm findings.md` and commit; history and the patch
+  independence depends on clearing those (`preflight --clear findings.md`; history and the patch
   still keep the evidence). Across multiple self-review rounds, about 40% survived the parent's item-by-item
   reproduction: it can find invariants the parent missed, but its findings must be verified, not
   treated as a backlog.
@@ -326,8 +326,8 @@ To verify an adapter on another harness, add a minimal session-log fixture.
 ## FAQ
 
 **Does it touch my own repository?**
-No. All git operations happen in `<workspace>/<session id>/repo`; your repo is only read
-(`--import` copies files). Discarding uses `git reset --hard` + `git clean -fd`, which would wipe
+No. All git writes happen in `<workspace>/<session id>/repo`; nothing tracked in your repo is
+written (`--import` only reads files). Discarding uses `git reset --hard` + `git clean -fd`, which would wipe
 uncommitted and untracked files if run in your tree — that is exactly why the skill keeps its own
 repo. When the workspace is itself a git repo, `preflight` keeps `<session id>/` out of `git status`
 by adding `/<session id>/` to `.git/info/exclude` (git's local ignore file, never versioned). Your
@@ -388,8 +388,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 154 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 119 total
+bash tests/run.sh                    # 164 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 129 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

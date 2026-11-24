@@ -201,6 +201,22 @@ mkbrief t-im true
 chk "IM/逗号后空格" 0 "$(bash "$SK/scripts/preflight.sh" --model test/model --root "$B" --task t-im --import 'calc.py, im2.py' --allow calc.py,im2.py --brief "$B/fix/brief-t-im.md" --tests true >/dev/null 2>&1; echo $?)"
 chk "IM/两个文件都已导入" "yes" "$([ -f "$R/im2.py" ] && [ -f "$R/calc.py" ] && echo yes || echo no)"
 
+echo "── CL 清理上一轮交付物 ──"
+sess gCL
+chk "CL/preflight 首次" 0 "$(pf --task t-cl0 --import calc.py --allow calc.py $(b t-cl0) --tests true)"
+printf 'round one\n' > "$R/findings.md"; git -C "$R" add -A; git -C "$R" commit -qm "seed findings"
+chk "CL/preflight 带 --clear" 0 "$(pf --task t-cl1 --import calc.py --allow findings.md $(b t-cl1) --tests true --clear findings.md)"
+chk "CL/文件已删" "no" "$([ -e "$R/findings.md" ] && echo yes || echo no)"
+chk "CL/BASE 不含旧文件" "no" "$(git -C "$R" cat-file -e HEAD:findings.md 2>/dev/null && echo yes || echo no)"
+chk "CL/dispatch 记 CLEARED" "yes" "$(grep -q '^CLEARED=findings.md' "$R/tasks/t-cl1/dispatch.env" && echo yes || echo no)"
+printf 'round two\n' > "$R/findings.md"; git -C "$R" add findings.md; git -C "$R" commit -qm "task t-cl1: findings"
+chk "CL/diff 只含交付物" "findings.md" "$(git -C "$R" diff --name-only "$(sed -n 's/^BASE=//p' "$R/tasks/t-cl1/dispatch.env")" HEAD)"
+chk "CL/postflight" 0 "$(po t-cl1)"
+sess gCL2
+chk "CL/新仓库被拒" 3 "$(pf --task t-cl2 --import calc.py --allow findings.md $(b t-cl2) --tests true --clear findings.md)"
+chk "CL/未跟踪被拒" 3 "$(pf --task t-cl3 --import calc.py --allow calc.py $(b t-cl3) --tests true --clear nope.txt)"
+chk "CL/审计目录被拒" 3 "$(pf --task t-cl4 --import calc.py --allow calc.py $(b t-cl4) --tests true --clear tasks/t-cl2/brief.md)"
+
 echo "── AH 仓库锁 ──"
 sess gAH
 chk "AH/preflight" 0 "$(pf --task t-ah --import calc.py --allow calc.py $(b t-ah) --tests true)"

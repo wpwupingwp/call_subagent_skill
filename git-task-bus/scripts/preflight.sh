@@ -8,6 +8,7 @@ usage() {
   preflight.sh --task <id> --allow <path[,path...]> [--import <path[,path...]>]
                [--tests '<命令>'] [--root <工作区根目录>]
                [--brief <路径>] [--model <provider/model>] [--save-model] [--quiet]
+               [--clear <path[,path...]>]
 
 说明:
   --task         任务标识，作为 tasks/<id>/ 目录名（不建分支）
@@ -18,6 +19,8 @@ usage() {
   --brief           简报路径，默认 <任务目录>/brief.md（该默认仅适用于目录已存在
                     的复用场景，首次任务必须显式指定）；必须存在且含
                     验收命令、白名单、交付要求，否则拒绝派发
+  --clear           派发前从会话仓库删掉已跟踪的上一轮交付物（如 findings.md），
+                    删除并入 plan 提交；只接受仓库内相对路径，不允许 tasks/ 与 .git
   --model           子代理模型（provider/model），记录进 dispatch.env 与 MANIFEST，
                     并在 --quiet 输出里给出 MODEL= 行，避免派发时临时决定
   --save-model      把 --model 的值写进会话仓库 <root>/<session>/repo/model
@@ -26,7 +29,7 @@ EOF
   exit "${1:-3}"
 }
 
-TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_NO_TESTS=0 QUIET=0
+TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_NO_TESTS=0 QUIET=0 CLEAR=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -39,6 +42,7 @@ while [ $# -gt 0 ]; do
     --brief)          BRIEF="${2:-}"; shift 2 ;;
     --model)         MODEL="${2:-}"; shift 2 ;;
     --save-model)    SAVE_MODEL=1; shift ;;
+    --clear)         CLEAR="${2:-}"; shift 2 ;;
     --quiet)         QUIET=1; shift ;;
     -h|--help)     usage 0 ;;
     *) echo "未知参数: $1" >&2; usage ;;
@@ -267,6 +271,37 @@ if [ "$CREATED" -eq 1 ]; then
   fi
 fi
 
+# 上一轮交付物（如评审的 findings.md）：删除并入 plan 提交，使 BASE 不再包含它。
+# 白名单只约束写，不约束读；清掉工作树副本挡的是顺手读到，git 历史里仍有原文。
+CLEARED=""
+if [ -n "$CLEAR" ]; then
+  [ "$CREATED" -eq 0 ] || die "--clear 只用于已存在的会话仓库（新仓库没有可清理的交付物）"
+  IFS=',' read -ra _clear_items <<< "$CLEAR"
+  _clear_paths=()
+  for _c in "${_clear_items[@]}"; do
+    _c="${_c#"${_c%%[![:space:]]*}"}"; _c="${_c%"${_c##*[![:space:]]}"}"
+    while [ "${_c#./}" != "$_c" ]; do _c="${_c#./}"; done
+    _c="${_c%/}"
+    [ -z "$_c" ] && continue
+    case "$_c" in
+      /*) die "--clear 只接受仓库内相对路径（不要以 / 开头）: $_c" ;;
+    esac
+    case "/$_c/" in
+      */../*) die "--clear 不接受包含 .. 的路径: $_c" ;;
+    esac
+    case "$_c" in
+      tasks|tasks/*|.git|.git/*) die "--clear 不能清理审计目录: $_c" ;;
+    esac
+    [ -n "$(git -C "$REPO" ls-files -- "$_c" 2>/dev/null)" ] \
+      || die "--clear 路径不是仓库里已跟踪的文件: $_c"
+    _clear_paths+=("$_c")
+  done
+  [ "${#_clear_paths[@]}" -gt 0 ] || die "--clear 的路径列表为空"
+  git -C "$REPO" rm -r -q -- "${_clear_paths[@]}" || die "清理失败: $CLEAR"
+  CLEARED=$(IFS=,; printf '%s' "${_clear_paths[*]}")
+  echo "preflight: 已清理上一轮交付物: $CLEARED" >&2
+fi
+
 # 只提交本次任务产物与导入，不把工作树其他文件写进 plan 提交。
 git -C "$REPO" add -A -- tasks
 [ "$CREATED" -eq 1 ] && git -C "$REPO" add -- .gitignore 2>/dev/null || true
@@ -309,6 +344,7 @@ done
   printf 'TESTS=%q\n'   "$TESTS"
   printf 'MODEL=%q\n'   "$MODEL"
   printf 'CREATED=%q\n' "$(now_utc)"
+  [ -n "$CLEARED" ] && printf 'CLEARED=%q\n' "$CLEARED"
 } > "$TDIR/dispatch.env"
 
 # ---- 指针式派发 prompt：只给引用，不复述规格 ----

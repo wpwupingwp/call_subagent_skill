@@ -134,7 +134,7 @@ README.en.md                 English version
   判定和证据落在 `MANIFEST.json` 与 patch 里，事后能复现。
 - **独立复核**：子代理不继承父对话的上下文，拿到的是冻结的简报与仓库快照，不会被「我们已经
   确定 X」带偏。但仓库里可能还留着历史任务与上一轮 `findings.md`，真正的独立性取决于你是否
-  清掉它们（`git rm findings.md` 并提交；历史与 patch 仍是证据）。多轮自举的报告里，父代理逐条复现后约四成成立——它能发现父代理忽略的不变量，
+  清掉它们（`preflight --clear findings.md`；历史与 patch 仍是证据）。多轮自举的报告里，父代理逐条复现后约四成成立——它能发现父代理忽略的不变量，
   但结论必须自己核对，不能直接当 backlog。
 - **上下文隔离**：子代理读的文件、走过的弯路、测试日志都在它自己的会话里；父代理先看
   `postflight` 的摘要，需要时再看 `git diff --stat` 或净 diff。长会话的开销主要来自上下文
@@ -290,7 +290,8 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
 ## 常见问题
 
 **会动我自己的仓库吗？**
-不会。所有 git 操作都在 `<工作区>/<会话 id>/repo` 里；你自己的仓库只被读（`--import` 拷文件）。
+不会。所有 git 写操作都在 `<工作区>/<会话 id>/repo` 里；你自己的仓库不会被写入跟踪内容
+（`--import` 只读取）。
 丢弃用的是 `git reset --hard` + `git clean -fd`，这两条如果作用在你的仓库上会抹掉未提交的改动
 和未跟踪文件，所以技能只在自己建的仓库里回滚。工作区本身是 git 仓库时，`preflight` 会让它看不到 `<会话 id>/`：把 `/<会话 id>/` 追加进
 `.git/info/exclude`（git 的本地忽略文件，不进版本控制）。你的 `.gitignore` 不会被改，也不会出现
@@ -342,8 +343,8 @@ exit 3——不会退化成父模型。
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 154 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 119 项
+bash tests/run.sh                    # 164 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 129 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、

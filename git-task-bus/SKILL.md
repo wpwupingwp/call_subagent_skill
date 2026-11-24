@@ -72,8 +72,8 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 简报可以写在任意位置，用 `--brief <路径>` 传给 `preflight`；它会被拷进仓库的 `tasks/<task>/brief.md` 并提交，成为唯一来源。模板：`templates/brief.md`。
 
 **同一仓库的连续多轮评审，先清掉上一轮交付物。** 子代理不继承父对话，但能读到仓库里的所有
-历史文件——白名单只约束写，不约束读。开始下一轮评审前，父代理先 `git rm findings.md && git commit`
-（历史与 `deliveries/<task>.patch` 仍是证据），否则上一轮的结论会出现在下一轮的视野里；确实要
+历史文件——白名单只约束写，不约束读。开始下一轮评审前，用 `preflight --clear findings.md` 清掉
+（删除并入 plan 提交；历史与 `deliveries/<task>.patch` 仍是证据），否则上一轮的结论会出现在下一轮的视野里；确实要
 对照上一轮时，保留它并在简报里写明。清理挡的是顺手读到，不是刻意翻 git 历史。
 
 ### 2. preflight（父代理执行，一次）
@@ -88,6 +88,9 @@ bash "$SKILL/scripts/preflight.sh" \
   --model  <provider/model> \
   --quiet
 ```
+
+`--clear findings.md` 在派发前删掉已跟踪的上一轮交付物：删除并入 plan 提交，`BASE` 不再包含
+它；只接受仓库内相对路径，`tasks/` 与 `.git` 不允许。
 
 `--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，
 可自行用 `git worktree` 准备干净源（本脚本不集成）。已存在的导入路径不会被覆盖，只提示源已变；
