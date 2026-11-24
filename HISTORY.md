@@ -554,6 +554,11 @@ review-15（同日）把同一警告补到 `--child auto` 未匹配到子会话�
 的脏树判违规下走不到成功路径。断言 134 / 99。另把“为什么不能手工 git init”的完整理由写进
 README FAQ，SKILL 硬规则 3 只留一句后果说明。
 
+review-16（同日）：`--root` 在 preflight/postflight 统一归一化为绝对路径，修掉相对 root 下
+patch/test.log 路径失真、`tmp/` 嵌套目录，以及绝对 `--import` 被拼进 `repo//tmp/...` 的静默
+错位；绝对 `--import` 现在直接 exit 3，`cp` 失败也会报错。另补 `count_lines`/`in_scope` 注释，
+SKILL 目录布局里的说明移出代码块。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

@@ -44,7 +44,7 @@ def parts(path: str) -> list[str]:
 
 
 def in_scope(target: str, scopes: list[str]) -> bool:
-    """目标路径的任一级目录名落在 scope 里即视为交付范围。"""
+    """目标路径的任一级目录名落在 scope 里即视为交付范围（不含文件名本身）。"""
     return any(p in scopes for p in parts(target)[:-1])
 
 

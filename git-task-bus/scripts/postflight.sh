@@ -50,6 +50,11 @@ TMPD="$TDIR/tmp"
 # shellcheck disable=SC1090
 . "$TDIR/dispatch.env"
 
+# 兼容旧 dispatch.env 里的相对路径：先归一化，再 cd；之后的输出路径都是绝对的。
+REPO=$(cd "$REPO" 2>/dev/null && pwd) || { echo "postflight: 仓库不存在: $REPO" >&2; exit 3; }
+TDIR="$REPO/tasks/$TASK"
+TMPD="$TDIR/tmp"
+
 [ -d "$REPO/.git" ] || { echo "postflight: $REPO 不是 git 仓库" >&2; exit 3; }
 cd "$REPO" || exit 3
 mkdir -p "$TMPD"
@@ -170,6 +175,7 @@ fi
 # now_utc：usage.tsv 时间戳
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
+# 统计非空行（grep -c .）
 count_lines() {
   local n
   n=$(grep -c . "$1" 2>/dev/null) && printf '%s' "$n" || printf '0'

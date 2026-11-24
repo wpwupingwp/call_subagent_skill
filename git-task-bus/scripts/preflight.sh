@@ -47,6 +47,10 @@ done
 
 die() { echo "preflight: $*" >&2; exit 3; }
 
+# 统一用绝对路径：相对 --root 会让 REPO/输出路径在 cd 后失真。
+ROOT=$(python3 -c 'import os,sys;print(os.path.abspath(sys.argv[1]))' "$ROOT") \
+  || die "无法解析根目录: $ROOT"
+
 version_ge() {  # version_ge A B —— A >= B 时为真；按数字段逐段比较，缺段补 0
   local -a a b
   local i x y n
@@ -215,6 +219,9 @@ if [ -n "$IMPORT" ]; then
     it="${it#./}"
     it="${it#"${it%%[![:space:]]*}"}"; it="${it%"${it##*[![:space:]]}"}"
     [ -z "$it" ] && continue
+    case "$it" in
+      /*) die "导入路径必须是相对当前目录的路径（不要以 / 开头）: $it" ;;
+    esac
     [ -e "$it" ] || die "导入源不存在: $it"
     cur=$(hash_source "$it")
     if [ -e "$REPO/$it" ]; then
@@ -228,8 +235,8 @@ if [ -n "$IMPORT" ]; then
       fi
       continue
     fi
-    mkdir -p "$REPO/$(dirname "$it")"
-    cp -a "$it" "$REPO/$it"
+    mkdir -p "$REPO/$(dirname "$it")" || die "无法创建导入目录: $it"
+    cp -a "$it" "$REPO/$it" || die "导入失败: $it"
     printf '%s\t%s\t%s\n' "$it" "$cur" "$(now_utc)" >> "$TDIR/provenance.tsv"
     if [ -f "$IMPORTS" ]; then
       P="$it" awk -F'\t' '$1!=ENVIRON["P"]' "$IMPORTS" > "$IMPORTS.tmp"
