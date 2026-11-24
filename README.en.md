@@ -157,7 +157,7 @@ threshold table in `subagent_test.md`. Whether it actually saves also depends on
 | `r` | May save when | Extrapolated |
 |---|---|---|
 | `r = 0` (free on the subagent side) | 100+ lines, 500-line tasks, bulk mechanical edits, ten 10-line changes batched | 100+ lines: 79%; 500 lines: 96%; ten batched: 51% |
-| `0 < r ≤ 0.1` | 100+ lines, 30–50 lines, batched work | 100+ lines: 73%; 30–50 lines: 35–64%; ten batched: 36% |
+| `0 < r ≤ 0.1` | 100+ lines, batched work | 100+ lines: 73%; ten batched: 36% (iterative edits have their own threshold in `subagent_test.md`) |
 | `0.1 < r ≤ 0.3` | Large or batched work; medium changes approach break-even | 100-line tasks can still win; a single 10-line change usually loses |
 | `0.3 < r ≤ 0.38` | Only very large or batched work may break even | Near the break-even line; measure actual steps |
 | `r > 0.38` | Usually not dispatched for savings | The value shifts to audit, isolation and rollback |
@@ -369,9 +369,9 @@ turn. Re-run it after updating the skill.
 ## 🧪 Tests
 
 ```bash
-bash tests/run.sh                    # 191 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 156 total
-# without zstd: 153 pass / 2 fail (assertions that need zstd-generated data)
+bash tests/run.sh                    # 196 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 161 total
+# without zstd: the usage block is skipped entirely; still 156 pass / 0 fail
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

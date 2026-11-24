@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # subagent-delegation 自检。用法: bash tests/run.sh [--keep]
-# 依赖: git >= 2.28、python3、zstd。没有 zstd 时跳过用量记录段，但仍有 2 条依赖 zstd 生成数据的断言会失败（153/2）。
+# 依赖: git >= 2.28、python3、zstd。没有 zstd 时整段跳过用量记录断言（结果与 SKIP_USAGE_TESTS=1 相同）。
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -549,6 +549,18 @@ mkdir -p "$R"
 printf 'gitdir: /tmp/nope\n' > "$R/.git"
 mkbrief t-bj true
 chk "BJ/工作树被拒" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bj --import calc.py --allow calc.py --brief "$B/fix/brief-t-bj.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+
+echo "── BL 被拒的 --clear 不留残骸 ──"
+sess gBL
+printf 'x=1\n' > "$B/fix/bl.py"
+mkbrief t-bl true
+chk "BL/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bl --import bl.py --allow bl.py --brief "$B/fix/brief-t-bl.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "BL/--clear model 被拒" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bl2 --import bl.py --allow bl.py --brief "$B/fix/brief-t-bl2.md" --tests true --root "$B" --clear model >/dev/null 2>&1; echo $?)"
+chk "BL/无 tasks 残留" "" "$(git -C "$R" status --porcelain)"
+chk "BL/未建任务目录" "no" "$([ -d "$R/tasks/t-bl2" ] && echo yes || echo no)"
+
+echo "── BM 会话 id 字符校验 ──"
+chk "BM/非法 id 被拒" 3 "$(DSH_SESSION_ID='bad id' bash $SK/scripts/preflight.sh --model test/model --task t-bm --import calc.py --allow calc.py --brief "$B/fix/brief-t-bm.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 
 echo
 echo "结果: $pass 通过 / $fail 失败"

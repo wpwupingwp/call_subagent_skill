@@ -113,7 +113,8 @@ MODEL=<provider/model>
 ```
 
 `--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。
-`--save-model` 只是把本次解析到的值写进会话仓库的 `model`：首次落盘时与 `--model` 一起给，之后可省略 `--model` 单独用它。
+`--save-model` 只是把本次解析到的值写进会话仓库的 `model`：首次落盘时必须与 `--model` 一起给；
+之后省略 `--model` 时它会沿用仓库里的旧值，要换模型仍须显式给 `--model`。
 
 没有验收命令时（`--allow-no-tests`），`MANIFEST.json` 记 `testsRun=false`、`testExitCode=null`，
 `postflight` 的 `testexit=skipped`，判定只剩白名单、历史与工作树三项。
@@ -136,6 +137,8 @@ MODEL=<provider/model>
 | 含验收命令 | 简报正文包含 `--tests` 的字面文本；用 `--allow-no-tests` 时改为包含「人工核对」 |
 | 含交付要求 | 出现「提交」 |
 | 含改动范围 | 出现「白名单」「只允许改动」或「允许改动」 |
+
+三项判据匹配的字面量是中文：英文简报要写「白名单 / 提交 / 人工核对」才行（或把命令原样贴进去）。
 
 ### 3. dispatch（父代理 → 子代理）
 

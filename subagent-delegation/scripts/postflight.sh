@@ -44,6 +44,7 @@ esac
 [ -n "${CHILD:-}" ] || { echo "postflight: 必须指定 --child <子代理 id|auto>" >&2; usage; }
 
 [ -n "${DSH_SESSION_ID:-}" ] || { echo "postflight: DSH_SESSION_ID 未设置；本技能必须在 DSH 会话里运行" >&2; exit 3; }
+case "$DSH_SESSION_ID" in *[!A-Za-z0-9._-]*) { echo "postflight: DSH_SESSION_ID 含不允许的字符: $DSH_SESSION_ID" >&2; exit 3; } ;; esac
 SESSION="$DSH_SESSION_ID"
 REPO="${ROOT_ARG:-$PWD}/$SESSION/repo"
 TDIR="$REPO/tasks/$TASK"

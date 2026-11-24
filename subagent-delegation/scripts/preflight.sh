@@ -83,6 +83,7 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 [ -n "$TASK" ] || { echo "preflight: 必须指定 --task" >&2; usage; }
 
 [ -n "${DSH_SESSION_ID:-}" ] || die "DSH_SESSION_ID 未设置；本技能必须在 DSH 会话里运行"
+case "$DSH_SESSION_ID" in *[!A-Za-z0-9._-]*) die "DSH_SESSION_ID 含不允许的字符（只允许字母、数字、点、下划线、连字符）: $DSH_SESSION_ID" ;; esac
 SESSION="$DSH_SESSION_ID"
 SESS_DIR="$ROOT/$SESSION"
 REPO="$SESS_DIR/repo"
@@ -222,6 +223,29 @@ case "$CUR" in
         || die "会话仓库不在 main 分支（当前 $CUR），无法继续" ;;
 esac
 
+# --clear 的语法校验必须是纯字符串的，且放在建目录之前：被拒的派发不能在仓库里留下未跟踪的 tasks/<task>/
+_clear_paths=()
+if [ -n "$CLEAR" ] && [ "$CREATED" -eq 0 ]; then
+  IFS=',' read -ra _clear_items <<< "$CLEAR"
+  for _c in "${_clear_items[@]}"; do
+    _c="${_c#"${_c%%[![:space:]]*}"}"; _c="${_c%"${_c##*[![:space:]]}"}"
+    while [ "${_c#./}" != "$_c" ]; do _c="${_c#./}"; done
+    _c="${_c%/}"
+    [ -z "$_c" ] && continue
+    case "$_c" in
+      /*) die "--clear 只接受仓库内相对路径（不要以 / 开头）: $_c" ;;
+    esac
+    case "/$_c/" in
+      */../*) die "--clear 不接受包含 .. 的路径: $_c" ;;
+    esac
+    case "$_c" in
+      tasks|tasks/*|.git|.git/*) die "--clear 不能清理审计目录: $_c" ;;
+      model) die "--clear 不能清理会话仓库的 model 配置（它会作为下一轮的模型来源）: $_c" ;;
+    esac
+    _clear_paths+=("$_c")
+  done
+fi
+
 # 建任务目录放在分支校验之后：校验失败时不能在仓库里留下未跟踪的 tasks/，否则下一次会被脏树拦下
 mkdir -p "$TDIR" "$SESS_DIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
 if [ "$SRC_BRIEF" != "$TDIR/brief.md" ]; then cp "$SRC_BRIEF" "$TDIR/brief.md"; fi
@@ -288,36 +312,24 @@ CLEARED=""
 if [ -n "$CLEAR" ]; then
   if [ "$CREATED" -eq 1 ]; then
     echo "preflight: 提示 —— 新建的会话仓库没有可清理的交付物，忽略 --clear" >&2
-    CLEAR=""
-  fi
-  IFS=',' read -ra _clear_items <<< "$CLEAR"
-  _clear_paths=()
-  for _c in "${_clear_items[@]}"; do
-    _c="${_c#"${_c%%[![:space:]]*}"}"; _c="${_c%"${_c##*[![:space:]]}"}"
-    while [ "${_c#./}" != "$_c" ]; do _c="${_c#./}"; done
-    _c="${_c%/}"
-    [ -z "$_c" ] && continue
-    case "$_c" in
-      /*) die "--clear 只接受仓库内相对路径（不要以 / 开头）: $_c" ;;
-    esac
-    case "/$_c/" in
-      */../*) die "--clear 不接受包含 .. 的路径: $_c" ;;
-    esac
-    case "$_c" in
-      tasks|tasks/*|.git|.git/*) die "--clear 不能清理审计目录: $_c" ;;
-      model) die "--clear 不能清理会话仓库的 model 配置（它会作为下一轮的模型来源）: $_c" ;;
-    esac
-    if [ -z "$(git -C "$REPO" ls-files -- "$_c" 2>/dev/null)" ]; then
-      # 上一轮被丢弃（reject/fail）时交付物已经不在了：这不是错误，跳过即可，否则多轮评审第二轮就派不出去
-      echo "preflight: 提示 —— $_c 不在仓库里（上一轮没留下它），跳过清理" >&2
-      continue
+  else
+    _kept=()
+    for _c in "${_clear_paths[@]}"; do
+      if [ -z "$(git -C "$REPO" ls-files -- "$_c" 2>/dev/null)" ]; then
+        # 上一轮被丢弃（reject/fail）时交付物已经不在了：跳过即可，否则多轮评审第二轮就派不出去
+        echo "preflight: 提示 —— $_c 不在仓库里（上一轮没留下它），跳过清理" >&2
+        continue
+      fi
+      _kept+=("$_c")
+    done
+    if [ "${#_kept[@]}" -eq 0 ]; then
+      echo "preflight: 提示 —— --clear 没有可清理的路径" >&2
+    else
+      git -C "$REPO" rm -r -q -- "${_kept[@]}" || die "清理失败: $CLEAR"
+      CLEARED=$(IFS=,; printf '%s' "${_kept[*]}")
+      echo "preflight: 已清理上一轮交付物: $CLEARED" >&2
     fi
-    _clear_paths+=("$_c")
-  done
-  [ "${#_clear_paths[@]}" -gt 0 ] || echo "preflight: 提示 —— --clear 没有可清理的路径" >&2
-  [ "${#_clear_paths[@]}" -eq 0 ] || git -C "$REPO" rm -r -q -- "${_clear_paths[@]}" || die "清理失败: $CLEAR"
-  CLEARED=$(IFS=,; printf '%s' "${_clear_paths[*]}")
-  echo "preflight: 已清理上一轮交付物: $CLEARED" >&2
+  fi
 fi
 
 # 只提交本次任务产物与导入，不把工作树其他文件写进 plan 提交。
