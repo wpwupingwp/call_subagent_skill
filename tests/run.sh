@@ -501,6 +501,17 @@ OUT_BD=$(DSH_HOME="$FHBD" bash "$SK/scripts/postflight.sh" --root "$B" --task t-
 chk "BD/仍通过" 0 "$RC_BD"
 chk "BD/提示无 usage" "yes" "$(printf '%s' "$OUT_BD" | grep -q '没有 usage' && echo yes || echo no)"
 
+echo "── BE 分支不对时不留下残骸 ──"
+sess gBE
+printf 'x=1\n' > "$B/fix/be.py"
+mkbrief t-be true
+chk "BE/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-be --import be.py --allow be.py --brief "$B/fix/brief-t-be.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+git -C "$R" switch -q -c feat
+git -C "$R" branch -q -D main
+RC_BE=$(bash $SK/scripts/preflight.sh --model test/model --task t-be2 --import be.py --allow be.py --brief "$B/fix/brief-t-be.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)
+chk "BE/非 main 被拒" 3 "$RC_BE"
+chk "BE/无未跟踪残留" "" "$(git -C "$R" status --porcelain)"
+
 echo
 echo "结果: $pass 通过 / $fail 失败"
 exit $((fail>0))

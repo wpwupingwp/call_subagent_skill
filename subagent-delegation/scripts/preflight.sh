@@ -193,10 +193,6 @@ else
   fi
 fi
 
-mkdir -p "$TDIR" "$SESS_DIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
-if [ "$SRC_BRIEF" != "$TDIR/brief.md" ]; then cp "$SRC_BRIEF" "$TDIR/brief.md"; fi
-BRIEF="$TDIR/brief.md"
-
 # 仓库不存在时现在才初始化（此前只做了只读校验）
 if [ "$CREATED" -eq 1 ]; then
   git -C "$REPO" init -q -b main
@@ -218,6 +214,11 @@ case "$CUR" in
   *)  git -C "$REPO" switch -q main 2>/dev/null \
         || die "会话仓库不在 main 分支（当前 $CUR），无法继续" ;;
 esac
+
+# 建任务目录放在分支校验之后：校验失败时不能在仓库里留下未跟踪的 tasks/，否则下一次会被脏树拦下
+mkdir -p "$TDIR" "$SESS_DIR/reviews" 2>/dev/null || die "无法创建任务目录: $TDIR"
+if [ "$SRC_BRIEF" != "$TDIR/brief.md" ]; then cp "$SRC_BRIEF" "$TDIR/brief.md"; fi
+BRIEF="$TDIR/brief.md"
 
 : > "$TDIR/provenance.tsv"
 printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"

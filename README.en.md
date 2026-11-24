@@ -153,7 +153,7 @@ dispatch can win. Whether it actually saves also depends on task size and batchi
 
 | `r` | May save when | Extrapolated |
 |---|---|---|
-| `r = 0` (local, free) | 100+ lines, 500-line tasks, bulk mechanical edits, ten 10-line changes batched | 100+ lines: 79%; 500 lines: 96%; ten batched: 51% |
+| `r = 0` (free on the subagent side) | 100+ lines, 500-line tasks, bulk mechanical edits, ten 10-line changes batched | 100+ lines: 79%; 500 lines: 96%; ten batched: 51% |
 | `0 < r ≤ 0.1` | 100+ lines, 30–50 lines, batched work | 100+ lines: 73%; 30–50 lines: 35–64%; ten batched: 36% |
 | `0.1 < r ≤ 0.3` | Large or batched work; medium changes approach break-even | 100-line tasks can still win; a single 10-line change usually loses |
 | `0.3 < r ≤ 0.38` | Only very large or batched work may break even | Near the break-even line; measure actual steps |
@@ -339,7 +339,7 @@ do not paste commands from untrusted sources.
 
 ### What do the exit codes mean?
 `0` pass · `1` test failure or abnormal stop reason · `2` violation (out of scope, rewritten
-history, uncommitted delivery) · `3` configuration or environment error. Two similar failures in a
+history, uncommitted delivery, or HEAD not on `main`) · `3` configuration or environment error. Two similar failures in a
 row usually mean the brief is unclear — fix the brief instead of trying a third time.
 
 ### How do I choose a model?
@@ -363,8 +363,8 @@ turn. Re-run it after updating the skill.
 ## 🧪 Tests
 
 ```bash
-bash tests/run.sh                    # 179 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 144 total
+bash tests/run.sh                    # 182 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 147 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
@@ -386,15 +386,15 @@ session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 
 | Item | Human | Parent | Subagents |
 |---|---|---|---|
-| Input | 422 messages | — | — |
-| Time | 8 days 14 hours | 5.8 hours in 457 turns | 3.5 hours over 48 sessions |
-| Steps | — | 2,795 | 1,766 |
-| Turns | — | 457 | 48 sessions (2 of them same-model) |
-| Uncached input | — | 2,713,429 tok | 2,127,866 tok |
-| Cache reads | — | 824,132,480 tok | 107,671,129 tok |
-| Output | — | 2,198,167 tok | 693,447 tok |
-| Cache hit rate | — | 99.67% | 99.36% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | — | 27,988,747 | 1,277,186 (the 2 same-model runs at parent pricing, the rest `r = 0`) |
+| Input | 424 messages | — | — |
+| Time | 8 days 14 hours | 5.9 hours in 460 turns | 3.5 hours over 49 sessions |
+| Steps | — | 2,834 | 1,817 |
+| Turns | — | 460 | 49 sessions (3 of them same-model) |
+| Uncached input | — | 2,731,643 tok | 2,198,326 tok |
+| Cache reads | — | 833,761,280 tok | 110,812,377 tok |
+| Output | — | 2,217,770 tok | 715,311 tok |
+| Cache hit rate | — | 99.67% | 98.05% |
+| Weighted cost (input 1 / cache 0.02 / output 4) | — | 28,277,949 | 1,497,927 (only the 3 same-model runs: 664,989 + 612,197 + 220,741; the other 46 at `r = 0`) |
 
 ### Division of labour
 

@@ -21,7 +21,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 5. **模型选择**：优先能稳定守约的便宜模型；没有更便宜可靠的选择时，可以用与父代理相同的模型。
    但不要静默沿用父模型——`--model` 必须显式给出（`preflight` 不会替你选）。同模型派发买到的
    是干净上下文与审计，不省 token；选它时要向用户说明这一点，不要把「同模型」说成省钱。
-6. 判定不通过即自动丢弃；同一任务 id 只判定一次。
+6. 判定不通过即自动丢弃；判定完成后 `MANIFEST` 进历史即锁定，同一任务 id 不能再判，重判请换新 id。
 7. 派发前只读：不得修改交付范围内的文件，也不得在临时副本里预先做出交付物。
    派发前允许写的只有简报与测试；写完即派发，不做额外勘察。
 
@@ -59,6 +59,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 测试要满足两点：
 
 - **能跑起来**：派发前 `envcheck.sh` 返回 `0` 或 `1`。基线为红是正常的（实现还不存在），只要不是 `3`（命令跑不起来：`126` 无执行权限与 `127` 命令不存在都算）。
+  注意返回 `1` 只证明命令能执行：测试文件路径写错、依赖缺失同样会红，与「断言故意红」区分不了——把 `envcheck` 的输出写进简报，派发后看 `testexit` 是 2（用法错误，多为路径问题）还是 1（断言失败）。
 - **能判定需求**：断言具体行为与边界，不要只断言「不抛异常」。
 
 **文档/报告类交付没有行为可断言**：验收命令只能验证结构与引用（字段、锚点、链接），
@@ -108,7 +109,7 @@ bash "$SKILL/scripts/preflight.sh" \
 ```
 PROMPT=<会话仓库>/tasks/<task>/dispatch.prompt
 POINTER=读 <会话仓库>/tasks/<task>/dispatch.prompt 并按其执行
-MODEL=llama/LLaMA
+MODEL=<provider/model>
 ```
 
 `--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。
@@ -123,7 +124,7 @@ MODEL=llama/LLaMA
 
 四处都没有模型时 `preflight` 直接退出 3：派发必须指明子代理模型，不会退化成父模型。
 
-配置仓库只存模型选择，不存任务仓库。
+没有独立的配置仓库：`--save-model` 只写会话仓库根的 `model`，会话目录级与工作区级只作只读回退。
 
 #### 简报必须通过三项机械校验
 
@@ -169,9 +170,9 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 非 quiet 输出一屏摘要：BASE、HEAD、stop、变更与违规计数、测试退出码、patch 路径、verdict；
 有越界时附文件清单。完整的 `git status` 快照、test.log、`MANIFEST.json` 只落盘，需要时自己 `cat`。
 
-退出码：`0` 通过 · `1` 测试失败或 stopReason 异常 · `2` 违规（越界/改写历史/未提交交付）· `3` 配置或环境错误（含 MANIFEST 生成失败）。
+退出码：`0` 通过 · `1` 测试失败或 stopReason 异常 · `2` 违规（越界/改写历史/未提交交付/HEAD 不在 `main`）· `3` 配置或环境错误（含 MANIFEST 生成失败）。
 
-`verdict` 有四个取值，`MANIFEST.json` 里记的就是它：`pass` 通过 · `fail` 测试红、stop 异常或无改动 · `reject` 违规（越界/改写历史/脏树）· `error` 记录生成失败。`fail` 与 `reject` 都走丢弃，语义不同：
+`verdict` 有四个取值，`MANIFEST.json` 里记的就是它：`pass` 通过 · `fail` 测试红、stop 异常或无改动 · `reject` 违规（越界/改写历史/脏树，或 HEAD 不在 `main`）· `error` 记录生成失败。`fail` 与 `reject` 都走丢弃，语义不同：
 `reject` 说明子代理违约或环境不干净，`fail` 说明交付不合格。`--quiet` 的 `verdict=` 行同样会出现 `reject`。
 
 `--tests` 以父代理权限、在会话仓库里直接执行，没有沙箱：把它当可执行代码，不要粘贴不可信来源的命令。
