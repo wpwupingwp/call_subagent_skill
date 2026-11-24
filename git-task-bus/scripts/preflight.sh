@@ -155,11 +155,7 @@ TOP=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)
 if [ -n "$TOP" ]; then
   REL=$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$SESS_DIR" "$TOP" 2>/dev/null || true)
   if [ -n "$REL" ]; then
-    DIR=$(dirname "$REL")
-    case "$SESSION" in
-      session-*) [ "$DIR" = "." ] && PAT="/session-*/" || PAT="/$DIR/session-*/" ;;
-      *)         PAT="/$REL/" ;;
-    esac
+    PAT="/$REL/"
     EXCL=$(git -C "$TOP" rev-parse --git-path info/exclude 2>/dev/null || true)
     case "$EXCL" in
       "") ;;
@@ -208,6 +204,15 @@ fi
 
 # 非 ASCII 路径在 git diff/status 里保持原样，否则白名单比对会误判越界
 git -C "$REPO" config core.quotepath false 2>/dev/null || true
+
+# 单分支线性历史：先回到 main，再写 plan 提交；不能先提交再切分支。
+CUR=$(git -C "$REPO" symbolic-ref --short -q HEAD 2>/dev/null || echo "")
+case "$CUR" in
+  main) ;;
+  "") die "会话仓库不在分支上（detached HEAD），无法继续" ;;
+  *)  git -C "$REPO" switch -q main 2>/dev/null \
+        || die "会话仓库不在 main 分支（当前 $CUR），无法继续" ;;
+esac
 
 : > "$TDIR/provenance.tsv"
 printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"
@@ -282,12 +287,6 @@ if [ "$SAVE_MODEL" -eq 1 ]; then
 fi
 resolve_model
 
-# 单分支线性历史：必须停在 main 上，本次任务的 BASE 就是它的 HEAD
-CUR=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
-if [ "$CUR" != "main" ]; then
-  git -C "$REPO" switch -q main 2>/dev/null \
-    || die "会话仓库不在 main 分支（当前 $CUR），无法继续"
-fi
 BASE=$(git -C "$REPO" rev-parse HEAD)
 
 # 白名单里的路径不存在时给出警告（新建文件的任务属正常）

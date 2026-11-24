@@ -68,7 +68,7 @@ the parent and does not trust the subagent's own report. For a bug fix the basel
 5. After it commits, run acceptance:
 
 ```bash
-bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
+bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --quiet
 # verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=.../deliveries/t1.patch
 ```
 
@@ -104,7 +104,7 @@ There is one repository per conversation, with a single `main` branch; tasks are
 └── <session id>/
     └── repo/               # the session repo, single main branch
         ├── <source>        # writable by the subagent (whitelist)
-        ├── model           # session-level model choice
+        ├── model           # session-repo-level model choice
         ├── tasks/imports.tsv  # global import index (contentHash across tasks)
         └── tasks/<task>/
             ├── brief.md        # single source of truth, committed by preflight

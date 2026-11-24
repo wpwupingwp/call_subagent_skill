@@ -148,7 +148,11 @@ warn_stop_skipped() {
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
 if [ "$CHILD" = "auto" ]; then
   if ! resolve_child; then
-    printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
+    if [ -z "${DSH_SESSION_ID:-}" ]; then
+      printf 'postflight: DSH_SESSION_ID 未设置，--child auto 无法匹配；请显式传 --child <id>\n' >&2
+    else
+      printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
+    fi
     warn_stop_skipped "子会话日志不可读"
     CHILD=""
   fi

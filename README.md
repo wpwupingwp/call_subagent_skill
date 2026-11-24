@@ -67,7 +67,7 @@ MODEL=llama/LLaMA
 5. 子代理提交后验收：
 
 ```bash
-bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
+bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --quiet
 # verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=.../deliveries/t1.patch
 ```
 
@@ -95,7 +95,7 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --quiet
 └── <会话 id>/
     └── repo/               # 会话仓库，单分支 main
         ├── <源码>          # 子代理可改（白名单内）
-        ├── model           # 会话级模型选择
+        ├── model           # 会话仓库级模型选择
         ├── tasks/imports.tsv  # 全局导入索引（跨任务 contentHash）
         └── tasks/<task>/
             ├── brief.md        # 规格唯一来源，preflight 提交
