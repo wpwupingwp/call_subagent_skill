@@ -7,7 +7,8 @@ set -u
 usage() {
   cat <<'EOF'
 用法: usage_of.sh <子代理 session id> [--latest]
-      usage_of.sh --latest            # 取最近修改的会话（调试用，可能选错）
+      usage_of.sh --latest            # 无 id 时取最近修改的会话（调试用，可能选错）
+      usage_of.sh <id> --latest       # 显式 id 优先，--latest 被忽略
       usage_of.sh <id> --raw          # 输出 JSON 而非 --usage 字符串
 
 输出示例（可直接用）：
