@@ -1,4 +1,4 @@
-# git-task-bus
+# subagent-delegation
 
 **中文** · [English](README.en.md)
 
@@ -13,15 +13,15 @@
 > **Harness 版本**：本技能基于 DeepSeek Harness **v0.2.2** 开发和验证；`--child` 依赖 DSH
 > 子会话日志，是必需项。其他 harness 需要重写该适配器，见[移植到其他 harness](#移植到其他-harness)。
 
-给**人**看的说明。给模型读的规范在 [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md)。
+给**人**看的说明。给模型读的规范在 [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md)。
 
 ## 安装
 
-技能本体就是 `git-task-bus/` 目录，拷到 skills 目录即可：
+技能本体就是 `subagent-delegation/` 目录，拷到 skills 目录即可：
 
 ```bash
-cp -r git-task-bus <workspace>/.dsh/skills/   # 仅本工作区
-cp -r git-task-bus ~/.dsh/skills/             # 本机所有会话（会影响全局 catalog）
+cp -r subagent-delegation <workspace>/.dsh/skills/   # 仅本工作区
+cp -r subagent-delegation ~/.dsh/skills/             # 本机所有会话（会影响全局 catalog）
 ```
 
 放好后模型会按 `description` 自动匹配并使用。没有安装时，`skill` 工具里不会出现它——
@@ -30,7 +30,7 @@ cp -r git-task-bus ~/.dsh/skills/             # 本机所有会话（会影响�
 ## 快速开始
 
 ```bash
-SKILL=/path/to/git-task-bus
+SKILL=/path/to/subagent-delegation
 
 # 1. 每台机器一次：确认 git、权限、依赖命令
 bash "$SKILL/scripts/doctor.sh"
@@ -120,10 +120,10 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --qu
 
 ```
 .gitattributes               LF 换行约束（Windows 检出）
-git-task-bus/SKILL.md        模型读的规范与流程
-git-task-bus/references/     probe：首次换环境或换模型时的三层探测
-git-task-bus/scripts/        doctor / envcheck / preflight / postflight
-git-task-bus/templates/      brief / probe / review / findings
+subagent-delegation/SKILL.md        模型读的规范与流程
+subagent-delegation/references/     probe：首次换环境或换模型时的三层探测
+subagent-delegation/scripts/        doctor / envcheck / preflight / postflight
+subagent-delegation/templates/      brief / probe / review / findings
 tests/run.sh                 自检（无需网络或子代理）
 tests/audit_compliance.py    合规审计：派发前有没有先动手（write/edit/apply_patch + 常见 bash 写模式）
 usage_of.sh, usage_stats.sh  用量读取与汇总（不属于技能本体）
@@ -318,8 +318,9 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
 历史，是事后审计和回滚的依据。已被外层仓库忽略，放着不会弄脏 `git status`。
 
 **怎么撤销这条忽略？**
-删掉 `.git/info/exclude` 里由 `preflight` 追加的两行（`# git-task-bus session workspaces` 和
-`/<会话 id>/`）即可；删掉后已有会话目录会重新出现在 `git status` 里。
+删掉 `.git/info/exclude` 里由 `preflight` 追加的两行即可：注释行（新版本是
+`# subagent-delegation session workspaces`，旧版本是 `# git-task-bus session workspaces`）和
+`/<会话 id>/`。删掉后已有会话目录会重新出现在 `git status` 里。
 
 **子代理说测试通过，能信吗？**
 不能。`postflight` 以父代理身份重跑同一条命令并记录退出码。自述不是证据。
@@ -348,7 +349,7 @@ exit 3——不会退化成父模型。
 `--usage 'steps=12,in=2689,out=1926,cache=143545'` 跳过自动读取。`usage_stats.sh` 按模型汇总。
 
 **换环境或换模型前要做什么？**
-按 [`git-task-bus/references/probe.md`](git-task-bus/references/probe.md) 跑一次三层探测
+按 [`subagent-delegation/references/probe.md`](subagent-delegation/references/probe.md) 跑一次三层探测
 （doctor / envcheck / probe），确认子代理会提交、守白名单、按时结束。技能更新后重跑一次。
 
 ## 自检与实测

@@ -169,7 +169,7 @@ if [ -n "$TOP" ]; then
     esac
     if [ -n "$EXCL" ] && [ -f "$EXCL" ] && ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
       [ -n "$(tail -c 1 "$EXCL" 2>/dev/null)" ] && printf '\n' >> "$EXCL" 2>/dev/null
-      printf '# git-task-bus session workspaces\n%s\n' "$PAT" >> "$EXCL" 2>/dev/null || true
+      printf '# subagent-delegation session workspaces\n%s\n' "$PAT" >> "$EXCL" 2>/dev/null || true
     fi
     # 兜底：本地忽略没写成（或不在 git 仓库可写范围）时，用会话目录内的 *
     if ! grep -qxF "$PAT" "$EXCL" 2>/dev/null; then
@@ -200,8 +200,8 @@ BRIEF="$TDIR/brief.md"
 # 仓库不存在时现在才初始化（此前只做了只读校验）
 if [ "$CREATED" -eq 1 ]; then
   git -C "$REPO" init -q -b main
-  git -C "$REPO" config user.name  "task-bus"
-  git -C "$REPO" config user.email "task-bus@localhost"
+  git -C "$REPO" config user.name  "subagent-delegation"
+  git -C "$REPO" config user.email "subagent-delegation@localhost"
   printf '%s\n' '__pycache__/' '*.pyc' '.pytest_cache/' '.venv/' \
     'tasks/*/dispatch.env' 'tasks/*/dispatch.prompt' 'tasks/*/test.log' 'tasks/*/tmp/' \
     > "$REPO/.gitignore"

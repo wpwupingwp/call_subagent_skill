@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# git-task-bus 自检。用法: bash tests/run.sh [--keep]
+# subagent-delegation 自检。用法: bash tests/run.sh [--keep]
 # 依赖: git >= 2.28、python3、（可选）zstd —— 没有 zstd 时跳过用量记录相关断言。
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-SK="$(cd "$HERE/../git-task-bus" && pwd)"
+SK="$(cd "$HERE/../subagent-delegation" && pwd)"
 B="${TMPDIR:-/tmp}/gtb-test.$$"
 KEEP=0
 [ "${1:-}" = "--keep" ] && KEEP=1
@@ -175,7 +175,7 @@ printf 'x=1\n' > a.py
 printf '# 简报\n白名单：只允许改动 a.py\n验收 test -f a.py\n提交\n' > brief.md
 DSH_SESSION_ID=session-ed1 bash "$SK/scripts/preflight.sh" --model test/model --task ed-1 --import a.py --allow a.py --brief brief.md --tests 'test -f a.py' --root "$B/gw2/site" >/dev/null 2>&1
 chk "AD2/保留原规则" "yes" "$(grep -qxF 'keepme/' "$B/gw2/.gitignore" && echo yes || echo no)"
-chk "AD2/未改 .gitignore" "no" "$(grep -q 'git-task-bus' "$B/gw2/.gitignore" && echo yes || echo no)"
+chk "AD2/未改 .gitignore" "no" "$(grep -q 'subagent-delegation' "$B/gw2/.gitignore" && echo yes || echo no)"
 chk "AD2/本地忽略已追加" "yes" "$(grep -qxF '/site/session-ed1/' "$B/gw2/.git/info/exclude" && echo yes || echo no)"
 chk "AD2/会话目录不可见" "" "$(git -C "$B/gw2" status --porcelain --untracked-files=all -- site/session-ed1)"
 chk "AD2/不重复追加" "1" "$(grep -cF '/site/session-ed1/' "$B/gw2/.git/info/exclude")"
@@ -428,7 +428,7 @@ mkdir -p "$B/gw3/site/fix"
 printf '坏简报，没有任何必填字样\n' > "$B/gw3/site/fix/bad.md"
 chk "AM/坏简报被拒" 3 "$( cd "$B/gw3/site/fix" && DSH_SESSION_ID=session-am1 bash $SK/scripts/preflight.sh --model test/model --root "$B/gw3/site" --task t-am --import bad.md --allow bad.md --brief bad.md --quiet >/dev/null 2>&1; echo $?)"
 chk "AM/未建会话目录" "no" "$([ -d "$B/gw3/site/session-am1" ] && echo yes || echo no)"
-chk "AM/exclude 未追加" "no" "$(grep -q 'git-task-bus' "$B/gw3/.git/info/exclude" && echo yes || echo no)"
+chk "AM/exclude 未追加" "no" "$(grep -q 'subagent-delegation' "$B/gw3/.git/info/exclude" && echo yes || echo no)"
 
 # AV：版本比较按全部数字段
 chk "AV/四段版本比较" "1" "$(bash -c 'eval "$(sed -n "/^version_ge()/,/^}/p" "$1")"; version_ge 2.30.1.windows.1 2.30.1.windows.10; echo $?' _ "$SK/scripts/preflight.sh")"

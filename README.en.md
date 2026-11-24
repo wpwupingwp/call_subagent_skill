@@ -1,4 +1,4 @@
-# git-task-bus
+# subagent-delegation
 
 **English** · [中文](README.md)
 
@@ -15,15 +15,15 @@ before handing back a patch you can inspect.
 > reads DSH child-session logs and is required. Other harnesses must port that adapter; see
 > [Porting to another harness](#porting-to-another-harness).
 
-Human-facing docs. The model-facing spec is [`git-task-bus/SKILL.md`](git-task-bus/SKILL.md).
+Human-facing docs. The model-facing spec is [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md).
 
 ## Install
 
-The skill is the `git-task-bus/` directory. Copy it into a skills directory:
+The skill is the `subagent-delegation/` directory. Copy it into a skills directory:
 
 ```bash
-cp -r git-task-bus <workspace>/.dsh/skills/   # this workspace only
-cp -r git-task-bus ~/.dsh/skills/             # every session on this machine
+cp -r subagent-delegation <workspace>/.dsh/skills/   # this workspace only
+cp -r subagent-delegation ~/.dsh/skills/             # every session on this machine
 ```
 
 The model picks it up by `description`. Without an install it will not appear in the `skill` tool;
@@ -32,7 +32,7 @@ you can still read `SKILL.md` directly and replace `<skill dir>` with its real p
 ## Quick start
 
 ```bash
-SKILL=/path/to/git-task-bus
+SKILL=/path/to/subagent-delegation
 
 # 1. once per machine: check git, permissions and dependencies
 bash "$SKILL/scripts/doctor.sh"
@@ -131,10 +131,10 @@ Repository files:
 
 ```
 .gitattributes              LF line endings (Windows checkout)
-git-task-bus/SKILL.md        spec the model reads
-git-task-bus/references/     probe: three-layer check for a new environment or model
-git-task-bus/scripts/        doctor / envcheck / preflight / postflight
-git-task-bus/templates/      brief / probe / review / findings
+subagent-delegation/SKILL.md        spec the model reads
+subagent-delegation/references/     probe: three-layer check for a new environment or model
+subagent-delegation/scripts/        doctor / envcheck / preflight / postflight
+subagent-delegation/templates/      brief / probe / review / findings
 tests/run.sh                 self-check (no network or subagent needed)
 tests/audit_compliance.py    did the parent edit anything before dispatching? (write/edit/apply_patch + common bash writes)
 usage_of.sh, usage_stats.sh  usage reader and rollup (not part of the skill)
@@ -358,8 +358,9 @@ the directory keeps the patch, `MANIFEST.json` and the commit history used for a
 It is ignored by any outer repository, so leaving it in place does not dirty `git status`.
 
 **How do I undo the ignore rule?**
-Delete the two lines `preflight` appended to `.git/info/exclude` (`# git-task-bus session workspaces`
-and `/<session id>/`); existing session directories will show up in `git status` again.
+Delete the two lines `preflight` appended to `.git/info/exclude`: the comment line (new runs write
+`# subagent-delegation session workspaces`, older ones wrote `# git-task-bus session workspaces`) and
+`/<session id>/`. Afterwards the session directories show up in `git status` again.
 
 **The subagent says the tests pass — can I trust it?**
 No. `postflight` runs the acceptance command as the parent and records the exit code. A
@@ -393,7 +394,7 @@ required. You can also pass
 `usage_stats.sh` rolls up by model.
 
 **What before a new environment or model?**
-Run the three-layer probe in [`git-task-bus/references/probe.md`](git-task-bus/references/probe.md)
+Run the three-layer probe in [`subagent-delegation/references/probe.md`](subagent-delegation/references/probe.md)
 (doctor / envcheck / probe) to confirm the subagent commits, respects the whitelist and ends its
 turn. Re-run it after updating the skill.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usage_stats.sh — 汇总 git-task-bus 的 tasks/usage.tsv
+# usage_stats.sh — 汇总 subagent-delegation 的 tasks/usage.tsv
 #
 # 与 skill 同级，不属于技能本体：技能只负责按行记录，统计是使用方的选择。
 set -u

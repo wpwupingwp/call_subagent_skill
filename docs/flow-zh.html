@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.0.1">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>git-task-bus 交互时序</title>
+  <title>subagent-delegation 交互时序</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -4978,7 +4978,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="蓝图 / 修订 01"
            data-preset-badge-editorial="编辑风格 / 现场笔记">
         <div class="pulse-dot"></div>
-        <h1>git-task-bus 交互时序</h1>
+        <h1>subagent-delegation 交互时序</h1>
       </div>
     </div>
 
@@ -4987,8 +4987,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / 图版 04">
-      <svg viewBox="0 0 880 720" data-sequence-column-fit="spread" role="img" lang="zh-CN" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
-        <title id="archify-diagram-title">git-task-bus 交互时序</title>
+      <svg viewBox="0 0 880 566" data-sequence-column-fit="spread" role="img" lang="zh-CN" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
+        <title id="archify-diagram-title">subagent-delegation 交互时序</title>
         <desc id="archify-diagram-description">由 Archify 生成的时序图。</desc>
         <!-- Definitions -->
         <defs>
@@ -5016,110 +5016,110 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
         <!-- Lifelines -->
-        <path d="M 125.5 142 L 125.5 624" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 288.25 142 L 288.25 624" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 451 142 L 451 624" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 613.75 142 L 613.75 624" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 776.5 142 L 776.5 624" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 125.5 142 L 125.5 470" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 288.25 142 L 288.25 470" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 451 142 L 451 470" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 613.75 142 L 613.75 470" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 776.5 142 L 776.5 470" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
 
         <!-- Activations -->
-        <rect x="283.25" y="160" width="10" height="400" rx="3" class="c-mask"/>
-        <rect x="283.25" y="160" width="10" height="400" rx="3" class="c-backend" stroke-width="1"/>
-        <rect x="446" y="196" width="10" height="68" rx="3" class="c-mask"/>
-        <rect x="446" y="196" width="10" height="68" rx="3" class="c-cloud" stroke-width="1"/>
-        <rect x="446" y="356" width="10" height="48" rx="3" class="c-mask"/>
-        <rect x="446" y="356" width="10" height="48" rx="3" class="c-cloud" stroke-width="1"/>
-        <rect x="608.75" y="392" width="10" height="60" rx="3" class="c-mask"/>
-        <rect x="608.75" y="392" width="10" height="60" rx="3" class="c-backend" stroke-width="1"/>
-        <rect x="771.5" y="316" width="10" height="228" rx="3" class="c-mask"/>
-        <rect x="771.5" y="316" width="10" height="228" rx="3" class="c-database" stroke-width="1"/>
+        <rect x="283.25" y="160" width="10" height="280" rx="3" class="c-mask"/>
+        <rect x="283.25" y="160" width="10" height="280" rx="3" class="c-backend" stroke-width="1"/>
+        <rect x="446" y="184" width="10" height="68" rx="3" class="c-mask"/>
+        <rect x="446" y="184" width="10" height="68" rx="3" class="c-cloud" stroke-width="1"/>
+        <rect x="446" y="300" width="10" height="40" rx="3" class="c-mask"/>
+        <rect x="446" y="300" width="10" height="40" rx="3" class="c-cloud" stroke-width="1"/>
+        <rect x="608.75" y="334" width="10" height="56" rx="3" class="c-mask"/>
+        <rect x="608.75" y="334" width="10" height="56" rx="3" class="c-backend" stroke-width="1"/>
+        <rect x="771.5" y="266" width="10" height="164" rx="3" class="c-mask"/>
+        <rect x="771.5" y="266" width="10" height="164" rx="3" class="c-database" stroke-width="1"/>
 
         <!-- Messages -->
-        <g data-edge-from="human" data-edge-to="parent" data-edge-label="提任务 + 权限" data-edge-key="0" data-edge-id="task">
+        <g data-edge-from="human" data-edge-to="parent" data-edge-label="提任务 + 允许 push？" data-edge-key="0" data-edge-id="task">
           <path data-composition-edge-from="human" data-composition-edge-to="parent" data-composition-edge-id="task" data-composition-points="132.5,160;281.25,160" d="M 132.5 160 L 281.25 160" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="157.975" y="140" width="97.8" height="18" rx="3" class="c-mask"/>
-          <text x="206.875" y="150" class="t-muted" font-size="11" text-anchor="middle">提任务 + 权限</text>
+          <rect x="134.875" y="140" width="144" height="18" rx="3" class="c-mask"/>
+          <text x="206.875" y="150" class="t-muted" font-size="11" text-anchor="middle">提任务 + 允许 push？</text>
         </g>
         </g>
 
         <g data-edge-from="parent" data-edge-to="harness" data-edge-label="列可用模型" data-edge-key="1" data-edge-id="list">
-          <path data-composition-edge-from="parent" data-composition-edge-to="harness" data-composition-edge-id="list" data-composition-points="295.25,200;444,200" d="M 295.25 200 L 444 200" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+          <path data-composition-edge-from="parent" data-composition-edge-to="harness" data-composition-edge-id="list" data-composition-points="295.25,188;444,188" d="M 295.25 188 L 444 188" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="330.625" y="180" width="78" height="18" rx="3" class="c-mask"/>
-          <text x="369.625" y="190" class="t-muted" font-size="11" text-anchor="middle">列可用模型</text>
+          <rect x="330.625" y="168" width="78" height="18" rx="3" class="c-mask"/>
+          <text x="369.625" y="178" class="t-muted" font-size="11" text-anchor="middle">列可用模型</text>
         </g>
         </g>
 
-        <g data-edge-from="harness" data-edge-to="parent" data-edge-label="候选模型" data-edge-key="2" data-edge-id="models">
-          <path data-composition-edge-from="harness" data-composition-edge-to="parent" data-composition-edge-id="models" data-composition-points="444,240;295.25,240" d="M 444 240 L 295.25 240" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="harness" data-edge-to="parent" data-edge-label="候选模型（不含父模型）" data-edge-key="2" data-edge-id="models">
+          <path data-composition-edge-from="harness" data-composition-edge-to="parent" data-composition-edge-id="models" data-composition-points="444,216;295.25,216" d="M 444 216 L 295.25 216" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="337.225" y="220" width="64.8" height="18" rx="3" class="c-mask"/>
-          <text x="369.625" y="230" class="t-muted" font-size="11" text-anchor="middle">候选模型</text>
+          <rect x="291.025" y="196" width="157.2" height="18" rx="3" class="c-mask"/>
+          <text x="369.625" y="206" class="t-muted" font-size="11" text-anchor="middle">候选模型（不含父模型）</text>
         </g>
         </g>
 
-        <g data-edge-from="human" data-edge-to="parent" data-edge-label="选定模型（先问）" data-edge-key="3" data-edge-id="pick">
-          <path data-composition-edge-from="human" data-composition-edge-to="parent" data-composition-edge-id="pick" data-composition-points="132.5,280;281.25,280" d="M 132.5 280 L 281.25 280" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="human" data-edge-to="parent" data-edge-label="选定 provider/model（首次先问）" data-edge-key="3" data-edge-id="pick">
+          <path data-composition-edge-from="human" data-composition-edge-to="parent" data-composition-edge-id="pick" data-composition-points="132.5,244;281.25,244" d="M 132.5 244 L 281.25 244" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="148.075" y="260" width="117.6" height="18" rx="3" class="c-mask"/>
-          <text x="206.875" y="270" class="t-muted" font-size="11" text-anchor="middle">选定模型（先问）</text>
+          <rect x="98.575" y="224" width="216.6" height="18" rx="3" class="c-mask"/>
+          <text x="206.875" y="234" class="t-muted" font-size="11" text-anchor="middle">选定 provider/model（首次先问）</text>
         </g>
         </g>
 
-        <g data-edge-from="parent" data-edge-to="repo" data-edge-label="preflight：BASE" data-edge-key="4" data-edge-id="preflight">
-          <path data-composition-edge-from="parent" data-composition-edge-to="repo" data-composition-edge-id="preflight" data-composition-points="295.25,320;769.5,320" d="M 295.25 320 L 769.5 320" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="parent" data-edge-to="repo" data-edge-label="preflight：BASE + 白名单" data-edge-key="4" data-edge-id="preflight">
+          <path data-composition-edge-from="parent" data-composition-edge-to="repo" data-composition-edge-id="preflight" data-composition-points="295.25,272;769.5,272" d="M 295.25 272 L 769.5 272" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="476.875" y="300" width="111" height="18" rx="3" class="c-mask"/>
-          <text x="532.375" y="310" class="t-edge-emphasis" font-size="11" text-anchor="middle">preflight：BASE</text>
+          <rect x="447.175" y="252" width="170.39999999999998" height="18" rx="3" class="c-mask"/>
+          <text x="532.375" y="262" class="t-edge-emphasis" font-size="11" text-anchor="middle">preflight：BASE + 白名单</text>
         </g>
         </g>
 
-        <g data-edge-from="parent" data-edge-to="harness" data-edge-label="派发 subagent" data-edge-key="5" data-edge-id="dispatch">
-          <path data-composition-edge-from="parent" data-composition-edge-to="harness" data-composition-edge-id="dispatch" data-composition-points="295.25,360;444,360" d="M 295.25 360 L 444 360" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="parent" data-edge-to="harness" data-edge-label="派发 subagent + model" data-edge-key="5" data-edge-id="dispatch">
+          <path data-composition-edge-from="parent" data-composition-edge-to="harness" data-composition-edge-id="dispatch" data-composition-points="295.25,300;444,300" d="M 295.25 300 L 444 300" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="320.725" y="340" width="97.8" height="18" rx="3" class="c-mask"/>
-          <text x="369.625" y="350" class="t-edge-emphasis" font-size="11" text-anchor="middle">派发 subagent</text>
+          <rect x="294.325" y="280" width="150.6" height="18" rx="3" class="c-mask"/>
+          <text x="369.625" y="290" class="t-edge-emphasis" font-size="11" text-anchor="middle">派发 subagent + model</text>
         </g>
         </g>
 
-        <g data-edge-from="harness" data-edge-to="child" data-edge-label="创建子会话" data-edge-key="6" data-edge-id="session">
-          <path data-composition-edge-from="harness" data-composition-edge-to="child" data-composition-edge-id="session" data-composition-points="458,400;606.75,400" d="M 458 400 L 606.75 400" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="harness" data-edge-to="child" data-edge-label="创建子会话（同 uid）" data-edge-key="6" data-edge-id="session">
+          <path data-composition-edge-from="harness" data-composition-edge-to="child" data-composition-edge-id="session" data-composition-points="458,328;606.75,328" d="M 458 328 L 606.75 328" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="493.375" y="380" width="78" height="18" rx="3" class="c-mask"/>
-          <text x="532.375" y="390" class="t-muted" font-size="11" text-anchor="middle">创建子会话</text>
+          <rect x="460.375" y="308" width="144" height="18" rx="3" class="c-mask"/>
+          <text x="532.375" y="318" class="t-muted" font-size="11" text-anchor="middle">创建子会话（同 uid）</text>
         </g>
         </g>
 
-        <g data-edge-from="child" data-edge-to="repo" data-edge-label="改码 → 提交" data-edge-key="7" data-edge-id="commit">
-          <path data-composition-edge-from="child" data-composition-edge-to="repo" data-composition-edge-id="commit" data-composition-points="620.75,440;769.5,440" d="M 620.75 440 L 769.5 440" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="child" data-edge-to="repo" data-edge-label="改码 → main 提交" data-edge-key="7" data-edge-id="commit">
+          <path data-composition-edge-from="child" data-composition-edge-to="repo" data-composition-edge-id="commit" data-composition-points="620.75,356;769.5,356" d="M 620.75 356 L 769.5 356" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="652.825" y="420" width="84.6" height="18" rx="3" class="c-mask"/>
-          <text x="695.125" y="430" class="t-edge-emphasis" font-size="11" text-anchor="middle">改码 → 提交</text>
+          <rect x="636.325" y="336" width="117.6" height="18" rx="3" class="c-mask"/>
+          <text x="695.125" y="346" class="t-edge-emphasis" font-size="11" text-anchor="middle">改码 → main 提交</text>
         </g>
         </g>
 
         <g data-edge-from="harness" data-edge-to="parent" data-edge-label="结果 + 结束原因" data-edge-key="8" data-edge-id="settled">
-          <path data-composition-edge-from="harness" data-composition-edge-to="parent" data-composition-edge-id="settled" data-composition-points="444,480;295.25,480" d="M 444 480 L 295.25 480" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+          <path data-composition-edge-from="harness" data-composition-edge-to="parent" data-composition-edge-id="settled" data-composition-points="444,384;295.25,384" d="M 444 384 L 295.25 384" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="314.125" y="460" width="111" height="18" rx="3" class="c-mask"/>
-          <text x="369.625" y="470" class="t-muted" font-size="11" text-anchor="middle">结果 + 结束原因</text>
+          <rect x="314.125" y="364" width="111" height="18" rx="3" class="c-mask"/>
+          <text x="369.625" y="374" class="t-muted" font-size="11" text-anchor="middle">结果 + 结束原因</text>
         </g>
         </g>
 
-        <g data-edge-from="parent" data-edge-to="repo" data-edge-label="postflight 验收" data-edge-key="9" data-edge-id="postflight">
-          <path data-composition-edge-from="parent" data-composition-edge-to="repo" data-composition-edge-id="postflight" data-composition-points="295.25,520;769.5,520" d="M 295.25 520 L 769.5 520" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="parent" data-edge-to="repo" data-edge-label="postflight 重跑测试" data-edge-key="9" data-edge-id="postflight">
+          <path data-composition-edge-from="parent" data-composition-edge-to="repo" data-composition-edge-id="postflight" data-composition-points="295.25,412;769.5,412" d="M 295.25 412 L 769.5 412" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="476.875" y="500" width="111" height="18" rx="3" class="c-mask"/>
-          <text x="532.375" y="510" class="t-muted" font-size="11" text-anchor="middle">postflight 验收</text>
+          <rect x="463.675" y="392" width="137.39999999999998" height="18" rx="3" class="c-mask"/>
+          <text x="532.375" y="402" class="t-muted" font-size="11" text-anchor="middle">postflight 重跑测试</text>
         </g>
         </g>
 
-        <g data-edge-from="parent" data-edge-to="human" data-edge-label="交付 patch" data-edge-key="10" data-edge-id="deliver">
-          <path data-composition-edge-from="parent" data-composition-edge-to="human" data-composition-edge-id="deliver" data-composition-points="281.25,560;132.5,560" d="M 281.25 560 L 132.5 560" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <g data-edge-from="parent" data-edge-to="human" data-edge-label="交付 patch（人决定 push）" data-edge-key="10" data-edge-id="deliver">
+          <path data-composition-edge-from="parent" data-composition-edge-to="human" data-composition-edge-id="deliver" data-composition-points="281.25,440;132.5,440" d="M 281.25 440 L 132.5 440" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
         <g data-detail="context">
-          <rect x="167.875" y="540" width="78" height="18" rx="3" class="c-mask"/>
-          <text x="206.875" y="550" class="t-edge-security" font-size="11" text-anchor="middle">交付 patch</text>
+          <rect x="118.375" y="420" width="177" height="18" rx="3" class="c-mask"/>
+          <text x="206.875" y="430" class="t-edge-security" font-size="11" text-anchor="middle">交付 patch（人决定 push）</text>
         </g>
         </g>
 
@@ -5185,22 +5185,22 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <!-- Legend -->
         <g data-legend="">
-          <text x="40" y="646" class="t-primary" font-size="12" font-weight="650">图例</text>
-          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="666" data-legend-width="93">
-            <path d="M 40 663 L 74 663" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-            <text x="83" y="666" class="t-muted" font-size="10" font-weight="500">主路径请求</text>
+          <text x="40" y="492" class="t-primary" font-size="12" font-weight="650">图例</text>
+          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="512" data-legend-width="93">
+            <path d="M 40 509 L 74 509" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+            <text x="83" y="512" class="t-muted" font-size="10" font-weight="500">主路径请求</text>
           </g>
-          <g data-legend-semantic-kind="return" data-legend-x="155" data-legend-baseline="666" data-legend-width="63">
-            <path d="M 155 663 L 189 663" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
-            <text x="198" y="666" class="t-muted" font-size="10" font-weight="500">返回</text>
+          <g data-legend-semantic-kind="return" data-legend-x="155" data-legend-baseline="512" data-legend-width="63">
+            <path d="M 155 509 L 189 509" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+            <text x="198" y="512" class="t-muted" font-size="10" font-weight="500">返回</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-x="240" data-legend-baseline="666" data-legend-width="63">
-            <path d="M 240 663 L 274 663" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-            <text x="283" y="666" class="t-muted" font-size="10" font-weight="500">安全</text>
+          <g data-legend-semantic-kind="security" data-legend-x="240" data-legend-baseline="512" data-legend-width="63">
+            <path d="M 240 509 L 274 509" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+            <text x="283" y="512" class="t-muted" font-size="10" font-weight="500">安全</text>
           </g>
-          <g data-legend-semantic-kind="default" data-legend-x="325" data-legend-baseline="666" data-legend-width="83">
-            <path d="M 325 663 L 359 663" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-            <text x="368" y="666" class="t-muted" font-size="10" font-weight="500">普通消息</text>
+          <g data-legend-semantic-kind="default" data-legend-x="325" data-legend-baseline="512" data-legend-width="83">
+            <path d="M 325 509 L 359 509" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+            <text x="368" y="512" class="t-muted" font-size="10" font-weight="500">普通消息</text>
           </g>
         </g>
       </svg>
