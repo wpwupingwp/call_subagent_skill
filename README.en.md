@@ -8,7 +8,7 @@ parent freezes `BASE` and a path whitelist, the subagent commits on `main`, and 
 mechanically with diff, whitelist and test exit code, rolling back and archiving a patch on failure.
 The delivery is therefore **rollbackable and auditable**, and the review is not primed by the parent
 context; when the subagent is clearly cheaper (low `r`) on a large enough task it also **saves
-tokens** — dispatching the same model buys the first two, not the savings.
+tokens**.
 
 > **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**; `--child`
 > reads DSH child-session logs and is required. Other harnesses must port that adapter; see
