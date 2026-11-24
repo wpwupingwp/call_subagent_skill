@@ -397,8 +397,9 @@ session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 ### Division of labour
 
 - **The human**: sets the principles and acceptance criteria, corrects errors, makes the calls
-  (fix / don't dispatch / push), and asks for a measurement first; rarely says how to implement,
-  usually just "this is wrong" or "measure it".
+  (fix / don't dispatch / push), asks for a measurement first, and often dictates the change itself
+  — which section, what wording, which name; the implementation and verification are the parent
+  agent's.
 - **The parent agent**: implements, designs controlled experiments, digs facts out of session logs,
   writes the docs, runs the self-checks. Typical failures: drifting definitions (a changed multiplier
   that is not recomputed) and treating assumptions as conclusions.
