@@ -382,16 +382,17 @@ Exit codes `0` compliant · `2` violation (lists steps and commands) · `3` no d
 Development and validation happened in a single parent session; subagent usage is summed from the
 session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 
-| Item | Parent | Subagents |
-|---|---|---|
-| Steps | 2,689 | 1,629 |
-| Turns | 449 (415 human inputs) | 47 sessions |
-| Time | 5.7 hours in turns | 3.4 hours in total |
-| Uncached input | 2,665,750 tok | 2,014,386 tok |
-| Cache reads | 804,652,032 tok | 94,347,481 tok |
-| Output | 2,145,825 tok | 635,386 tok |
-| Cache hit rate | 99.67% | 97.91% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | 27,342,091 | 0 (`r = 0`) |
+| Item | Human | Parent | Subagents |
+|---|---|---|---|
+| Input | 415 messages | — | — |
+| Time | 8 days 13 hours (wall clock) | 5.7 hours in 449 turns | 3.4 hours over 47 sessions |
+| Steps | — | 2,689 | 1,629 |
+| Turns | — | 449 | 47 sessions |
+| Uncached input | — | 2,665,750 tok | 2,014,386 tok |
+| Cache reads | — | 804,652,032 tok | 94,347,481 tok |
+| Output | — | 2,145,825 tok | 635,386 tok |
+| Cache hit rate | — | 99.67% | 97.91% |
+| Weighted cost (input 1 / cache 0.02 / output 4) | — | 27,342,091 | 0 (`r = 0`) |
 
 ## 📄 License
 
