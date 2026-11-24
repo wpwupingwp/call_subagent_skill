@@ -104,8 +104,8 @@ and `--allow-no-tests` live in [`SKILL.md`](subagent-delegation/SKILL.md), the s
 Three signals — the more of them hold, the better the fit, but they do not all have to:
 
 1. The deliverable is a **file change** (code, data, config, or a document whose structure can be checked).
-2. Acceptance can be **checked mechanically** — a test or script decides, not a human read; for review
-   and report work only the structure can be checked, so this one counts as half.
+2. Acceptance can be **checked mechanically**, without a human read — tests or a script's exit code
+   for code, structure and references (fields, anchors, links) for review and report deliverables.
 3. The change needs **iteration** — the first pass is usually not the last.
 
 If none hold, don't dispatch (checking state, choosing a design, a one-line edit); a large change that
