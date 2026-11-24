@@ -11,26 +11,25 @@ The delivery is therefore **rollbackable and auditable**, and the review is not 
 context; when the subagent is clearly cheaper (low `r`) on a large enough task it also **saves
 tokens**.
 
-Human-facing docs. The model-facing spec is [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md).
+This document is the user-facing guide; the model-facing spec is
+[`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md).
 
 ## ✨ Why use it
 
-**Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
-the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
-and the patch, so it can be reproduced later.
-
-**A second reader, within limits.** The subagent does not inherit the parent conversation: it gets
-the frozen brief and a repo snapshot, so it does not skip a check because "we already decided X".
-The repo itself may still hold previous tasks and last round's `findings.md`; real independence
-depends on clearing those (`preflight --clear findings.md`; history and the patch still keep the
-evidence). It can find invariants the parent missed, but its findings must be verified, not treated
-as a backlog.
-
-**The parent keeps its context; the subagent judges independently.** Files the subagent read, paths
-it tried and test logs all stay in its own session. The parent reads the `postflight` summary, the
-`git diff --stat` of a passing task, and the net diff only when a trigger fires. In long sessions
-most cost is context re-reading, so a parent context that does not grow with each dispatch is
-lighter on every later step.
+- **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
+  the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
+  and the patch, so it can be reproduced later.
+- **A second reader, within limits.** The subagent does not inherit the parent conversation: it gets
+  the frozen brief and a repo snapshot, so it does not skip a check because "we already decided X".
+  The repo itself may still hold previous tasks and last round's `findings.md`; real independence
+  depends on clearing those (`preflight --clear findings.md`; history and the patch still keep the
+  evidence). It can find invariants the parent missed, but its findings must be verified, not treated
+  as a backlog.
+- **The parent keeps its context; the subagent judges independently.** Files the subagent read,
+  paths it tried and test logs all stay in its own session. The parent reads the `postflight`
+  summary, the `git diff --stat` of a passing task, and the net diff only when a trigger fires. In
+  long sessions most cost is context re-reading, so a parent context that does not grow with each
+  dispatch is lighter on every later step.
 
 ⚠️ **The trade-offs are real**: the parent still pays for the brief and for orchestration (about
 2,100); reviews usually cost more; the subagent's review can miss things, so findings still need
@@ -99,10 +98,15 @@ the model; they are not repeated here.
 
 ## 🎯 When to use
 
-All three conditions must hold: the deliverable is a **file change** (code, data, config, or a
-document whose structure can be checked); acceptance can be **checked mechanically** (a test or
-script, not a human read); and the change needs **iteration** (the first pass is usually not the
-last). Token savings are a separate axis — see "When token savings are possible" below.
+Dispatch is worth it when three things hold at once:
+
+1. The deliverable is a **file change** (code, data, config, or a document whose structure can be checked).
+2. Acceptance can be **checked mechanically** — a test or script decides, not a human read.
+3. The change needs **iteration** — the first pass is usually not the last.
+
+Review and report work meets only half of point 2 (the structure can be checked, the conclusion
+cannot), but it is still a file delivery and still worth dispatching — see "Review and document
+work" below.
 
 | ✅ Good fit | ❌ Poor fit |
 |---|---|
@@ -114,21 +118,26 @@ last). Token savings are a separate axis — see "When token savings are possibl
 | A second opinion (clean-context review, diff or not) | Reviews purely to save tokens |
 | | Needs concurrency (the skill is serial) |
 
-**Serial, but multi-round.** One subagent at a time: dispatch, wait for the commit and acceptance,
-then dispatch the next. The parent can drive unattended multi-round edits or reviews this way, still
-freezing, dispatching and accepting each round, with automatic rollback on failure.
+### Serial, but multi-round
 
-**The verdict is reached in-round, attended or not.** What the subagent returns is findings, not a
-verdict: the parent gives each one a level, evidence, a decision and a reason, lands accepted ones as
-commits and tests, and keeps rejected ones comparable against the original `findings.md`. What the
-human reviews afterwards is the **record plus spot checks** — the diff and tests of accepted items,
-and a few rejections against the original — not a re-run. The judgment is not skipped; it moves from
-the human to the parent and from process time to result time.
+One subagent at a time: dispatch, wait for the commit and acceptance, then dispatch the next. The
+parent can drive unattended multi-round edits or reviews this way, still freezing, dispatching and
+accepting each round, with automatic rollback on failure.
 
-⚠️ **Review and document deliverables**: only the structure and references of a report (fields,
-anchors, links) can be checked mechanically, and that does not stop a wrong conclusion — findings
-still need to be verified one by one. They are worth dispatching for a second read, usually not for
-token savings.
+### The verdict is reached in-round, attended or not
+
+What the subagent returns is findings, not a verdict: the parent gives each one a level, evidence, a
+decision and a reason, lands accepted ones as commits and tests, and keeps rejected ones comparable
+against the original `findings.md`. What the human reviews afterwards is the **record plus spot
+checks** — the diff and tests of accepted items, and a few rejections against the original — not a
+re-run. The judgment is not skipped; it moves from the human to the parent and from process time to
+result time.
+
+### Review and document work
+
+Only the structure and references of a report (fields, anchors, links) can be checked mechanically,
+and that does not stop a wrong conclusion — findings still need to be verified one by one. Worth
+dispatching for a second read, usually not for token savings.
 
 ## 💰 When token savings are possible (`r`)
 
@@ -152,11 +161,15 @@ one task per turn:                  2,100 orchestration + amortization ≈ 2,443
 batch ten of them:                  about 210 each → saves 51%
 ```
 
-**Batching is what pays, not a cheaper model.** Review and document work usually fails the savings
+### Batching is what pays, not a cheaper model
+
+A single task pays the orchestration first, and only batching amortizes it; a cheaper model (lower
+`r`) is a different lever, not a substitute. Review and document work usually fails the savings
 test; what you get is a second independent read.
 
-**Dispatching the same model (`r ≈ 1`)** is not in that table — it buys no savings, only an independent
-pair of eyes and a rollbackable delivery. A workable split: hand mechanical and surface-level changes
+### Dispatching the same model (`r ≈ 1`)
+
+Not in that table — it buys no savings, only an independent pair of eyes and a rollbackable delivery. A workable split: hand mechanical and surface-level changes
 to the cheap model, and keep verdict logic, adapters and audit completeness — the places where a
 mistake stays silent — for a stronger model, including a same-model subagent. Either way the same
 model tends to inherit the parent's blind spots, so verify findings item by item; and across
@@ -278,7 +291,7 @@ To verify an adapter on another harness, add a minimal session-log fixture.
 
 ## ❓ FAQ
 
-**Does it touch my own repository?**
+### Does it touch my own repository?
 No. All git writes happen in `<workspace>/<session id>/repo`; nothing tracked in your repo is
 written (`--import` only reads files). Discarding uses `git reset --hard` + `git clean -fd`, which would wipe
 uncommitted and untracked files if run in your tree — that is exactly why the skill keeps its own
@@ -287,54 +300,54 @@ by adding `/<session id>/` to `.git/info/exclude` (git's local ignore file, neve
 `.gitignore` is not modified and no `M .gitignore` appears; a subdirectory workspace uses
 `/subdir/<session id>/`.
 
-**Why not just `git init` manually?**
+### Why not just `git init` manually?
 `preflight` also writes the session repo's `.gitignore`, the outer `.git/info/exclude` (falling
 back to a session-dir `.gitignore`), and the `model` config, then makes the plan commit and freezes
 `BASE`. A manual init misses those, so `postflight` loses the basis for its `BASE`, whitelist and
 dirty-tree checks.
 
-**Should I delete the directory when the task is done?**
+### Should I delete the directory when the task is done?
 Delete `<workspace>/<session id>/` if you want it gone. The skill does not clean up automatically:
 the directory keeps the patch, `MANIFEST.json` and the commit history used for audit and rollback.
 It is ignored by any outer repository, so leaving it in place does not dirty `git status`.
 
-**How do I undo the ignore rule?**
+### How do I undo the ignore rule?
 Delete the two lines `preflight` appended to `.git/info/exclude`: the comment line (new runs write
 `# subagent-delegation session workspaces`, older ones wrote `# git-task-bus session workspaces`) and
 `/<session id>/`. Afterwards the session directories show up in `git status` again.
 
-**The subagent says the tests pass — can I trust it?**
+### The subagent says the tests pass — can I trust it?
 No. `postflight` runs the acceptance command as the parent and records the exit code. A
 self-report is not evidence.
 
-**What if the subagent dies or runs out of budget?**
+### What if the subagent dies or runs out of budget?
 Pass the real stop reason with `--stop` (`aborted` / `error` / `max-tokens` / `refusal`);
 `postflight` also corrects it from the child-session log. `max-tokens` means the task was too big —
 narrow it or split it, don't re-dispatch unchanged.
 
-**Does the acceptance command run sandboxed?**
+### Does the acceptance command run sandboxed?
 No: `--tests` runs as the calling user inside the session repo. Treat it as executable shell code;
 do not paste commands from untrusted sources.
 
-**What do the exit codes mean?**
+### What do the exit codes mean?
 `0` pass · `1` test failure or abnormal stop reason · `2` violation (out of scope, rewritten
 history, uncommitted delivery) · `3` configuration or environment error. Two similar failures in a
 row usually mean the brief is unclear — fix the brief instead of trying a third time.
 
-**How do I choose a model?**
+### How do I choose a model?
 The skill does not judge prices or pick for you. On first use, list the candidates and ask the
 human, then persist the answer with `--model <provider/model> --save-model`. Resolution order:
 `--model` > session repo `model` > `<session-dir>/model` > `<workspace>/model`; with none of
 them `preflight` exits 3 instead of silently falling back to the parent model.
 
-**How is subagent usage recorded?**
+### How is subagent usage recorded?
 `--child auto` matches the child session through `parentSession` and reads stop/usage from the
 DSH log into `tasks/usage.tsv` (usage is audit-only and does not affect the verdict); `--child` is
 required. You can also pass
 `--usage 'steps=12,in=2689,out=1926,cache=143545'` by hand to skip automatic reading.
 `usage_stats.sh` rolls up by model.
 
-**What before a new environment or model?**
+### What before a new environment or model?
 Run the three-layer probe in [`subagent-delegation/references/probe.md`](subagent-delegation/references/probe.md)
 (doctor / envcheck / probe) to confirm the subagent commits, respects the whitelist and ends its
 turn. Re-run it after updating the skill.
