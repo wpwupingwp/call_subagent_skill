@@ -112,8 +112,8 @@ There is one repository per conversation, with a single `main` branch; tasks are
             └── deliveries/<task>.patch
 ```
 
-When the workspace is inside another git repo, `preflight` adds `/session-*/` to that repo's
-`.git/info/exclude` (`/subdir/session-*/` when the workspace is a subdirectory). That is git's
+When the workspace is inside another git repo, `preflight` adds `/<session id>/` to that repo's
+`.git/info/exclude` (`/subdir/<session id>/` when the workspace is a subdirectory). That is git's
 local ignore file: it is not versioned, your `.gitignore` stays untouched, and `git status` gains
 no entry. If `.git` is not writable it falls back to a `*` ignore file in the session directory.
 
@@ -309,9 +309,9 @@ No. All git operations happen in `<workspace>/<session id>/repo`; your repo is o
 (`--import` copies files). Discarding uses `git reset --hard` + `git clean -fd`, which would wipe
 uncommitted and untracked files if run in your tree — that is exactly why the skill keeps its own
 repo. When the workspace is itself a git repo, `preflight` keeps `<session id>/` out of `git status`
-by adding `/session-*/` to `.git/info/exclude` (git's local ignore file, never versioned). Your
+by adding `/<session id>/` to `.git/info/exclude` (git's local ignore file, never versioned). Your
 `.gitignore` is not modified and no `M .gitignore` appears; a subdirectory workspace uses
-`/subdir/session-*/`.
+`/subdir/<session id>/`.
 
 **Why not just `git init` manually?**
 `preflight` also writes the session repo's `.gitignore`, the outer `.git/info/exclude` (falling
@@ -326,7 +326,7 @@ It is ignored by any outer repository, so leaving it in place does not dirty `gi
 
 **How do I undo the ignore rule?**
 Delete the two lines `preflight` appended to `.git/info/exclude` (`# git-task-bus session workspaces`
-and `/session-*/`); existing session directories will show up in `git status` again.
+and `/<session id>/`); existing session directories will show up in `git status` again.
 
 **The subagent says the tests pass — can I trust it?**
 No. `postflight` runs the acceptance command itself and records the exit code, and the parent runs

@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do
     --task) TASK="${2:-}"; shift 2 ;;
     --stop) STOP="${2:-}"; STOP_GIVEN=1; shift 2 ;;
     --quiet) QUIET=1; shift ;;
-    --root)  TASK_ROOT="${2:-}"; shift 2 ;;
+    --root)  ROOT_ARG="${2:-}"; shift 2 ;;
     --usage) USAGE="${2:-}"; shift 2 ;;
     --child) CHILD="${2:-}"; shift 2 ;;
     -h|--help) usage 0 ;;
@@ -39,7 +39,7 @@ done
 [ -n "$TASK" ] || { echo "postflight: 必须指定 --task" >&2; usage; }
 [ -n "${CHILD:-}" ] || { echo "postflight: 必须指定 --child <子代理 id|auto>" >&2; usage; }
 
-ROOT="${TASK_ROOT:-$PWD}"
+ROOT="${ROOT_ARG:-$PWD}"
 SESSION="${DSH_SESSION_ID:-unknown}"
 [ -n "${DSH_SESSION_ID:-}" ] || printf 'postflight: 警告 —— DSH_SESSION_ID 未设置，会话目录退化为 unknown/\n' >&2
 REPO="$ROOT/$SESSION/repo"

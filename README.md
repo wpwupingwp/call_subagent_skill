@@ -103,8 +103,8 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --qu
             └── deliveries/<task>.patch
 ```
 
-工作区在别的 git 仓库内时，`preflight` 把 `/session-*/` 追加进该仓库的 `.git/info/exclude`
-（工作区是子目录时是 `/子目录/session-*/`）。那是 git 的本地忽略文件：不进版本控制、不改你的
+工作区在别的 git 仓库内时，`preflight` 把 `/<会话 id>/` 追加进该仓库的 `.git/info/exclude`
+（工作区是子目录时是 `/子目录/<会话 id>/`）。那是 git 的本地忽略文件：不进版本控制、不改你的
 `.gitignore`、`git status` 也不会多出任何条目。`.git` 不可写时退回在会话目录里放一个 `*`。
 
 仓库清单：
@@ -277,9 +277,9 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 **会动我自己的仓库吗？**
 不会。所有 git 操作都在 `<工作区>/<会话 id>/repo` 里；你自己的仓库只被读（`--import` 拷文件）。
 丢弃用的是 `git reset --hard` + `git clean -fd`，这两条如果作用在你的仓库上会抹掉未提交的改动
-和未跟踪文件，所以技能只在自己建的仓库里回滚。工作区本身是 git 仓库时，`preflight` 会让它看不到 `<会话 id>/`：把 `/session-*/` 追加进
+和未跟踪文件，所以技能只在自己建的仓库里回滚。工作区本身是 git 仓库时，`preflight` 会让它看不到 `<会话 id>/`：把 `/<会话 id>/` 追加进
 `.git/info/exclude`（git 的本地忽略文件，不进版本控制）。你的 `.gitignore` 不会被改，也不会出现
-`M .gitignore`；工作区是仓库子目录时为 `/子目录/session-*/`。
+`M .gitignore`；工作区是仓库子目录时为 `/子目录/<会话 id>/`。
 
 **为什么不能手工 `git init`？**
 `preflight` 建仓时还会写会话仓库的 `.gitignore`、外层 `.git/info/exclude`（不可写时用会话目录
@@ -292,7 +292,7 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 
 **怎么撤销这条忽略？**
 删掉 `.git/info/exclude` 里由 `preflight` 追加的两行（`# git-task-bus session workspaces` 和
-`/session-*/`）即可；删掉后已有会话目录会重新出现在 `git status` 里。
+`/<会话 id>/`）即可；删掉后已有会话目录会重新出现在 `git status` 里。
 
 **子代理说测试通过，能信吗？**
 不能。`postflight` 会自己跑验收命令拿退出码，父代理还要再重跑一次。自述不是证据。

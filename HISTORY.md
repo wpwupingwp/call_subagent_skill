@@ -569,6 +569,8 @@ review-18（同日）：preflight 把“切回 main”提前到写 plan 提交�
 “会话仓库级”；`--child auto` 在 `DSH_SESSION_ID` 未设时给出对应提示；HISTORY 里 49 步标注为
 修复阶段的子代理。
 
+review-19（同日）：README 中英把残留的 `/session-*/` 改为精确的 `/<会话 id>/`（各 3 处）；postflight 的 `--root` 变量改名 `ROOT_ARG`，与 preflight 命名一致。envcheck 的管道 127 两条边界（首段缺失判基线红、CMD_WORD 取首段）记录不改。
+
 ## 自举小结：review-12 … review-18（2026-11-24）
 
 | 轮次 | 报告 | 落地 | 本轮主题 |
