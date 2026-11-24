@@ -36,8 +36,10 @@ This document is the user-facing guide; the model-facing spec is
 
 ⚠️ **The trade-offs are real**: the parent still pays for the brief and for orchestration (about
 2,100); reviews usually cost more; the subagent's review can miss things, so findings still need
-item-by-item checking; and "independent" means independent context, not a permission boundary.
-Token savings depend on `r`, task size and batching — see below.
+item-by-item checking; and "independent" only means independent context — the child runs with the
+same uid and filesystem, and the boundary is a whitelist over **committed paths** in the session
+repo, so files outside it or ignored by `.gitignore` are not contained. Real isolation needs the
+harness sandbox. Token savings depend on `r`, task size and batching — see below.
 
 ## 📦 Install
 
@@ -148,8 +150,9 @@ dispatching for a second read, usually not for token savings.
 ## 💰 When token savings are possible (`r`)
 
 `r` is the subagent price divided by the parent price. Cost-model extrapolation puts break-even `r*`
-at 26–38% (down to ~17% for 100-line changes): the subagent has to be 3–4× cheaper before a single
-dispatch can win. Whether it actually saves also depends on task size and batching.
+at 26–38% for new 100-line work (down to ~17% extrapolated): the subagent has to be 3–4× cheaper
+before a single dispatch can win. Iterative small edits are another order of magnitude; see the full
+threshold table in `subagent_test.md`. Whether it actually saves also depends on task size and batching.
 
 | `r` | May save when | Extrapolated |
 |---|---|---|
@@ -366,8 +369,9 @@ turn. Re-run it after updating the skill.
 ## 🧪 Tests
 
 ```bash
-bash tests/run.sh                    # 190 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 155 total
+bash tests/run.sh                    # 191 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 156 total
+# without zstd: 153 pass / 2 fail (assertions that need zstd-generated data)
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

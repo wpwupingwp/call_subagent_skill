@@ -113,6 +113,7 @@ MODEL=<provider/model>
 ```
 
 `--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。
+`--save-model` 只是把本次解析到的值写进会话仓库的 `model`：首次落盘时与 `--model` 一起给，之后可省略 `--model` 单独用它。
 
 没有验收命令时（`--allow-no-tests`），`MANIFEST.json` 记 `testsRun=false`、`testExitCode=null`，
 `postflight` 的 `testexit=skipped`，判定只剩白名单、历史与工作树三项。
@@ -138,7 +139,8 @@ MODEL=<provider/model>
 
 ### 3. dispatch（父代理 → 子代理）
 
-`subagent` 的 `prompt` 参数**只填 `POINTER` 那一行**，不要再粘贴或改写：
+`subagent` 的 `prompt` 参数**只填 `POINTER` 那一行**，不要再粘贴或改写（`subagent_fork` 同理：它继承父对话，
+更要靠简报作为起点，派发前先把要它做的事写进简报）：
 
 ```
 读 <会话仓库>/tasks/<task>/dispatch.prompt 并按其执行
@@ -168,7 +170,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 判重依据是当前 HEAD 的树里有没有 `tasks/<task>/MANIFEST.json`；重判请换新任务 id。
 
 非 quiet 输出一屏摘要：BASE、HEAD、stop、变更与违规计数、测试退出码、patch 路径、verdict；
-有越界时附文件清单。完整的 `git status` 快照、test.log、`MANIFEST.json` 只落盘，需要时自己 `cat`。
+有越界时附文件清单。stash 与额外 worktree 两项**只提示、不参与判定**。完整的 `git status` 快照、test.log、`MANIFEST.json` 只落盘，需要时自己 `cat`。
 
 退出码：`0` 通过 · `1` 测试失败或 stopReason 异常 · `2` 违规（越界/改写历史/未提交交付/HEAD 不在 `main`）· `3` 配置或环境错误（含 MANIFEST 生成失败）。
 

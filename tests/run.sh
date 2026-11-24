@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # subagent-delegation 自检。用法: bash tests/run.sh [--keep]
-# 依赖: git >= 2.28、python3、（可选）zstd —— 没有 zstd 时跳过用量记录相关断言。
+# 依赖: git >= 2.28、python3、zstd。没有 zstd 时跳过用量记录段，但仍有 2 条依赖 zstd 生成数据的断言会失败（153/2）。
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -134,6 +134,8 @@ chk "T/单分支" "main" "$(git -C "$R" branch --format='%(refname:short)')"
 mkbrief t-u "test -f calc.py"
 OUT=$(bash $SK/scripts/preflight.sh --task t-u --allow calc.py --brief "$B/fix/brief-t-u.md" --tests 'test -f calc.py' --root "$B" --quiet 2>/dev/null)
 chk "T/复用模型" "MODEL=llama/LLaMA" "$(printf '%s\n' "$OUT" | grep '^MODEL=')"
+mkbrief t-sv "true"
+chk "T/--save-model 落盘后可单独使用" 0 "$(bash $SK/scripts/preflight.sh --task t-sv --allow calc.py --brief "$B/fix/brief-t-sv.md" --tests true --save-model --root "$B" --quiet >/dev/null 2>&1; echo $?)"
 
 echo "── U 共享基线 ──"
 sess gA
@@ -501,7 +503,7 @@ OUT_BD=$(DSH_HOME="$FHBD" bash "$SK/scripts/postflight.sh" --root "$B" --task t-
 chk "BD/仍通过" 0 "$RC_BD"
 chk "BD/提示无 usage" "yes" "$(printf '%s' "$OUT_BD" | grep -q '没有 usage' && echo yes || echo no)"
 
-echo "── BE 分支不对时不留下残骸 ──"
+echo "── BK 分支不对时不留下残骸 ──"
 sess gBE
 printf 'x=1\n' > "$B/fix/be.py"
 mkbrief t-be true

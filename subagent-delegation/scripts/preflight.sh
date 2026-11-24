@@ -305,6 +305,7 @@ if [ -n "$CLEAR" ]; then
     esac
     case "$_c" in
       tasks|tasks/*|.git|.git/*) die "--clear 不能清理审计目录: $_c" ;;
+      model) die "--clear 不能清理会话仓库的 model 配置（它会作为下一轮的模型来源）: $_c" ;;
     esac
     if [ -z "$(git -C "$REPO" ls-files -- "$_c" 2>/dev/null)" ]; then
       # 上一轮被丢弃（reject/fail）时交付物已经不在了：这不是错误，跳过即可，否则多轮评审第二轮就派不出去
