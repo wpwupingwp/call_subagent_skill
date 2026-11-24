@@ -783,6 +783,28 @@ probe 模板「不得新建」与「要新建 probe.txt」自相矛盾、`r*` �
 `216246d4`、`1a17ec41`）跑的也是 `deepseek-official/deepseek-flash`，此前只统计了 review-23…28 那 6 次。
 按「同模型按父代理单价」重算，子代理加权从 3,510,301 变成 4,339,885（9 次合计），其余 43 次仍按 `r = 0` 记 0。
 
+## 自举评审（2026-11-24）：另一个父会话拿技能审技能
+
+另一个 DSH 会话用本技能审了 `subagent-delegation/` 自己，交回 12 条发现。逐条复现后：
+
+- **两条是假的**：`--amend` 绕过白名单（复现为 `reject`，amend 后的 tree diff 仍进 `touched.txt`）、
+  「只认第一个 `turn/end`」（代码是 `kind = 新值 or 旧值`，取的是最后一个）。
+- **一条说反了**：reject 后「下一次 preflight 报不在 main」——实测 preflight 会自动切回 main。
+  但底下确有真问题：`reset --hard` 与随后的 `discarded` 记录提交都落在子代理留下的分支上，
+  切回 main 后这条记录就看不见了（`tasks/<task>/` 只剩 brief 与 provenance）。已修：丢弃前先
+  `git switch -f main`，子代理的分支只保留引用，不再被 reset 拉回。
+- **三条真问题已修**：`error` 判定与 MANIFEST 自相矛盾（记录提交失败时 MANIFEST 仍写着 `pass`，
+  patch 也叫 `<task>.patch`）——现在失败即改写 MANIFEST 并把 patch 改名 `.error.patch`；
+  目录导入哈希带 mtime/mode（`tar -cf` 的文件头）——改成「相对路径 + 内容哈希」排序聚合；
+  `ALLOW` 的「字面前缀」措辞与实现不符——改成「按路径组件匹配」。
+- 顺带：`--root` 报错措辞补上 `--root`/`--task`、`--tests` 多行时给出可行改法、`tar` 从依赖里删掉（已无人用）。
+
+**事故**：该评审的父会话在复现分支场景时写了 `rm -rf "$V/$1"`，循环变量在进程替换的 subshell 里
+没生效，`$V` 为空，于是执行了 `rm -rf` 掉整个技能目录，随后在空目录里 `git init`。文件从评审会话
+仓库的导入副本恢复，历史从 GitHub 恢复。教训与本技能要防的完全一致：破坏性命令里的变量必须先校验。
+
+自检 193 → 203（新增「丢弃落在 main」「目录哈希与 mtime 无关」两组断言）。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），

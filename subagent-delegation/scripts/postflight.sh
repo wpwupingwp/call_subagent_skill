@@ -57,7 +57,10 @@ trap 'rc=$?; if [ "$rc" -eq 0 ] && [ "$DONE" -ne 1 ]; then
         echo "postflight: 未完成判定就以 0 退出（dispatch.env 可能含提前 exit），仓库未还原；检查后重跑" >&2
         exit 3
       fi' EXIT
-[ -f "$TDIR/dispatch.env" ] || { echo "postflight: 缺少 $TDIR/dispatch.env，先跑 preflight.sh" >&2; exit 3; }
+[ -f "$TDIR/dispatch.env" ] || {
+  echo "postflight: 缺少 $TDIR/dispatch.env —— 先跑 preflight.sh；若传了 --root，确认它指向含 <会话 id>/repo 的工作区根（当前 --root=${ROOT_ARG:-$PWD}，--task=$TASK）" >&2
+  exit 3
+}
 # 文件损坏（如未闭合引号）会让 source 中途终止整个脚本，判定与回滚都不执行；
 # 先做语法检查，归入与「文件缺失」相同的环境错误。
 if ! bash -n "$TDIR/dispatch.env" 2>/dev/null; then
@@ -322,6 +325,8 @@ write_error_manifest() {
 }
 
 # ---- 8. 未通过则丢弃：先归档到仓库外，再还原 ----
+# 丢弃与记录提交都必须在 main 上做：子代理可能把 HEAD 留在自己建的分支上，
+# 那样 reset --hard 与随后的记录提交都会落在那个分支，main 上则看不到任何判定记录。
 ARCHIVE=""
 if [ "$VERDICT" != "pass" ]; then
   ARCHIVE=$(mktemp)
@@ -334,6 +339,15 @@ if [ "$VERDICT" != "pass" ]; then
     printf 'postflight: 丢弃失败 —— 导出 patch 出错\n' >&2
     write_error_manifest "patch export failed" "$(error_patch "$ARCHIVE")"
     exit 3
+  fi
+  if [ "$HEAD_BRANCH" != "main" ]; then
+    printf 'postflight: 丢弃在 main 上做（子代理把 HEAD 留在了 %s；该分支的提交保留，可事后查）\n' "$HEAD_BRANCH" >&2
+    # -f：索引里已暂存了子代理的改动，不强制切不动；这些改动已经导出到 ARCHIVE
+    if ! git switch -q -f main; then
+      printf 'postflight: 丢弃失败 —— 无法切回 main\n' >&2
+      write_error_manifest "switch to main failed" "$(error_patch "$ARCHIVE")"
+      exit 3
+    fi
   fi
   if ! git reset -q --hard "$BASE"; then
     printf 'postflight: 丢弃失败 —— git reset --hard 出错，仓库未还原\n' >&2
@@ -472,20 +486,27 @@ if [ -n "$USAGE" ]; then
 fi
 
 # ---- 11. 记录物入历史（无论判定如何）----
-if ! git -C "$REPO" add -A -- tasks >/dev/null 2>&1; then
-  printf 'postflight: 记录入历史失败 —— git add 出错\n' >&2
+# 这一步失败时 MANIFEST 已经按 pass 写好了；不改写它就会留下「stdout 说 error、MANIFEST 说 pass」的矛盾记录。
+record_failed() {
+  printf 'postflight: 记录入历史失败 —— %s\n' "$1" >&2
+  if [ "${PATCH##*/}" = "$TASK.patch" ]; then
+    PATCH=$(error_patch "$PATCH")
+    PATCH_SHA=$(git hash-object -- "$PATCH" 2>/dev/null || true)
+    PATCH_LINES=$(count_lines "$PATCH")
+  fi
+  write_error_manifest "$1" "$PATCH"
   VERDICT="error"; EXIT=3
-fi
-if ! git -C "$REPO" diff --cached --quiet; then
+}
+
+if ! git -C "$REPO" add -A -- tasks >/dev/null 2>&1; then
+  record_failed "记录提交的 git add 出错"
+elif ! git -C "$REPO" diff --cached --quiet; then
   case "$VERDICT" in
     pass)  SUBJ="result (pass)" ;;
     error) SUBJ="error" ;;
     *)     SUBJ="discarded ($VERDICT)" ;;
   esac
-  if ! git -C "$REPO" commit -q -m "task $TASK: $SUBJ"; then
-    printf 'postflight: 记录入历史失败 —— git commit 出错\n' >&2
-    VERDICT="error"; EXIT=3
-  fi
+  git -C "$REPO" commit -q -m "task $TASK: $SUBJ" || record_failed "记录提交的 git commit 出错"
 fi
 
 # ---- 12. 摘要 ----

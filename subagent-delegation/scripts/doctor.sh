@@ -9,7 +9,7 @@ usage() {
 
 检查项：
   git 是否可用、版本是否 >= 2.28
-  依赖命令：git sed grep cp tar date tr dirname basename head tail awk find mktemp python3
+  依赖命令：git sed grep cp date tr dirname basename head tail awk find mktemp python3
   （除 python3 外都是 POSIX 基本工具；awk 用于查 imports.tsv 旧哈希与 envcheck 的首词，
   python3 用于生成 MANIFEST.json 与解析用量）
   zstd：DSH 默认把会话日志压成 .zstd（它自带的编解码在进程内，不提供命令），
@@ -69,7 +69,7 @@ fi
 
 # 2. 依赖命令
 MISSING=""
-for c in sed grep cp tar date tr dirname basename head tail awk find mktemp python3; do
+for c in sed grep cp date tr dirname basename head tail awk find mktemp python3; do
   command -v "$c" >/dev/null 2>&1 || MISSING="$MISSING $c"
 done
 if [ -z "$MISSING" ]; then ok "依赖命令齐全（POSIX 基本工具 + python3）"

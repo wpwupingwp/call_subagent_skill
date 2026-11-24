@@ -553,6 +553,29 @@ chk "BL/--clear model 被拒" 3 "$(bash $SK/scripts/preflight.sh --model test/mo
 chk "BL/无 tasks 残留" "" "$(git -C "$R" status --porcelain)"
 chk "BL/未建任务目录" "no" "$([ -d "$R/tasks/t-bl2" ] && echo yes || echo no)"
 
+echo "── BN 丢弃与记录都落在 main ──"
+sess gBN
+chk "BN/preflight" 0 "$(pf --task t-bn --import calc.py --allow calc.py $(b t-bn) --tests true)"
+git -C "$R" switch -q -c feature && printf 'x\n' >> "$R/calc.py" && git -C "$R" commit -qam on-feature
+chk "BN/HEAD 在子代理分支被拒" 2 "$(po t-bn)"
+chk "BN/HEAD 回到 main" "main" "$(git -C "$R" rev-parse --abbrev-ref HEAD)"
+chk "BN/记录进 main" "yes" "$(git -C "$R" log --format=%s main | grep -q 'discarded (reject)' && echo yes || echo no)"
+chk "BN/MANIFEST 在 main 可见" "yes" "$(git -C "$R" ls-tree -r --name-only main -- tasks/t-bn/MANIFEST.json | grep -q MANIFEST && echo yes || echo no)"
+chk "BN/工作树干净" "" "$(git -C "$R" status --porcelain)"
+
+echo "── BO 目录导入哈希与 mtime 无关 ──"
+sess gBO
+mkdir -p "$B/fix/pkg/sub" && printf 'a\n' > "$B/fix/pkg/sub/x.txt" && printf 'b\n' > "$B/fix/pkg/y.txt"
+mkbrief t-bo true
+chk "BO/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bo --import pkg --allow pkg --brief "$B/fix/brief-t-bo.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+H1=$(awk -F'\t' '$1=="pkg"{print $2}' "$R/tasks/t-bo/provenance.tsv")
+touch "$B/fix/pkg/sub/x.txt"
+mkbrief t-bo2 true
+chk "BO/preflight2" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bo2 --import pkg --allow pkg --brief "$B/fix/brief-t-bo2.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+H2=$(awk -F'\t' '$1=="pkg"{print $2}' "$R/tasks/t-bo2/provenance.tsv")
+chk "BO/同内容同哈希" "$H1" "$H2"
+chk "BO/未误报源已变" "no" "$(bash $SK/scripts/preflight.sh --model test/model --task t-bo3 --import pkg --allow pkg --brief "$B/fix/brief-t-bo2.md" --tests true --root "$B" 2>&1 >/dev/null | grep -q '源 pkg 已变' && echo yes || echo no)"
+
 echo "── BM 会话 id 字符校验 ──"
 chk "BM/非法 id 被拒" 3 "$(DSH_SESSION_ID='bad id' bash $SK/scripts/preflight.sh --model test/model --task t-bm --import calc.py --allow calc.py --brief "$B/fix/brief-t-bm.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 

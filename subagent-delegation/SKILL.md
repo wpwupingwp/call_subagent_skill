@@ -203,7 +203,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 - **历史被改写 → 拒绝交付**（不是细读代码的触发条件）。
 - 真正需要细读的是“机械检查全绿但测试覆盖不到”的改动。
 - `ALLOW` 为空时脚本拒绝执行。
-- `ALLOW` 条目是字面前缀，不支持 `*`/`?` 通配。
+- `ALLOW` 条目按路径组件匹配：`a` 命中 `a` 与 `a/…`，不做 `*`/`?` 通配。
 
 ## 目录布局
 

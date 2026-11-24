@@ -71,8 +71,11 @@ version_ge() {  # version_ge A B —— A >= B 时为真；按数字段逐段比
 }
 
 hash_stdin() { git hash-object --stdin; }
-hash_source() {  # 文件或目录的内容哈希
-  if [ -d "$1" ]; then tar -C "$1" -cf - . 2>/dev/null | hash_stdin
+hash_source() {  # 文件或目录的内容哈希；目录只算「相对路径 + 文件内容」，与 mtime/mode 无关
+  if [ -d "$1" ]; then
+    ( cd "$1" && find . -type f -print | LC_ALL=C sort | while IFS= read -r _f; do
+        printf '%s\t%s\n' "$_f" "$(hash_file "$_f")"
+      done ) | hash_stdin
   else hash_file "$1"; fi
 }   # 内容哈希：git 已在前提内，免去 sha256sum
 hash_file()  { git hash-object -- "$1"; }
@@ -136,7 +139,7 @@ if [ -z "$TESTS" ]; then
   [ "$ALLOW_NO_TESTS" -eq 1 ] || die "缺少 --tests。行为类交付必须有验收命令；评审/文档类请显式 --allow-no-tests 并在简报写明人工核对方式。"
   grep -qE "人工核对|manual review" "$SRC_BRIEF" || die "使用 --allow-no-tests 时，简报必须写明人工核对方式（例如「人工核对」）。"
 elif ! grep -qF -- "$TESTS" "$SRC_BRIEF"; then
-  die "简报未逐字节包含 --tests 的值「$TESTS」（含空格与引号）。请把命令原样贴进简报。"
+  die "简报未逐字节包含 --tests 的值「$TESTS」（含空格与引号）。请把命令原样贴进简报；多行命令先连成一行（用 ; 或去掉 \\ 折行）再贴。"
 fi
 grep -qF -- "提交" "$SRC_BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
 grep -qE "白名单|只允许改动|允许改动" "$SRC_BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
