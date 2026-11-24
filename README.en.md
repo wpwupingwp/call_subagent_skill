@@ -393,15 +393,15 @@ session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 
 | Item | Human | Parent | Subagents |
 |---|---|---|---|
-| Input | 424 messages | — | — |
-| Time | 8 days 14 hours | 5.9 hours in 460 turns | 3.5 hours over 49 sessions |
-| Steps | — | 2,834 | 1,817 |
-| Turns | — | 460 | 49 sessions (3 of them same-model) |
-| Uncached input | — | 2,731,643 tok | 2,198,326 tok |
-| Cache reads | — | 833,761,280 tok | 110,812,377 tok |
-| Output | — | 2,217,770 tok | 715,311 tok |
-| Cache hit rate | — | 99.67% | 98.05% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | — | 28,277,949 | 1,497,927 (only the 3 same-model runs: 664,989 + 612,197 + 220,741; the other 46 at `r = 0`) |
+| Input | 425 messages | — | — |
+| Time | 8 days 14 hours | 6.0 hours in 464 turns | 3.9 hours over 52 sessions |
+| Steps | — | 2,914 | 2,296 |
+| Turns | — | 464 | 52 sessions (6 of them same-model) |
+| Uncached input | — | 2,776,460 tok | 2,556,383 tok |
+| Cache reads | — | 858,059,648 tok | 164,004,057 tok |
+| Output | — | 2,259,068 tok | 862,932 tok |
+| Cache hit rate | — | 99.68% | 98.47% |
+| Weighted cost (input 1 / cache 0.02 / output 4) | — | 28,973,925 | 3,510,301 (only the 6 same-model runs: 664,989 + 612,197 + 220,741 + 1,122,749 + 481,069 + 408,557; the other 46 at `r = 0`) |
 
 ### Division of labour
 
