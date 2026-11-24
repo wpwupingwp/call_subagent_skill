@@ -93,11 +93,11 @@ Multi-round, unattended:
 > Use the subagent-delegation skill to <do something> to <the target> for <N> consecutive rounds.
 > Wait for my confirmation when done.
 
-What you get afterwards is a report: the verdict per round (accepted / rejected / why), the diff and
-test results, and anything that needs your decision. You do not see the subagent's process, and you
-do not need to — the parent freezes the acceptance test before dispatch and re-runs it itself, never
-trusting the subagent's self-report. Command syntax, the brief format and `--allow-no-tests` live in
-[`SKILL.md`](subagent-delegation/SKILL.md), the spec for the model.
+The user only needs to read the report the parent provides: the verdict per round (accepted /
+rejected / why), the diff and test results, and anything that needs a decision. The subagent's
+process and self-report do not need reading — the parent freezes the acceptance test before dispatch
+and re-runs it itself, never trusting the subagent's self-report. Command syntax, the brief format
+and `--allow-no-tests` live in [`SKILL.md`](subagent-delegation/SKILL.md), the spec for the model.
 
 ## 🎯 When to use
 
