@@ -116,7 +116,7 @@ git-task-bus/references/     probe：首次换环境或换模型时的三层探�
 git-task-bus/scripts/        doctor / envcheck / preflight / postflight
 git-task-bus/templates/      brief / probe / review / findings
 tests/run.sh                 自检（无需网络或子代理）
-tests/audit_compliance.py    合规审计：派发前有没有先动手
+tests/audit_compliance.py    合规审计：派发前有没有先动手（write/edit/apply_patch + 常见 bash 写模式）
 usage_of.sh, usage_stats.sh  用量读取与汇总（不属于技能本体）
 subagent_test.md             实测记录与设计决策
 HISTORY.md                   开发史与角色记录

@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -26,8 +27,8 @@ WRITE_TOOLS = {"write", "edit", "apply_patch"}
 COPY_HINTS = ("cp -a", "cp -r", "rsync", "git worktree")
 REDIRECT = re.compile(r">>?\s*([^\s;&|]+)")
 TEE = re.compile(r"\btee\b\s+([^;&|]+)")
-SED_INPLACE = re.compile(r"sed\s+-i[^\s]*\s+(?:-e\s+)?['\"]?([^\s'\";]+)")
 DEVNULL = {"/dev/null", "/dev/stdout", "/dev/stderr"}
+OPS = {";", "&&", "||", "|", "&"}
 
 
 def read_log(path: str) -> str:
@@ -44,8 +45,80 @@ def parts(path: str) -> list[str]:
 
 
 def in_scope(target: str, scopes: list[str]) -> bool:
-    """目标路径的任一级目录名落在 scope 里即视为交付范围（不含文件名本身）。"""
+    """目标路径的任一级目录名落在 scope 里即视为交付范围（不含文件名本身，精确匹配）。"""
     return any(p in scopes for p in parts(target)[:-1])
+
+
+def _tokens(cmd: str) -> list[str]:
+    try:
+        return shlex.split(cmd, posix=True)
+    except ValueError:
+        return cmd.split()
+
+
+def _args_after(tokens: list[str], name: str) -> list[str]:
+    for i, tok in enumerate(tokens):
+        if tok != name:
+            continue
+        args: list[str] = []
+        for t in tokens[i + 1:]:
+            if t in OPS:
+                break
+            args.append(t)
+        return args
+    return []
+
+
+def _write_targets(target: str, scopes: list[str]) -> bool:
+    """写入目标本身是 scope 目录，或位于 scope 目录下。"""
+    return any(p in scopes for p in parts(target))
+
+
+def _sed_targets(tokens: list[str]) -> list[str]:
+    """sed -i 的输入文件；脚本表达式本身不算目标。"""
+    targets: list[str] = []
+    i = 0
+    while i < len(tokens):
+        if tokens[i] != "sed":
+            i += 1
+            continue
+        j = i + 1
+        inplace = False
+        have_script = False
+        files: list[str] = []
+        while j < len(tokens):
+            t = tokens[j]
+            if t in OPS:
+                break
+            if not have_script:
+                if t in ("-e", "--expression", "-f", "--file"):
+                    j += 2
+                    have_script = True
+                    continue
+                if t.startswith("-") and t != "-":
+                    if t.startswith("--in-place") or (not t.startswith("--") and "i" in t[1:]):
+                        inplace = True
+                    j += 1
+                    continue
+                have_script = True
+                j += 1
+                continue
+            files.append(t)
+            j += 1
+        if inplace:
+            targets.extend(files)
+        i = j
+    return targets
+
+
+def _copy_targets(args: list[str]) -> list[str]:
+    for i, t in enumerate(args):
+        if t == "-t" and i + 1 < len(args):
+            return [args[i + 1]]
+        if t.startswith("--target-directory="):
+            return [t.split("=", 1)[1]]
+    rest = [t for t in args if not t.startswith("-")]
+    return rest[-1:] if rest else []
 
 
 def bash_findings(cmd: str, scopes: list[str]) -> tuple[list[str], list[str]]:
@@ -61,9 +134,20 @@ def bash_findings(cmd: str, scopes: list[str]) -> tuple[list[str], list[str]]:
             continue
         if in_scope(target, scopes):
             bad.append(f"重定向到 {target}")
-    for m in SED_INPLACE.finditer(cmd):
-        if in_scope(m.group(1), scopes):
-            bad.append(f"sed -i {m.group(1)}")
+    toks = _tokens(cmd)
+    for target in _sed_targets(toks):
+        if _write_targets(target, scopes):
+            bad.append(f"sed -i {target}")
+    for name in ("cp", "install"):
+        for target in _copy_targets(_args_after(toks, name)):
+            if _write_targets(target, scopes):
+                bad.append(f"{name} 到 {target}")
+    for t in _args_after(toks, "dd"):
+        if t.startswith("of=") and _write_targets(t[3:], scopes):
+            bad.append(f"dd 到 {t[3:]}")
+    for t in _args_after(toks, "touch"):
+        if not t.startswith("-") and _write_targets(t, scopes):
+            bad.append(f"touch {t}")
     for m in TEE.finditer(cmd):
         for tok in re.findall(r"[^\s]+", m.group(1)):
             tok = tok.strip("'\"")
@@ -95,7 +179,7 @@ def bash_findings(cmd: str, scopes: list[str]) -> tuple[list[str], list[str]]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--session", required=True, help="会话日志路径（.zst 或纯文本）")
-    ap.add_argument("--scope", required=True, help="交付范围的目录名，逗号分隔，例如 code,static")
+    ap.add_argument("--scope", required=True, help="交付范围的目录名（精确匹配），逗号分隔，例如 code,static")
     ap.add_argument("--json", action="store_true", help="以 JSON 输出")
     args = ap.parse_args()
 

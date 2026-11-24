@@ -189,6 +189,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 - **历史被改写 → 拒绝交付**（不是细读代码的触发条件）。
 - 真正需要细读的是“机械检查全绿但测试覆盖不到”的改动。
 - `ALLOW` 为空时脚本拒绝执行。
+- `ALLOW` 条目是字面前缀，不支持 `*`/`?` 通配。
 
 ## 目录布局
 
@@ -196,7 +197,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 <工作区>/
   <会话 id>/
     repo/                    # 会话仓库：单分支 main，所有任务共用
-      model                  # 会话级模型选择
+      model                  # 会话仓库级模型选择
       <源码…>                # 子代理可写（白名单内）
       tasks/imports.tsv      # 全局导入索引：路径 -> 最近一次 contentHash
       tasks/<task>/          # 任务产物，与源码同仓

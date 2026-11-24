@@ -126,7 +126,7 @@ git-task-bus/references/     probe: three-layer check for a new environment or m
 git-task-bus/scripts/        doctor / envcheck / preflight / postflight
 git-task-bus/templates/      brief / probe / review / findings
 tests/run.sh                 self-check (no network or subagent needed)
-tests/audit_compliance.py    did the parent edit anything before dispatching?
+tests/audit_compliance.py    did the parent edit anything before dispatching? (write/edit/apply_patch + common bash writes)
 usage_of.sh, usage_stats.sh  usage reader and rollup (not part of the skill)
 subagent_test.md             measurements and design decisions
 HISTORY.md                   development history

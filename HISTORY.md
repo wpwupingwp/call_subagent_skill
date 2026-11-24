@@ -559,6 +559,10 @@ patch/test.log 路径失真、`tmp/` 嵌套目录，以及绝对 `--import` 被�
 错位；绝对 `--import` 现在直接 exit 3，`cp` 失败也会报错。另补 `count_lines`/`in_scope` 注释，
 SKILL 目录布局里的说明移出代码块。
 
+review-17（同日）：`tests/audit_compliance.py` 改为 token 解析 `sed -i`（覆盖 `-e`、`-i.bak`、
+`-Ei` 与带空格的常见写法），并补上 `cp`/`install`/`dd`/`touch` 的目标侧写入检测。另把
+`--scope` 的精确匹配、白名单的字面前缀、`model` 的层级和审计工具的覆盖范围写进文档。
+
 ## 两条可能的产品路线（2026-11-18 讨论）
 
 背景：六次测试后的共同结论是——`r=0` 时委派成本约等于直接做（`O ≈ W`），
