@@ -12,6 +12,8 @@ usage() {
   依赖命令：git sed grep cp tar date tr dirname basename head tail awk find mktemp python3
   （除 python3 外都是 POSIX 基本工具；awk 用于查 imports.tsv 旧哈希与 envcheck 的首词，
   python3 用于生成 MANIFEST.json 与解析用量）
+  zstd：DSH 默认把会话日志压成 .zstd（它自带的编解码在进程内，不提供命令），
+  postflight 靠这个外部命令读 stop 与用量
   任务根目录是否可创建、可写（默认当前目录；沙箱下请用 --root 指向可写工作区）
   --src 列出的源路径是否可读
 
@@ -72,6 +74,13 @@ for c in sed grep cp tar date tr dirname basename head tail awk find mktemp pyth
 done
 if [ -z "$MISSING" ]; then ok "依赖命令齐全（POSIX 基本工具 + python3）"
 else bad "缺少依赖命令:$MISSING"; fi
+
+# 2b. zstd：DSH 的会话日志默认压缩，--child 读日志全靠这个外部命令
+if command -v zstd >/dev/null 2>&1; then
+  ok "zstd 可用（$(zstd --version 2>/dev/null | head -1)）"
+else
+  bad "缺少 zstd：DSH 会话日志默认是 session.v4.jsonl.zstd，没有它 postflight 读不到 stop 与用量（装上 zstd，或把 DSH 的 compression 设为 none）"
+fi
 
 # 3. 任务根目录可创建、可写
 PROBE_DIR="$ROOT/.doctor-$$"

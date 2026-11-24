@@ -37,8 +37,9 @@
 | 工作区 | 可写；不要求是 git 仓库 |
 
 验收逻辑只用 POSIX 工具和 `python3`（生成 `MANIFEST.json`、解析用量），不依赖 `sort -V`、
-`date -Iseconds`、`sha256sum` 这些 BSD/macOS 上没有的东西；子会话日志的解压用 DSH 自带的
-zstd，它不是独立依赖，`doctor.sh` 也不检查。内容哈希用 `git hash-object`。
+`date -Iseconds`、`sha256sum` 这些 BSD/macOS 上没有的东西；子会话日志的解压调系统的
+`zstd` 命令（DSH 的 zstd 编解码在进程内，不提供命令），所以它是外部依赖，`doctor.sh` 会检查。
+内容哈希用 `git hash-object`。
 git 侧直接用 2.28 的命令：`git init -b`、`git switch`、`git worktree list`，不再为老版本保留
 兼容分支。
 
@@ -221,10 +222,9 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
   finished`、`ran out of room`），正文里没有 id，精确 `stopReason` 只在元数据里；脚本读不到，
   也无法据此核对 `--stop`。所以适配器读日志，拿精确枚举和 `childSession`。
 - **日志后缀随 DSH 配置变**：`compression: zstd` 时是 `session.v4.jsonl.zstd`，`none` 时是
-  `session.v4.jsonl`；适配器两种都认，只有前者需要解压。zstd 不是独立依赖（DSH 自带），
-  `doctor.sh` 不检查它。没有 zstd 时 `.zstd` 日志读不出来，stop 校正必然失效、一律按 `--stop`
-  或默认 `completed` 判定（会有「日志不可读」告警）——这类环境请把日志改成 `compression: none`
-  或换掉解压方式，`doctor.sh` 不检查这一点。
+  `session.v4.jsonl`；适配器两种都认，只有前者需要解压。解压调系统的 `zstd` 命令，`doctor.sh`
+  会检查它；装不上时把 DSH 的日志改成 `compression: none`，否则 stop 校正必然失效、一律按
+  `--stop` 或默认 `completed` 判定（会有「日志不可读」告警）。
 
 量级上：读一次子日志约 20ms；`--child auto` 扫首行约 0.8s；显式 id 约 30ms；读父日志的
 `subagent/catalog` 约 0.66s。`auto` 的成本在「找 id」，不在解析。
@@ -238,7 +238,7 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
 | stopReason 取值 | `completed` / `aborted` / `max-tokens` / `error` / `refusal` | 映射到目标 harness 的结束原因；判定仍只认 `completed` |
 | `--usage` 格式 | `steps=..,in=..,out=..,cache=..` | 换字段名，或保留这个字符串格式由父代理手填 |
 | `DSH_SESSION_ID` / `DSH_HOME` / `dispatch.env` 的 `CREATED` | 定位父会话、匹配子会话 | 换成目标 harness 的等价物；没有就要求显式 `--child <id>` |
-| `doctor.sh` | 不检查 zstd | 目标环境没有 zstd 时补一条检查，或改掉解压 |
+| `doctor.sh` | 检查 git / python3 / zstd | 目标环境用别的解压方式时改这一项 |
 
 日志格式与 DSH v0.2.2 的 session v4 绑定；升级 DSH 后如果格式变了，同步改适配器即可。
 
@@ -315,8 +315,7 @@ exit 3——不会退化成父模型。
 
 ```bash
 bash tests/run.sh                    # 193 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 161 项
-# 没有 zstd 时：用量相关断言整段跳过，仍然 156 通过 / 0 失败
+# 需要 zstd（DSH 日志默认压缩）；缺了直接失败，先跑 scripts/doctor.sh
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、可移植性、

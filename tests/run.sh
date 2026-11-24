@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # subagent-delegation 自检。用法: bash tests/run.sh [--keep]
-# 依赖: git >= 2.28、python3、zstd。没有 zstd 时整段跳过用量记录断言（结果与 SKIP_USAGE_TESTS=1 相同）。
+# 依赖: git >= 2.28、python3、zstd（DSH 会话日志默认是 .zstd，读日志要靠它）。缺了直接失败，先跑 doctor.sh。
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SK="$(cd "$HERE/../subagent-delegation" && pwd)"
+command -v zstd >/dev/null 2>&1 || { echo "tests: 需要 zstd —— DSH 会话日志默认是 .zstd；装好后重跑，或先跑 scripts/doctor.sh" >&2; exit 3; }
 B="${TMPDIR:-/tmp}/gtb-test.$$"
 KEEP=0
 [ "${1:-}" = "--keep" ] && KEEP=1
@@ -313,7 +314,6 @@ sed -i '/^BASE=/d' "$R/tasks/t-b3/dispatch.env"
 chk "B3/应 3" 3 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-b3 --child test-child --quiet >"$B/b3.out" 2>&1; echo $?)"
 chk "B3/提示缺少 BASE" "yes" "$(grep -q '缺少 BASE' "$B/b3.out" && echo yes || echo no)"
 
-if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── AF 子会话结束原因校验 ──"
 FH3="$B/fh3"
 mkfake() {  # mkfake <sid> <kind>
@@ -400,9 +400,6 @@ chk "AB/越界拒绝" 2 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-a
 chk "AB/MANIFEST 指向 abandoned" "t-ab.abandoned.patch" "$(python3 -c "import json,os;print(os.path.basename(json.load(open('$R/tasks/t-ab/MANIFEST.json'))['patch']['file']))" 2>/dev/null)"
 chk "W/无 usage 时不建文件" "no" "$([ -f "$R/tasks/usage.tsv" ] && echo yes || echo no)"
 
-else
-  echo "  (跳过消耗记录相关断言：未安装 zstd，或 SKIP_USAGE_TESTS=1)"
-fi
 
 # AN：未指定模型直接拒绝
 sess gAN

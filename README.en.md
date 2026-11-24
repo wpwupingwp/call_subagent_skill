@@ -54,9 +54,9 @@ harness sandbox. Token savings depend on `r`, task size and batching — see bel
 | Workspace | writable; does not have to be a git repository |
 
 The acceptance logic only uses POSIX tools plus `python3` (for `MANIFEST.json` and usage parsing);
-no `sort -V`, `date -Iseconds` or `sha256sum` that BSD/macOS lacks. Decompressing child logs uses
-the zstd that ships with DSH — not a separate dependency, and `doctor.sh` does not check it. Content
-hashes use `git hash-object`. On the git side it uses the 2.28 commands directly:
+no `sort -V`, `date -Iseconds` or `sha256sum` that BSD/macOS lacks. Decompressing child logs calls
+the system `zstd` command: DSH's zstd codec runs in-process and provides no command, so this is an
+external dependency, and `doctor.sh` checks it. Content hashes use `git hash-object`. On the git side it uses the 2.28 commands directly:
 `git init -b`, `git switch`, `git worktree list`; no compatibility branches for older releases.
 
 On Windows: scripts must be LF (add `.gitattributes` or set `core.autocrlf=false`), and pass POSIX
@@ -262,11 +262,10 @@ Porting means replacing that adapter; the verdict logic does not change.
   before it finished`, `ran out of room`), the text carries no id, and the exact `stopReason` lives
   only in metadata no script can read. The adapter reads the log for the exact enum and `childSession`.
 - **The log suffix follows DSH config**: `session.v4.jsonl.zstd` with `compression: zstd`,
-  `session.v4.jsonl` with `none`; the adapter accepts both and only decompresses the former. zstd is
-  not a separate dependency (DSH ships it) and `doctor.sh` does not check it. Without zstd the
-  `.zstd` log cannot be read, so stop correction always fails and the verdict falls back to `--stop`
-  (or `completed`), with an "log unreadable" warning — use `compression: none` there, or replace the
-  decompression.
+  `session.v4.jsonl` with `none`; the adapter accepts both and only decompresses the former. That
+  decompression calls the system `zstd` command, which `doctor.sh` checks; without it, switch DSH to
+  `compression: none`, or stop correction fails and the verdict falls back to `--stop` (or
+  `completed`), with a "log unreadable" warning.
 
 Order of magnitude: one child-log read ~20ms; `--child auto` scans first lines in ~0.8s; explicit id
 ~30ms; reading the parent log's `subagent/catalog` (the other id source) ~0.66s. `auto` spends its
@@ -281,7 +280,7 @@ time finding the id, not parsing.
 | stopReason values | `completed` / `aborted` / `max-tokens` / `error` / `refusal` | map to the target harness's stop reasons; the verdict still accepts only `completed` |
 | `--usage` format | `steps=..,in=..,out=..,cache=..` | rename fields, or keep this string format for the parent to pass by hand |
 | `DSH_SESSION_ID` / `DSH_HOME` / `CREATED` in `dispatch.env` | locating the parent, matching the child | the target harness's equivalents; if none, require an explicit `--child <id>` |
-| `doctor.sh` | does not check zstd | add a check if the target environment lacks zstd, or replace the decompression |
+| `doctor.sh` | checks git / python3 / zstd | adjust it when the target uses another decompressor |
 
 The log format is tied to DSH v0.2.2's session v4; if it changes in a DSH upgrade, update the adapter.
 
@@ -369,9 +368,8 @@ turn. Re-run it after updating the skill.
 ## 🧪 Tests
 
 ```bash
-bash tests/run.sh                    # 196 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 161 total
-# without zstd: the usage block is skipped entirely; still 156 pass / 0 fail
+bash tests/run.sh                    # 193 assertions, no network or subagent needed
+# needs zstd (DSH compresses logs by default); it fails fast without it — run scripts/doctor.sh
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
