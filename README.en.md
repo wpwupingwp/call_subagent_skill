@@ -94,6 +94,16 @@ never writes back to your tree.
 [Interactive HTML](docs/flow-en.html): a self-contained single file. Open it locally, or enable
 GitHub Pages in the repository settings to view it online.
 
+### Multi-round review (unattended)
+
+![Multi-round review timeline](docs/flow-multi-en.png)
+
+The multi-round version draws the loop: each round freezes `BASE` and the whitelist, dispatches,
+the subagent commits `findings.md`, and `postflight` judges it; the next round starts with
+`--clear findings.md`, dropping the previous artifact before freezing a new `BASE`. The parent
+accepts or rejects every finding with a reason and lands the fixes in-round; the human only reads
+the patches and review record at the end and spot-checks. [Interactive](docs/flow-multi-en.html).
+
 There is one repository per conversation, with a single `main` branch; tasks are delimited by
 `BASE` rather than by branches.
 
@@ -132,6 +142,8 @@ subagent_test.md             measurements and design decisions
 HISTORY.md                   development history
 docs/flow-en.png             interaction timeline (English)
 docs/flow-en.html            interactive version of the same diagram (single file)
+docs/flow-multi-en.png       multi-round review timeline (English)
+docs/flow-multi-en.html      interactive version of the multi-round diagram
 README.md                    Chinese version
 ```
 

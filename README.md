@@ -86,6 +86,15 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --qu
 
 [交互版 HTML](docs/flow-zh.html)：自包含单文件，可在本地打开，或在仓库设置里开启 GitHub Pages 后直接访问。
 
+### 多轮审查（无人值守）
+
+![多轮审查时序](docs/flow-multi-zh.png)
+
+多轮版画的是循环：每轮 `preflight` 冻结 `BASE` 与白名单、派发、子代理提交 `findings.md`、
+`postflight` 判定；下一轮开始前先用 `--clear findings.md` 清掉上一轮交付物，再冻结新的 `BASE`。
+父代理在轮内逐条判定（采纳/拒绝/理由）并落地修复，人只在最后看 patch 与审查记录、抽样复核，
+不重跑每一轮。[交互版](docs/flow-multi-zh.html)。
+
 每对话一个仓库，从头到尾只有 `main` 一条分支；任务不建分支，靠 `BASE` 划分。
 
 ## 目录结构
@@ -122,6 +131,8 @@ subagent_test.md             实测记录与设计决策
 HISTORY.md                   开发史与角色记录
 docs/flow-zh.png             协作时序图（中文）
 docs/flow-zh.html            同一张图的交互版（自包含单文件）
+docs/flow-multi-zh.png       多轮审查时序（中文）
+docs/flow-multi-zh.html      多轮版交互页（自包含单文件）
 README.en.md                 English version
 ```
 
