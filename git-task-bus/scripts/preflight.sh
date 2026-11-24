@@ -7,15 +7,13 @@ usage() {
 用法:
   preflight.sh --task <id> --allow <path[,path...]> [--import <path[,path...]>]
                [--tests '<命令>'] [--root <工作区根目录>]
-               [--brief <路径>] [--model <provider/model>] [--save-model]
-               [--allow-dirty] [--quiet]
+               [--brief <路径>] [--model <provider/model>] [--save-model] [--quiet]
 
 说明:
   --task         任务标识，作为 tasks/<id>/ 目录名（不建分支）
   --allow        仓库相对路径白名单，文件或目录前缀，必填
   --import       从当前目录复制进仓库的路径，逗号分隔；以 git hash-object 记录内容哈希
   --tests           验收命令，postflight 原样执行并记录退出码
-  --allow-dirty     允许工作树不干净（dispatch.env 记 DIRTY=yes）
   --allow-no-tests  声明本次不需要验收命令（评审/文档类）；简报必须写明人工核对方式
   --brief           简报路径，默认 <任务目录>/brief.md（该默认仅适用于目录已存在
                     的复用场景，首次任务必须显式指定）；必须存在且含
@@ -28,7 +26,7 @@ EOF
   exit "${1:-3}"
 }
 
-TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_DIRTY=0 ALLOW_NO_TESTS=0 QUIET=0
+TASK="" ALLOW="" IMPORT="" TESTS="" ROOT="${PWD}" BRIEF="" MODEL="" SAVE_MODEL=0 ALLOW_NO_TESTS=0 QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -37,9 +35,8 @@ while [ $# -gt 0 ]; do
     --import)      IMPORT="${2:-}"; shift 2 ;;
     --tests)       TESTS="${2:-}"; shift 2 ;;
     --root)        ROOT="${2:-}"; shift 2 ;;
-    --allow-dirty) ALLOW_DIRTY=1; shift ;;
     --allow-no-tests) ALLOW_NO_TESTS=1; shift ;;
-    --brief)         BRIEF="${2:-}"; shift 2 ;;
+    --brief)          BRIEF="${2:-}"; shift 2 ;;
     --model)         MODEL="${2:-}"; shift 2 ;;
     --save-model)    SAVE_MODEL=1; shift ;;
     --quiet)         QUIET=1; shift ;;
@@ -177,7 +174,6 @@ if [ -n "$TOP" ]; then
 fi
 
 CREATED=0
-DIRTY=""
 if [ ! -d "$REPO/.git" ]; then
   CREATED=1
   mkdir -p "$REPO"
@@ -185,15 +181,10 @@ else
   # 复用仓库：先确认树干净，否则 BASE 不等于子代理实际看到的树
   DIRTY=$(git -C "$REPO" status --porcelain)
   if [ -n "$DIRTY" ]; then
-    if [ "$ALLOW_DIRTY" -eq 1 ]; then
-      echo "preflight: 警告 —— 工作树不干净，已按 --allow-dirty 放行：" >&2
-      printf '%s\n' "$DIRTY" >&2
-    else
-      echo "preflight: 工作树不干净，拒绝派发（BASE 将不等于实际树）。脏文件：" >&2
-      printf '%s\n' "$DIRTY" >&2
-      echo "preflight: 先提交/清理，或显式 --allow-dirty。" >&2
-      exit 3
-    fi
+    echo "preflight: 工作树不干净，拒绝派发（BASE 将不等于实际树）。脏文件：" >&2
+    printf '%s\n' "$DIRTY" >&2
+    echo "preflight: 先提交/清理。" >&2
+    exit 3
   fi
 fi
 
@@ -263,8 +254,7 @@ if [ "$CREATED" -eq 1 ]; then
   fi
 fi
 
-# 只提交本次任务产物与导入，--allow-dirty 放行的既有脏文件留在工作树，
-# 不吸进 plan 提交，否则会被永久写进 main 历史。
+# 只提交本次任务产物与导入，不把工作树其他文件写进 plan 提交。
 git -C "$REPO" add -A -- tasks
 [ "$CREATED" -eq 1 ] && git -C "$REPO" add -- .gitignore 2>/dev/null || true
 if [ "${#ADDED[@]}" -gt 0 ]; then
@@ -311,7 +301,6 @@ done
   printf 'ALLOW=%q\n'   "$ALLOW"
   printf 'TESTS=%q\n'   "$TESTS"
   printf 'MODEL=%q\n'   "$MODEL"
-  printf 'DIRTY=%q\n'   "$([ -n "$DIRTY" ] && echo yes || echo no)"
   printf 'CREATED=%q\n' "$(now_utc)"
 } > "$TDIR/dispatch.env"
 

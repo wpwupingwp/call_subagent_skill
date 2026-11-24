@@ -313,6 +313,12 @@ by adding `/session-*/` to `.git/info/exclude` (git's local ignore file, never v
 `.gitignore` is not modified and no `M .gitignore` appears; a subdirectory workspace uses
 `/subdir/session-*/`.
 
+**Why not just `git init` manually?**
+`preflight` also writes the session repo's `.gitignore`, the outer `.git/info/exclude` (falling
+back to a session-dir `.gitignore`), and the `model` config, then makes the plan commit and freezes
+`BASE`. A manual init misses those, so `postflight` loses the basis for its `BASE`, whitelist and
+dirty-tree checks.
+
 **Should I delete the directory when the task is done?**
 Delete `<workspace>/<session id>/` if you want it gone. The skill does not clean up automatically:
 the directory keeps the patch, `MANIFEST.json` and the commit history used for audit and rollback.
@@ -361,8 +367,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 138 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 103 total
+bash tests/run.sh                    # 134 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 99 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

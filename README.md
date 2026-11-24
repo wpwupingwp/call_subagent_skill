@@ -281,6 +281,11 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 `.git/info/exclude`（git 的本地忽略文件，不进版本控制）。你的 `.gitignore` 不会被改，也不会出现
 `M .gitignore`；工作区是仓库子目录时为 `/子目录/session-*/`。
 
+**为什么不能手工 `git init`？**
+`preflight` 建仓时还会写会话仓库的 `.gitignore`、外层 `.git/info/exclude`（不可写时用会话目录
+`.gitignore`）、`model` 配置，做首次 plan 提交并冻结 `BASE`。手工建仓会漏掉这些，后续
+`postflight` 的 `BASE`、白名单和脏树判定就失去依据。
+
 **任务完成后要自己删目录吗？**
 需要的话删掉 `<工作区>/<会话 id>/` 即可，技能不会自动删：那里留着 patch、`MANIFEST.json` 和提交
 历史，是事后审计和回滚的依据。已被外层仓库忽略，放着不会弄脏 `git status`。
@@ -322,8 +327,8 @@ exit 3——不会退化成父模型。
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 138 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 103 项
+bash tests/run.sh                    # 134 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 99 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、
