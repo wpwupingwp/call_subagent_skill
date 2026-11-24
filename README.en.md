@@ -7,9 +7,14 @@ the parent freezes `BASE` and a path whitelist, the subagent works and commits i
 repository, and the parent only does mechanical acceptance (diff + whitelist + test exit code)
 before handing back a patch you can inspect.
 
-- A failed check discards the work; the repository returns to where it started
-- Every verdict lands in `MANIFEST.json` and the patch, so it can be audited later
-- Reads, failed attempts and test logs stay in the subagent's own session
+Three things it buys you:
+
+- **An independent check**: the subagent does not inherit the parent conversation, so it does not
+  skip a check because "we already decided X".
+- **Context isolation**: what it read, the dead ends and the test logs stay in its own session; the
+  parent context stays short.
+- **Token savings, when the model is cheaper**: conditional on a low `r` and a large enough task;
+  dispatching the same model buys the first two, not the savings.
 
 > **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**; `--child`
 > reads DSH child-session logs and is required. Other harnesses must port that adapter; see
@@ -17,7 +22,43 @@ before handing back a patch you can inspect.
 
 Human-facing docs. The model-facing spec is [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md).
 
-## Install
+
+## Why use it
+
+One line: **make the delivery rollbackable and traceable first; then give it a reader not primed
+by the parent's context. Token savings are conditional, not the default.**
+
+- **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
+  the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
+  and the patch, so it can be reproduced later.
+- **A second reader without the baggage.** The subagent does not inherit the parent conversation:
+  it gets the frozen brief and a repo snapshot, so it does not skip a check because "we already
+  decided X". The repo itself may still hold previous tasks and last round's `findings.md`; real
+  independence depends on clearing those (`preflight --clear findings.md`; history and the patch
+  still keep the evidence). Across multiple self-review rounds, about 40% survived the parent's item-by-item
+  reproduction: it can find invariants the parent missed, but its findings must be verified, not
+  treated as a backlog.
+- **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
+  own session. The parent reads the `postflight` summary, the `git diff --stat` of a passing task, and
+  the net diff only when a trigger fires. In long sessions most cost is context re-reading, so a
+  short parent context is lighter on every later step.
+
+The trade-offs are real: the parent still pays for the brief and for orchestration (about 2,100 in
+our measurements); reviews usually cost more; the subagent's review can miss things, so findings
+still need item-by-item checking; and "independent" means independent context, not a permission
+boundary. Token savings depend on `r`, task size and batching — see [the section on `r`](#when-token-savings-are-possible-r).
+
+**Dispatching the same model (`r ≈ 1`)** keeps the independent check and the isolation, and loses only the savings.
+On the same code and brief: the cheap model (llama) produced 7 findings, 2 landed, mostly
+superficial; the parent-equivalent model (deepseek-flash) produced 10, 6 landed, including two
+"silent audit failures" (log suffix, `dispatch.env` fail-open), at about 3.2× the weighted cost.
+Use the cheap model for mechanical and surface-level issues, the same model for verdict logic,
+adapters and audit completeness — and re-verify every finding, because the same model tends to share the
+parent's blind spots.
+
+## Quick start
+
+### Install
 
 The skill is the `subagent-delegation/` directory. Copy it into a skills directory:
 
@@ -29,7 +70,7 @@ cp -r subagent-delegation ~/.dsh/skills/             # every session on this mac
 The model picks it up by `description`. Without an install it will not appear in the `skill` tool;
 you can still read `SKILL.md` directly and replace `<skill dir>` with its real path.
 
-## Quick start
+### One run
 
 ```bash
 SKILL=/path/to/subagent-delegation
@@ -79,106 +120,6 @@ Merge `deliveries/t1.patch` back if it passes. If it fails, the repo has already
 Review or document tasks with nothing structural to check must pass `--allow-no-tests` and state
 the manual review in the brief; `preflight` otherwise exits 3. The manifest then records
 `testsRun=false` and `testExitCode=null` instead of a silent pass.
-
-## How it works
-
-![Interaction timeline](docs/flow-en.png)
-
-Each horizontal arrow is one interaction; time runs downward. The model handshake is explicit:
-the parent asks Harness for the available models, asks the human which one to use, `preflight`
-freezes `BASE` and the whitelist, `subagent` has Harness create the child session, the subagent
-commits on `main`, Harness returns the result and stop reason, the parent runs `postflight`, and
-the patch goes to the **human** — merging, pushing and discarding are the human's call. The skill
-never writes back to your tree.
-
-[Interactive HTML](docs/flow-en.html): a self-contained single file. Open it locally, or enable
-GitHub Pages in the repository settings to view it online.
-
-### Multi-round review (unattended)
-
-![Multi-round review timeline](docs/flow-multi-en.png)
-
-The multi-round version draws the loop: each round freezes `BASE` and the whitelist, dispatches,
-the subagent commits `findings.md`, and `postflight` judges it; the next round starts with
-`--clear findings.md`, dropping the previous artifact before freezing a new `BASE`. The parent
-accepts or rejects every finding with a reason and lands the fixes in-round; the human only reads
-the patches and review record at the end and spot-checks. [Interactive](docs/flow-multi-en.html).
-
-There is one repository per conversation, with a single `main` branch; tasks are delimited by
-`BASE` rather than by branches.
-
-## Repository layout
-
-```
-<workspace>/
-└── <session id>/
-    └── repo/               # the session repo, single main branch
-        ├── <source>        # writable by the subagent (whitelist)
-        ├── model           # session-repo-level model choice
-        ├── tasks/imports.tsv  # global import index (contentHash across tasks)
-        └── tasks/<task>/
-            ├── brief.md        # single source of truth, committed by preflight
-            ├── MANIFEST.json   # verdict and evidence
-            └── deliveries/<task>.patch
-```
-
-When the workspace is inside another git repo, `preflight` adds `/<session id>/` to that repo's
-`.git/info/exclude` (`/subdir/<session id>/` when the workspace is a subdirectory). That is git's
-local ignore file: it is not versioned, your `.gitignore` stays untouched, and `git status` gains
-no entry. If `.git` is not writable it falls back to a `*` ignore file in the session directory.
-
-Repository files:
-
-```
-.gitattributes              LF line endings (Windows checkout)
-subagent-delegation/SKILL.md        spec the model reads
-subagent-delegation/references/     probe: three-layer check for a new environment or model
-subagent-delegation/scripts/        doctor / envcheck / preflight / postflight
-subagent-delegation/templates/      brief / probe / review / findings
-tests/run.sh                 self-check (no network or subagent needed)
-tests/audit_compliance.py    did the parent edit anything before dispatching? (write/edit/apply_patch + common bash writes)
-usage_of.sh, usage_stats.sh  usage reader and rollup (not part of the skill)
-subagent_test.md             measurements and design decisions
-HISTORY.md                   development history
-docs/flow-en.png             interaction timeline (English)
-docs/flow-en.html            interactive version of the same diagram (single file)
-docs/flow-multi-en.png       multi-round review timeline (English)
-docs/flow-multi-en.html      interactive version of the multi-round diagram
-README.md                    Chinese version
-```
-
-## Why use it
-
-One line: **make the delivery rollbackable and traceable first; then give it a reader not primed
-by the parent's context. Token savings are conditional, not the default.**
-
-- **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
-  the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
-  and the patch, so it can be reproduced later.
-- **A second reader without the baggage.** The subagent does not inherit the parent conversation:
-  it gets the frozen brief and a repo snapshot, so it does not skip a check because "we already
-  decided X". The repo itself may still hold previous tasks and last round's `findings.md`; real
-  independence depends on clearing those (`preflight --clear findings.md`; history and the patch
-  still keep the evidence). Across multiple self-review rounds, about 40% survived the parent's item-by-item
-  reproduction: it can find invariants the parent missed, but its findings must be verified, not
-  treated as a backlog.
-- **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
-  own session. The parent reads the `postflight` summary, the `git diff --stat` of a passing task, and
-  the net diff only when a trigger fires. In long sessions most cost is context re-reading, so a
-  short parent context is lighter on every later step.
-
-The trade-offs are real: the parent still pays for the brief and for orchestration (about 2,100 in
-our measurements); reviews usually cost more; the subagent's review can miss things, so findings
-still need item-by-item checking; and "independent" means independent context, not a permission
-boundary. Token savings depend on `r`, task size and batching — see the next section.
-
-**Dispatching the same model (`r ≈ 1`)** keeps the first three benefits and loses only the savings.
-On the same code and brief: the cheap model (llama) produced 7 findings, 2 landed, mostly
-superficial; the parent-equivalent model (deepseek-flash) produced 10, 6 landed, including two
-"silent audit failures" (log suffix, `dispatch.env` fail-open), at about 3.2× the weighted cost.
-Use the cheap model for mechanical and surface-level issues, the same model for verdict logic,
-adapters and audit completeness — and re-verify every finding, because the same model tends to share the
-parent's blind spots.
 
 ## When to use
 
@@ -249,6 +190,73 @@ batch ten of them:                  about 210 each → saves 51%
 test (measured 109k–147k per run); what you get is a second independent read.
 With the same model (`r ≈ 1`) you buy audit and isolation only; across unattended rounds the cost
 adds up linearly, so budget the rounds before starting.
+
+## How it works
+
+![Interaction timeline](docs/flow-en.png)
+
+Each horizontal arrow is one interaction; time runs downward. The model handshake is explicit:
+the parent asks Harness for the available models, asks the human which one to use, `preflight`
+freezes `BASE` and the whitelist, `subagent` has Harness create the child session, the subagent
+commits on `main`, Harness returns the result and stop reason, the parent runs `postflight`, and
+the patch goes to the **human** — merging, pushing and discarding are the human's call. The skill
+never writes back to your tree.
+
+[Interactive HTML](docs/flow-en.html): a self-contained single file. Open it locally, or enable
+GitHub Pages in the repository settings to view it online.
+
+### Multi-round review (unattended)
+
+![Multi-round review timeline](docs/flow-multi-en.png)
+
+The multi-round version draws the loop: each round freezes `BASE` and the whitelist, dispatches,
+the subagent commits `findings.md`, and `postflight` judges it; the next round starts with
+`--clear findings.md`, dropping the previous artifact before freezing a new `BASE`. The parent
+accepts or rejects every finding with a reason and lands the fixes in-round; the human only reads
+the patches and review record at the end and spot-checks. [Interactive](docs/flow-multi-en.html).
+
+There is one repository per conversation, with a single `main` branch; tasks are delimited by
+`BASE` rather than by branches.
+
+## Repository layout
+
+```
+<workspace>/
+└── <session id>/
+    └── repo/               # the session repo, single main branch
+        ├── <source>        # writable by the subagent (whitelist)
+        ├── model           # session-repo-level model choice
+        ├── tasks/imports.tsv  # global import index (contentHash across tasks)
+        └── tasks/<task>/
+            ├── brief.md        # single source of truth, committed by preflight
+            ├── MANIFEST.json   # verdict and evidence
+            └── deliveries/<task>.patch
+```
+
+When the workspace is inside another git repo, `preflight` adds `/<session id>/` to that repo's
+`.git/info/exclude` (`/subdir/<session id>/` when the workspace is a subdirectory). That is git's
+local ignore file: it is not versioned, your `.gitignore` stays untouched, and `git status` gains
+no entry. If `.git` is not writable it falls back to a `*` ignore file in the session directory.
+
+Repository files:
+
+```
+.gitattributes              LF line endings (Windows checkout)
+subagent-delegation/SKILL.md        spec the model reads
+subagent-delegation/references/     probe: three-layer check for a new environment or model
+subagent-delegation/scripts/        doctor / envcheck / preflight / postflight
+subagent-delegation/templates/      brief / probe / review / findings
+tests/run.sh                 self-check (no network or subagent needed)
+tests/audit_compliance.py    did the parent edit anything before dispatching? (write/edit/apply_patch + common bash writes)
+usage_of.sh, usage_stats.sh  usage reader and rollup (not part of the skill)
+subagent_test.md             measurements and design decisions
+HISTORY.md                   development history
+docs/flow-en.png             interaction timeline (English)
+docs/flow-en.html            interactive version of the same diagram (single file)
+docs/flow-multi-en.png       multi-round review timeline (English)
+docs/flow-multi-en.html      interactive version of the multi-round diagram
+README.md                    Chinese version
+```
 
 ## Requirements
 
@@ -433,18 +441,20 @@ still growing):
 
 | Item | Value |
 |---|---|
-| Steps | 2,120 |
-| Turns | 401 (369 human inputs) |
-| Uncached input | 2,382,990 tok |
-| Cache reads | 699,139,840 tok |
-| Output | 1,815,588 tok |
-| Cache hit rate | 99.66% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | 23,628,139 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **17** (self-review-2 … -11, review-12 … -18); **168** reports, **74** fixed, **5** logged, the rest rejected/opinions/feature requests |
+| Steps | 2,530 |
+| Turns | 432 (398 human inputs) |
+| Uncached input | 2,583,580 tok |
+| Cache reads | 783,612,416 tok |
+| Output | 2,049,463 tok |
+| Cache hit rate | 99.67% |
+| Weighted cost (input 1 / cache 0.02 / output 4) | 26,453,680 |
+| Self-dispatched tasks on this skill (preflight/postflight) | **22** (self-review-2 … -11, review-12 … -23); **220** reports, **89** fixed, **5** logged, the rest rejected/opinions/feature requests |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
 `self-review-N` and `review-N` are two names for the same sequence; this table covers through
-`review-18`. The seven rounds `review-12 … -18` produced 54 reports and 31 landings (including docs).
+`review-23`. The five rounds `review-19 … -23` produced 52 reports and 15 landings; `review-23`
+was dispatched with the same model as the parent (`deepseek-official/deepseek-flash`) and still
+counts as one.
 
 ## License
 

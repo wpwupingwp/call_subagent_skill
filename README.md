@@ -6,16 +6,43 @@
 子代理在独立仓库里干活并提交，父代理做机械验收（diff + 白名单 + 测试退出码），最后收下
 可复查的 patch。
 
-- 不通过就自动丢弃，仓库回到派发前，不留半成品
-- 每次判定都写进 `MANIFEST.json` 和 patch，事后能复查
-- 子代理读的文件、失败的尝试、测试日志都留在它自己的会话里
+三个直接收益：
+
+- **独立复核**：子代理不继承父对话，不会因为「我们已经确定 X」就跳过检查。
+- **上下文隔离**：它读的文件、走过的弯路、失败的尝试都留在自己的会话里，父上下文保持短小。
+- **省 token（有条件）**：子代理明显更便宜（`r` 小）、任务够大时才省；同模型派发买到的是前两项，不是省钱。
 
 > **Harness 版本**：本技能基于 DeepSeek Harness **v0.2.2** 开发和验证；`--child` 依赖 DSH
 > 子会话日志，是必需项。其他 harness 需要重写该适配器，见[移植到其他 harness](#移植到其他-harness)。
 
 给**人**看的说明。给模型读的规范在 [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md)。
 
-## 安装
+
+## 为什么值得用
+
+**交付可回滚、可追溯。** `BASE..HEAD` 就是本次改动，不多不少；白名单事后比对；不通过自动丢弃，
+仓库回到派发前；判定和证据落在 `MANIFEST.json` 与 patch 里，事后能复现。
+
+**独立复核有边界。** 子代理不继承父对话，但仓库里可能还留着历史任务与上一轮 `findings.md`，
+真正的独立性取决于你清不清（`preflight --clear findings.md`；历史与 patch 仍是证据）。多轮自举里
+父代理逐条复现后约四成成立——它能发现父代理忽略的不变量，但结论必须自己核对，不能直接当 backlog。
+
+**上下文隔离是长会话的主要收益。** 子代理读的文件、走过的弯路、测试日志都在它自己的会话里；
+父代理先看 `postflight` 的摘要，需要时再看 `git diff --stat` 或净 diff。长会话的开销主要来自
+上下文重读，父上下文保持短小，后续每一步都更轻。
+
+代价也要算进去：父代理仍要付简报与验收的编排费（约 2,100）；评审类通常更贵；子代理的复核会漏，
+结论仍要逐条核对；「独立」是上下文独立，不是权限隔离。省 token 的条件见[下一节](#省-token-的条件r)。
+
+**同模型派发（`r ≈ 1`）**：前两项照旧成立，失去的只有省钱。同一份代码、同一份简报的实测对比：
+便宜模型（llama）出 7 条、落地 2 条，多为表层（选项顺序、过期计数）；同模型（与父代理相同的
+deepseek-flash）出 10 条、落地 6 条，其中两处是「审计静默失效」（日志后缀、`dispatch.env`
+fail-open），加权成本约 3.2 倍。取舍：机械与表层问题用便宜模型，判定逻辑、适配层、审计完整性
+用同模型；两者的结论都必须由父代理逐条复现——同模型往往继承同一套盲点。
+
+## 快速开始
+
+### 安装
 
 技能本体就是 `subagent-delegation/` 目录，拷到 skills 目录即可：
 
@@ -27,7 +54,7 @@ cp -r subagent-delegation ~/.dsh/skills/             # 本机所有会话（会�
 放好后模型会按 `description` 自动匹配并使用。没有安装时，`skill` 工具里不会出现它——
 这时可以直接读 `SKILL.md`，把文中的 `<本技能目录>` 换成实际路径。
 
-## 快速开始
+### 跑一次
 
 ```bash
 SKILL=/path/to/subagent-delegation
@@ -74,91 +101,6 @@ bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --qu
 通过就把 `deliveries/t1.patch` 合回主树；不通过时仓库已经回到 `BASE`，改动存为
 `deliveries/t1.abandoned.patch` 供事后查看。判定降级为 `error` 时 patch 存为
 `deliveries/<task>.error.patch`，并写一份兜底 `MANIFEST.json`。
-
-## 工作原理
-
-![协作时序](docs/flow-zh.png)
-
-图上一条横向箭头是一次交互，纵轴是时间。关键的三段都画出来了：父代理先向 Harness 要可用模型、
-再问人用哪个，`preflight` 冻结 `BASE` 与白名单，`subagent` 派发后由 Harness 创建子会话，
-子代理在 `main` 上提交，Harness 把结果与结束原因交回父代理，父代理跑 `postflight` 验收，
-最后 patch 交给**人**——合并、push、丢弃都由人执行，技能不写回主树。
-
-[交互版 HTML](docs/flow-zh.html)：自包含单文件，可在本地打开，或在仓库设置里开启 GitHub Pages 后直接访问。
-
-### 多轮审查（无人值守）
-
-![多轮审查时序](docs/flow-multi-zh.png)
-
-多轮版画的是循环：每轮 `preflight` 冻结 `BASE` 与白名单、派发、子代理提交 `findings.md`、
-`postflight` 判定；下一轮开始前先用 `--clear findings.md` 清掉上一轮交付物，再冻结新的 `BASE`。
-父代理在轮内逐条判定（采纳/拒绝/理由）并落地修复，人只在最后看 patch 与审查记录、抽样复核，
-不重跑每一轮。[交互版](docs/flow-multi-zh.html)。
-
-每对话一个仓库，从头到尾只有 `main` 一条分支；任务不建分支，靠 `BASE` 划分。
-
-## 目录结构
-
-```
-<工作区>/
-└── <会话 id>/
-    └── repo/               # 会话仓库，单分支 main
-        ├── <源码>          # 子代理可改（白名单内）
-        ├── model           # 会话仓库级模型选择
-        ├── tasks/imports.tsv  # 全局导入索引（跨任务 contentHash）
-        └── tasks/<task>/
-            ├── brief.md        # 规格唯一来源，preflight 提交
-            ├── MANIFEST.json   # 判定与证据
-            └── deliveries/<task>.patch
-```
-
-工作区在别的 git 仓库内时，`preflight` 把 `/<会话 id>/` 追加进该仓库的 `.git/info/exclude`
-（工作区是子目录时是 `/子目录/<会话 id>/`）。那是 git 的本地忽略文件：不进版本控制、不改你的
-`.gitignore`、`git status` 也不会多出任何条目。`.git` 不可写时退回在会话目录里放一个 `*`。
-
-仓库清单：
-
-```
-.gitattributes               LF 换行约束（Windows 检出）
-subagent-delegation/SKILL.md        模型读的规范与流程
-subagent-delegation/references/     probe：首次换环境或换模型时的三层探测
-subagent-delegation/scripts/        doctor / envcheck / preflight / postflight
-subagent-delegation/templates/      brief / probe / review / findings
-tests/run.sh                 自检（无需网络或子代理）
-tests/audit_compliance.py    合规审计：派发前有没有先动手（write/edit/apply_patch + 常见 bash 写模式）
-usage_of.sh, usage_stats.sh  用量读取与汇总（不属于技能本体）
-subagent_test.md             实测记录与设计决策
-HISTORY.md                   开发史与角色记录
-docs/flow-zh.png             协作时序图（中文）
-docs/flow-zh.html            同一张图的交互版（自包含单文件）
-docs/flow-multi-zh.png       多轮审查时序（中文）
-docs/flow-multi-zh.html      多轮版交互页（自包含单文件）
-README.en.md                 English version
-```
-
-## 为什么值得用
-
-一句话：**先把交付做成可回滚、可追溯的，再让它经过一个没被父上下文带偏的读者；省 token 是
-条件收益，不是默认收益。**
-
-- **可回滚、可追溯**：`BASE..HEAD` 就是本次改动，不多不少；白名单事后比对；不通过自动丢弃；
-  判定和证据落在 `MANIFEST.json` 与 patch 里，事后能复现。
-- **独立复核**：子代理不继承父对话的上下文，拿到的是冻结的简报与仓库快照，不会被「我们已经
-  确定 X」带偏。但仓库里可能还留着历史任务与上一轮 `findings.md`，真正的独立性取决于你是否
-  清掉它们（`preflight --clear findings.md`；历史与 patch 仍是证据）。多轮自举的报告里，父代理逐条复现后约四成成立——它能发现父代理忽略的不变量，
-  但结论必须自己核对，不能直接当 backlog。
-- **上下文隔离**：子代理读的文件、走过的弯路、测试日志都在它自己的会话里；父代理先看
-  `postflight` 的摘要，需要时再看 `git diff --stat` 或净 diff。长会话的开销主要来自上下文
-  重读，父上下文保持短小，后续每一步都更轻。
-
-代价也要算进去：父代理仍要付简报与验收的编排费（约 2,100）；评审类通常更贵；子代理的复核
-会漏，结论仍要逐条核对；「独立」是上下文独立，不是权限隔离。省 token 的条件见下一节。
-
-**同模型派发（`r ≈ 1`）**：前三项照旧成立，失去的只有省钱。同一份代码、同一份简报的实测对比：
-便宜模型（llama）出 7 条、落地 2 条，多为表层（选项顺序、过期计数）；同模型（与父代理相同的
-deepseek-flash）出 10 条、落地 6 条，其中两处是「审计静默失效」（日志后缀、`dispatch.env`
-fail-open），加权成本约 3.2 倍。取舍：机械与表层问题用便宜模型，判定逻辑、适配层、审计完整性
-用同模型；两者的结论都必须由父代理逐条复现——同模型往往继承同一套盲点。
 
 ## 什么时候用
 
@@ -220,6 +162,67 @@ fail-open），加权成本约 3.2 倍。取舍：机械与表层问题用便宜
 **省钱靠攒批，不靠换更便宜的模型。** 评审/文档类通常不满足省钱条件（实测 10.9–14.7 万/次），
 换来的是第二遍独立阅读。
 同模型（`r ≈ 1`）派发只剩审计与隔离价值；多轮无人值守时成本按轮线性叠加，先算清楚再排轮次。
+
+## 工作原理
+
+![协作时序](docs/flow-zh.png)
+
+图上一条横向箭头是一次交互，纵轴是时间。关键的三段都画出来了：父代理先向 Harness 要可用模型、
+再问人用哪个，`preflight` 冻结 `BASE` 与白名单，`subagent` 派发后由 Harness 创建子会话，
+子代理在 `main` 上提交，Harness 把结果与结束原因交回父代理，父代理跑 `postflight` 验收，
+最后 patch 交给**人**——合并、push、丢弃都由人执行，技能不写回主树。
+
+[交互版 HTML](docs/flow-zh.html)：自包含单文件，可在本地打开，或在仓库设置里开启 GitHub Pages 后直接访问。
+
+### 多轮审查（无人值守）
+
+![多轮审查时序](docs/flow-multi-zh.png)
+
+多轮版画的是循环：每轮 `preflight` 冻结 `BASE` 与白名单、派发、子代理提交 `findings.md`、
+`postflight` 判定；下一轮开始前先用 `--clear findings.md` 清掉上一轮交付物，再冻结新的 `BASE`。
+父代理在轮内逐条判定（采纳/拒绝/理由）并落地修复，人只在最后看 patch 与审查记录、抽样复核，
+不重跑每一轮。[交互版](docs/flow-multi-zh.html)。
+
+每对话一个仓库，从头到尾只有 `main` 一条分支；任务不建分支，靠 `BASE` 划分。
+
+## 目录结构
+
+```
+<工作区>/
+└── <会话 id>/
+    └── repo/               # 会话仓库，单分支 main
+        ├── <源码>          # 子代理可改（白名单内）
+        ├── model           # 会话仓库级模型选择
+        ├── tasks/imports.tsv  # 全局导入索引（跨任务 contentHash）
+        └── tasks/<task>/
+            ├── brief.md        # 规格唯一来源，preflight 提交
+            ├── MANIFEST.json   # 判定与证据
+            └── deliveries/<task>.patch
+```
+
+工作区在别的 git 仓库内时，`preflight` 把 `/<会话 id>/` 追加进该仓库的 `.git/info/exclude`
+（工作区是子目录时是 `/子目录/<会话 id>/`）。那是 git 的本地忽略文件：不进版本控制、不改你的
+`.gitignore`、`git status` 也不会多出任何条目。`.git` 不可写时退回在会话目录里放一个 `*`。
+
+仓库清单：
+
+```
+.gitattributes               LF 换行约束（Windows 检出）
+subagent-delegation/SKILL.md        模型读的规范与流程
+subagent-delegation/references/     probe：首次换环境或换模型时的三层探测
+subagent-delegation/scripts/        doctor / envcheck / preflight / postflight
+subagent-delegation/templates/      brief / probe / review / findings
+tests/run.sh                 自检（无需网络或子代理）
+tests/audit_compliance.py    合规审计：派发前有没有先动手（write/edit/apply_patch + 常见 bash 写模式）
+usage_of.sh, usage_stats.sh  用量读取与汇总（不属于技能本体）
+subagent_test.md             实测记录与设计决策
+HISTORY.md                   开发史与角色记录
+docs/flow-zh.png             协作时序图（中文）
+docs/flow-zh.html            同一张图的交互版（自包含单文件）
+docs/flow-multi-zh.png       多轮审查时序（中文）
+docs/flow-multi-zh.html      多轮版交互页（自包含单文件）
+README.en.md                 English version
+```
 
 ## 环境要求
 
@@ -382,18 +385,19 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 
 | 项 | 值 |
 |---|---|
-| 步数 | 2,120 |
-| 轮次 | 401（人类输入 369 条） |
-| 未缓存输入 | 2,382,990 tok |
-| 缓存读取 | 699,139,840 tok |
-| 输出 | 1,815,588 tok |
-| 缓存命中率 | 99.66% |
-| 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 23,628,139 |
-| 使用本技能自举（preflight/postflight 跑自己） | **17 次**（self-review-2 … -11、review-12 … -18）；报告 **168** 条，已修 **74** 条、记录 **5** 条，其余为拒绝/意见/功能请求 |
+| 步数 | 2,530 |
+| 轮次 | 432（人类输入 398 条） |
+| 未缓存输入 | 2,583,580 tok |
+| 缓存读取 | 783,612,416 tok |
+| 输出 | 2,049,463 tok |
+| 缓存命中率 | 99.67% |
+| 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 26,453,680 |
+| 使用本技能自举（preflight/postflight 跑自己） | **22 次**（self-review-2 … -11、review-12 … -23）；报告 **220** 条，已修 **89** 条、记录 **5** 条，其余为拒绝/意见/功能请求 |
 | 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
-`self-review-N` 与 `review-N` 是同一序列的两种叫法；本表覆盖到 `review-18`。
-`review-12 … -18` 七轮共 54 条报告，31 条落地（含文档）。
+`self-review-N` 与 `review-N` 是同一序列的两种叫法；本表覆盖到 `review-23`。
+`review-19 … -23` 五轮共 52 条报告，15 条落地；其中 `review-23` 用与父代理相同的
+`deepseek-official/deepseek-flash` 派发，也计一次。
 
 ## License
 
