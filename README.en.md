@@ -196,7 +196,7 @@ reviews this way, still running preflight → dispatch → postflight per round,
 on failure. It cannot dispatch concurrently. review-12 … review-23 are twelve consecutive recorded
 rounds: each keeps `BASE`/`HEAD`, patch, `MANIFEST` and usage, so rounds are comparable.
 
-**Unattended: the parent judges each round and records the verdict.** Every finding gets a level,
+**Multi-round, attended or not, the parent judges each round and records the verdict.** Every finding gets a level,
 evidence, a verdict (accepted / rejected / opinion) and a reason; accepted ones land as commits and
 tests, rejected ones stay comparable against the subagent's original `findings.md`. What the human
 reviews afterwards is the **record plus spot checks** — the diff and tests of accepted items, and a
