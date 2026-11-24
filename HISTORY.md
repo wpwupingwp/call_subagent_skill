@@ -586,7 +586,7 @@ review-23（同日，同模型派发：`deepseek-official/deepseek-flash`）：�
 文档图（同日）：新增多轮审查时序图 `docs/flow-multi-zh/en.png` 与交互版 HTML，画清循环——每轮 preflight/派发/提交/判定，下一轮先 `--clear` 再冻结新 BASE，人在最后统一复核；与单轮时序图并列放进 README 的“工作原理”。
 更名（同日）：`git-task-bus` → **`subagent-delegation`**。理由：`git handoff` 在开发流程里已有“分支/环境/人员交接”的既定含义，`task-bus` 又暗示并发消息总线，而本技能是单通道串行；`subagent-delegation` 同时含“派给谁”和“委托但仍归你管”两层意思。目录、`name:`、安装入口、README、脚本与两张时序图同步更新；更早的提交与本文历史记录保留旧名。
 
-README 重排（同日）：开头改成一段式简介，把“利用 git 管理交接、实现可回滚可审计的独立复核、子代理更便宜时省 token”合并成一段；章节按 GitHub 项目与人阅读顺序重排为：为什么值得用 → 快速开始（含安装）→ 什么时候用 → 省 token 条件 → 工作原理 → 目录结构 → 环境要求 → 移植 → FAQ → 自检 → 开发成本；中英同步。开发成本快照更新到 2,530 步 / 26,453,680 加权，自举 22 次（含同模型的 review-23，计一次）。
+README 重排（同日）：开头改成一段式简介，把“利用 git 管理交接、实现可回滚可审计的独立复核、子代理更便宜时省 token”合并成一段；章节按 GitHub 项目与人阅读顺序重排为：为什么值得用 → 快速开始（含安装）→ 什么时候用 → 省 token 条件 → 工作原理 → 目录结构 → 环境要求 → 移植 → FAQ → 自检 → 开发成本；中英同步。开发成本快照更新到 2,530 步 / 26,453,680 加权（中间快照，最终口径见后面的「十改/十一改」），自举 22 次（含同模型的 review-23，计一次）。
 
 README 二次精简（同日）：读者按“人”来写——删掉「跑一次」的命令 walkthrough（只留人做的一件事与看到的结论）、
 删掉仓库文件清单、「什么时候用」里给父模型的条件指令与 `review-12 … -23` 等过程记录、「自检与实测」的实测结论；
@@ -634,6 +634,41 @@ README 二次精简（同日）：读者按“人”来写——删掉「跑一�
 清理（同日）：`DSH_SESSION_ID` 缺失改为直接 exit 3，删掉 preflight/postflight 的 `unknown/` 回退与 auto 分支的重复提示；postflight 去掉一个中间 `ROOT` 变量。
 
 无人值守测试（review-19 … -21）：三轮连续跑通，无需人工介入；共 35 条报告，7 条落地（19:3、20:3、21:1），其余为拒绝/意见/已知边界。判定由父代理逐条给出并记进 `reviews/review-NN.md`，人的复核成本是审记录与抽样，不是重跑三轮。
+
+## review-24：同模型、思考关闭的一次审查（2026-11-24）
+
+任务：审查 `SKILL.md` 与两份 README。派给 `deepseek-official/deepseek-flash`（与父代理相同的模型），
+`reasoning_effort: off` 关掉思考。这一轮第一次给评审类任务配了机械验收：`check_findings.py` 校验每条发现的
+字段齐全、`路径:行号` 真实存在，不再只靠父代理人工核对结构。
+
+**判定 `fail`，但不是交付物的错**：简报里写的验收命令是 `python3 check_findings.py`（假设导入落在仓库根），
+实际 `--import` 把文件放进了 `session-<id>/check_findings.py`，测试退出码 2，`postflight` 按规则丢弃并回滚。
+子代理当场报告了这个路径问题。父代理从 `deliveries/review-24.abandoned.patch` 取回 `findings.md`，
+在仓库根跑同一个检查（21 条发现、66 处引用全部可解析，rc=0），再逐条复核。
+
+**修掉的（9 条中 5 条是代码缺陷）**：
+
+| # | 级别 | 问题 | 修法 |
+|---|---|---|---|
+| F10 | 高 | `dispatch.prompt` 被 `.gitignore` 忽略：子代理改写它不进 `git status`、不进 diff、不算越界，复用仓库做下一轮时会派一份被改过的 prompt | `preflight` 复用仓库时先删掉 `tasks/*/dispatch.prompt` 再写本次的；SKILL 清理清单补一句 |
+| F1 | 中 | 重复 `--import` 已存在路径时走跳过分支，`provenance.tsv` 只剩表头 | 跳过时也记一行，哈希取仓库里的副本 |
+| F2 | 中 | 日志能读但没有 `turn/end` 时 stop 校正静默跳过，一句提示都没有（README 说会提示） | 补 `warn_stop_skipped`，README 中英补上这种情形 |
+| F7 | 低 | 日志里没有 `assistant/message` 时用量静默不记 | 补一条提示 |
+| F3 | 低 | `.zstd` 解不开时 aborted 的子代理会被判 pass（有告警，但 README 只说「替换解压方式即可」） | README 中英写明后果：stop 校正必然失效 |
+| F4 | 低 | 「同一任务 id 只判定一次」是随 HEAD 变化的检查，措辞强于实现 | SKILL 写明判重依据是 `HEAD:tasks/<task>/MANIFEST.json` |
+| F5 | 低 | `repo/model` 与 `<会话 id>/model` 都叫「对话级」 | 统一为「会话仓库级」「会话目录级」 |
+| F6 | 低 | probe 用 `probe-$(date +%m%d)`，同日重跑撞 id | 改成带时分，probe.md 补一句 |
+| F8 | 低 | 三处覆盖清单描述不一致 | 三处统一成一份 |
+| F9 | 低 | `verdict` 有四个值，SKILL 只给退出码映射 | 补取值表，说明 `fail` 与 `reject` 都丢弃但语义不同 |
+
+外加意见级：`--tests` 与 `--allow-no-tests` 同给的优先级、简报判据补「允许改动」、`envcheck` 的 126/127、
+逗号分隔参数扩到 `--import`/`--clear`；并补了一条「`tasks/usage.tsv` 被提交」的断言。
+**拒绝**：F17（description 与 whenToUse 重复）、F11（结构检查不验结论，与规范自洽）、F18/F20/F21（核对通过，无需改）。
+
+自检：179 项断言（原 164）+ 0 失败；`SKIP_USAGE_TESTS=1` 144 项。新增 15 条断言覆盖上面四个代码修复。
+
+**这一轮的方法论收获**：评审类任务确实能机械验收，但只能验结构与引用；`check_findings.py` 通过不代表任一条结论成立。
+另外，验收命令的路径要在写简报时按「导入后落在哪」写对——这一点是我自己的错，子代理反而先发现了。
 
 ## 两条可能的产品路线（2026-11-18 讨论）
 

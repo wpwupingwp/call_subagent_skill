@@ -243,6 +243,8 @@ if [ -n "$IMPORT" ]; then
           echo "preflight: 跳过已存在的导入路径 $it" >&2
         fi
       fi
+      # 跳过的导入也要记一行：provenance 是「本次任务用了哪些导入」的账，不是「这次复制了什么」
+      printf '%s\t%s\t%s\n' "$it" "$(hash_source "$REPO/$it")" "$(now_utc)" >> "$TDIR/provenance.tsv"
       continue
     fi
     mkdir -p "$REPO/$(dirname "$it")" || die "无法创建导入目录: $it"
@@ -348,6 +350,15 @@ done
 } > "$TDIR/dispatch.env"
 
 # ---- 指针式派发 prompt：只给引用，不复述规格 ----
+# 上一轮的 dispatch.prompt 是派生文件且被 .gitignore 忽略：子代理改写它不会出现在 git status / diff 里，
+# 复用仓库时若保留，下一轮就可能派发出被改过的 prompt。派发前清掉旧的。
+if [ "$CREATED" -eq 0 ]; then
+  for _old in "$REPO"/tasks/*/dispatch.prompt; do
+    [ -e "$_old" ] || continue
+    rm -f "$_old" && echo "preflight: 已删除上一轮派生物 $_old" >&2
+  done
+fi
+
 PROMPT_FILE="$TDIR/dispatch.prompt"
 {
   printf '仓库 %s（cwd 已给，直接在 main 上提交，勿切分支）· BASE %s\n' "$REPO" "$BASE"

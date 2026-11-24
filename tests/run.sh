@@ -458,6 +458,48 @@ chk "AY/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task 
 printf 'x=2\n' > "$R/uy.py"; git -C "$R" commit -qam uy
 chk "AY/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ay --child test-child --quiet --usage 'steps=7, in=100, out=9, cache=5' >/dev/null 2>&1; echo $?)"
 chk "AY/用量字段" "7	100	9	5" "$(tail -1 "$R/tasks/usage.tsv" | cut -f5-8)"
+chk "AY/用量入仓" "yes" "$(git -C "$R" ls-files --error-unmatch tasks/usage.tsv >/dev/null 2>&1 && echo yes || echo no)"
+
+echo "── BA 复用仓库清掉上一轮派生物 ──"
+sess gBA
+printf 'x=1\n' > "$B/fix/ba.py"
+mkbrief t-ba true
+chk "BA/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ba --import ba.py --allow ba.py --brief "$B/fix/brief-t-ba.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+echo 'EVIL' > "$R/tasks/t-ba/dispatch.prompt"
+chk "BA/改写不可见" "" "$(git -C "$R" status --porcelain)"
+chk "BA/preflight2" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ba2 --import ba.py --allow ba.py --brief "$B/fix/brief-t-ba.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "BA/旧 prompt 已删" "no" "$([ -e "$R/tasks/t-ba/dispatch.prompt" ] && echo yes || echo no)"
+chk "BA/新 prompt 在" "yes" "$([ -e "$R/tasks/t-ba2/dispatch.prompt" ] && echo yes || echo no)"
+
+echo "── BB 重复导入仍记 provenance ──"
+sess gBB
+printf 'y=1\n' > "$B/fix/bb.py"
+mkbrief t-bb true
+chk "BB/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bb --import bb.py --allow bb.py --brief "$B/fix/brief-t-bb.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "BB/preflight2" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bb2 --import bb.py --allow bb.py --brief "$B/fix/brief-t-bb.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "BB/跳过也记一行" "yes" "$(grep -q '^bb.py	' "$R/tasks/t-bb2/provenance.tsv" && echo yes || echo no)"
+
+echo "── BC 日志缺 turn/end 时告警 ──"
+sess gBC
+mkbrief t-bc true
+chk "BC/preflight" 0 "$(pf --task t-bc --import calc.py --allow calc.py $(b t-bc) --tests true)"
+printf 'z\n' >> "$R/calc.py"; git -C "$R" commit -qam child
+FHBC="$B/fhbc"; mkdir -p "$FHBC/sessions/p/sid-noturn"
+printf '{"type":"session","id":"sid-noturn"}\n{"type":"assistant/message","data":{"usage":{"inputTokens":1,"outputTokens":1,"cacheReadTokens":0}}}\n' > "$FHBC/sessions/p/sid-noturn/session.v4.jsonl"
+OUT_BC=$(DSH_HOME="$FHBC" bash "$SK/scripts/postflight.sh" --root "$B" --task t-bc --child sid-noturn --quiet 2>&1); RC_BC=$?
+chk "BC/仍通过" 0 "$RC_BC"
+chk "BC/提示无 turn/end" "yes" "$(printf '%s' "$OUT_BC" | grep -q '没有 turn/end' && echo yes || echo no)"
+
+echo "── BD 日志无 usage 时告警 ──"
+sess gBD
+mkbrief t-bd true
+chk "BD/preflight" 0 "$(pf --task t-bd --import calc.py --allow calc.py $(b t-bd) --tests true)"
+printf 'w\n' >> "$R/calc.py"; git -C "$R" commit -qam child
+FHBD="$B/fhbd"; mkdir -p "$FHBD/sessions/p/sid-nousage"
+printf '{"type":"session","id":"sid-nousage"}\n{"type":"turn/end","data":{"reason":{"kind":"completed"}}}\n' > "$FHBD/sessions/p/sid-nousage/session.v4.jsonl"
+OUT_BD=$(DSH_HOME="$FHBD" bash "$SK/scripts/postflight.sh" --root "$B" --task t-bd --child sid-nousage --quiet 2>&1); RC_BD=$?
+chk "BD/仍通过" 0 "$RC_BD"
+chk "BD/提示无 usage" "yes" "$(printf '%s' "$OUT_BD" | grep -q '没有 usage' && echo yes || echo no)"
 
 echo
 echo "结果: $pass 通过 / $fail 失败"

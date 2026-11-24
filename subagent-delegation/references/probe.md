@@ -36,13 +36,16 @@ bash <本技能目录>/scripts/envcheck.sh --tests '<任务验收命令>' --cwd 
 ## probe：子代理是否守约
 
 ```bash
-bash <本技能目录>/scripts/preflight.sh --task probe-$(date +%m%d) \
+bash <本技能目录>/scripts/preflight.sh --task probe-$(date +%m%d-%H%M) \
   --allow probe.txt --tests 'test -f probe.txt' \
   --brief <本技能目录>/templates/probe.md \
   --model <provider/model> --quiet
 ```
 
 派发 `POINTER` 那一行，完成后 `postflight --child auto --stop completed --quiet`。四项判据：
+
+任务 id 带时分：同一自然日重跑不会撞上一个已判定过的 id（撞上就既不会新建 plan 提交、也重判不了）。
+`templates/probe.md` 会被拷进仓库当简报提交，改模板后旧 probe 任务的 `brief.md` 与当前模板不再一致，这是预期。
 
 | 检查 | 判据 | 失败说明 |
 |---|---|---|

@@ -188,6 +188,8 @@ CHILD_META_OK=0; CHILD_STOP=""; CHILD_USAGE=""
 if [ -n "${CHILD:-}" ]; then
   if ! read_child_meta; then
     warn_stop_skipped "子会话日志不可读"
+  elif [ -z "$CHILD_STOP" ]; then
+    warn_stop_skipped "子会话日志里没有 turn/end"
   fi
 fi
 
@@ -428,7 +430,11 @@ if [ -z "$USAGE" ] && [ -n "$CHILD" ]; then
     read_child_meta || true
   fi
   if [ "$CHILD_META_OK" -eq 1 ]; then
-    [ -n "$CHILD_USAGE" ] && USAGE="$CHILD_USAGE"
+    if [ -n "$CHILD_USAGE" ]; then
+      USAGE="$CHILD_USAGE"
+    else
+      echo "postflight: 会话日志里没有 usage 记录（无 assistant/message），本次不记用量" >&2
+    fi
   else
     echo "postflight: 无法从会话日志读取 $CHILD 的用量（环境不同或日志缺失），本次不记录" >&2
   fi

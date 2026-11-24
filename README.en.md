@@ -245,10 +245,10 @@ Porting means replacing that adapter; the verdict logic does not change.
 
 - **stop is a verdict latch**: anything other than `completed` fails, so a truncated delivery cannot
   pass just because tests happen to be green.
-- **unreadable `--child` logs fall back to `--stop`**: when the explicit id has no log, or `auto`
-  matches no child session, `postflight` warns that the log is unreadable, skips stop correction,
-  and uses `--stop` as given (or `completed` if omitted). Pass the correct `--stop` explicitly if
-  you need a trustworthy verdict.
+- **unreadable `--child` logs fall back to `--stop`**: when the explicit id has no log, `auto` matches
+  no child session, or the log has no `turn/end`, `postflight` warns that stop correction was
+  skipped and uses `--stop` as given (or `completed` if omitted). Pass the correct `--stop`
+  explicitly if you need a trustworthy verdict.
 - **usage is audit-only**: it lands in `tasks/usage.tsv` (MANIFEST records only `childSession` and
   `stopReason`) and does not affect the verdict; use `usage_of.sh` or explicit `--usage` when
   measuring `r`.
@@ -257,8 +257,10 @@ Porting means replacing that adapter; the verdict logic does not change.
   only in metadata no script can read. The adapter reads the log for the exact enum and `childSession`.
 - **The log suffix follows DSH config**: `session.v4.jsonl.zstd` with `compression: zstd`,
   `session.v4.jsonl` with `none`; the adapter accepts both and only decompresses the former. zstd is
-  not a separate dependency (DSH ships it) and `doctor.sh` does not check it; on a harness without
-  zstd, replace the decompression.
+  not a separate dependency (DSH ships it) and `doctor.sh` does not check it. Without zstd the
+  `.zstd` log cannot be read, so stop correction always fails and the verdict falls back to `--stop`
+  (or `completed`), with an "log unreadable" warning — use `compression: none` there, or replace the
+  decompression.
 
 Order of magnitude: one child-log read ~20ms; `--child auto` scans first lines in ~0.8s; explicit id
 ~30ms; reading the parent log's `subagent/catalog` (the other id source) ~0.66s. `auto` spends its
@@ -361,13 +363,13 @@ turn. Re-run it after updating the skill.
 ## 🧪 Tests
 
 ```bash
-bash tests/run.sh                    # 164 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 129 total
+bash tests/run.sh                    # 179 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 144 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite
 detection, discard and archive, brief validation, minimal mode, portability, `--child auto` and
-usage recording, the re-run guard, and patch paths.
+usage recording, the `--stop` default, the re-run guard, and patch paths.
 
 Use `tests/audit_compliance.py` to check whether a session edited files before its first dispatch:
 

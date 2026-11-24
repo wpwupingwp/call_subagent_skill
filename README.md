@@ -207,9 +207,9 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
 | usage | `assistant/message.usage` 的 `inputTokens` / `outputTokens` / `cacheReadTokens`，按步累加 | 不记录；`--usage` 可手填 |
 
 - **stop 是判定闩锁**：非 `completed` 一律 fail，避免被截断的交付因为测试碰巧通过而被接受。
-- **`--child` 日志不可用时回退到 `--stop`**：显式 id 的日志缺失，或 `auto` 未匹配到子会话时，
-  `postflight` 会提示日志不可读、stop 校正跳过，按 `--stop` 判定（未传则 `completed`）；此时要
-  保证判定可信，必须显式传对 `--stop`。
+- **`--child` 日志不可用时回退到 `--stop`**：显式 id 的日志缺失、`auto` 未匹配到子会话，或日志里
+  没有 `turn/end` 时，`postflight` 都会提示「stop 校正已跳过」，按 `--stop` 判定（未传则
+  `completed`）；此时要保证判定可信，必须显式传对 `--stop`。
 - **usage 只用于审计**：写进 `tasks/usage.tsv`（MANIFEST 只记 `childSession` 和 `stopReason`），
   不参与判定；要算 `r` 时用 `usage_of.sh` 或显式 `--usage`。
 - **DSH 的完成通知不是替代品**：父代理收到的是自然语言（`finished`、`was stopped before it
@@ -217,7 +217,9 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
   也无法据此核对 `--stop`。所以适配器读日志，拿精确枚举和 `childSession`。
 - **日志后缀随 DSH 配置变**：`compression: zstd` 时是 `session.v4.jsonl.zstd`，`none` 时是
   `session.v4.jsonl`；适配器两种都认，只有前者需要解压。zstd 不是独立依赖（DSH 自带），
-  `doctor.sh` 不检查它。非 DSH 环境没有 zstd 时，替换解压方式即可。
+  `doctor.sh` 不检查它。没有 zstd 时 `.zstd` 日志读不出来，stop 校正必然失效、一律按 `--stop`
+  或默认 `completed` 判定（会有「日志不可读」告警）——这类环境请把日志改成 `compression: none`
+  或换掉解压方式，`doctor.sh` 不检查这一点。
 
 量级上：读一次子日志约 20ms；`--child auto` 扫首行约 0.8s；显式 id 约 30ms；读父日志的
 `subagent/catalog` 约 0.66s。`auto` 的成本在「找 id」，不在解析。
@@ -307,12 +309,12 @@ exit 3——不会退化成父模型。
 ## 🧪 测试
 
 ```bash
-bash tests/run.sh                    # 164 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 129 项
+bash tests/run.sh                    # 179 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 144 项
 ```
 
-覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、
-可移植性、`--child auto` 与用量记录、重跑守卫、patch 路径。
+覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、可移植性、
+`--child auto` 与用量记录、`--stop` 默认值、重跑守卫、patch 路径。
 
 用 `tests/audit_compliance.py` 检查某次会话在第一次派发前有没有先动手：
 
