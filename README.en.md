@@ -2,19 +2,13 @@
 
 **English** · [中文](README.md)
 
-Hand file-changing work to a subagent and use git to get a **delivery you can roll back and audit**:
-the parent freezes `BASE` and a path whitelist, the subagent works and commits in an isolated git
-repository, and the parent only does mechanical acceptance (diff + whitelist + test exit code)
-before handing back a patch you can inspect.
-
-Three things it buys you:
-
-- **An independent check**: the subagent does not inherit the parent conversation, so it does not
-  skip a check because "we already decided X".
-- **Context isolation**: what it read, the dead ends and the test logs stay in its own session; the
-  parent context stays short.
-- **Token savings, when the model is cheaper**: conditional on a low `r` and a large enough task;
-  dispatching the same model buys the first two, not the savings.
+This skill uses git to manage the handoff between parent and subagent: one repository per
+conversation, the parent freezes `BASE` and a path whitelist, the subagent commits on `main`, and
+the parent accepts mechanically with diff, whitelist and test exit code — rolling back and archiving
+a patch on failure, so the delivery stays **rollbackable and auditable**. It also gives the subagent
+a **clean-context, independent review** that does not inherit the parent conversation, while the
+parent context stays short; and when the subagent is clearly cheaper (low `r`) on a large enough
+task, it can also **save tokens** — dispatching the same model buys the first two, not the savings.
 
 > **Harness version:** developed and validated against DeepSeek Harness **v0.2.2**; `--child`
 > reads DSH child-session logs and is required. Other harnesses must port that adapter; see
