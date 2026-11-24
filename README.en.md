@@ -82,31 +82,35 @@ It names anything missing.
 
 ## 🚀 Usage
 
-The human only has to say it: "dispatch this one" or "don't dispatch", and the parent judges from
-the next section and runs the round. What you see afterwards is the verdict, not the process:
+One sentence is enough: the skill, the target, the acceptance, and when to stop.
 
-```
-verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deliveries/t1.patch
-```
+Single dispatch:
 
-Merge `deliveries/t1.patch` back if it passes; if it fails, the repo is back at `BASE` and the changes
-are kept as `*.abandoned.patch` for later inspection. One thing worth knowing: the acceptance tests
-are written by the parent and frozen before dispatch, so the subagent can change the implementation
-but not the tests — "tests pass" is never the subagent's own word. Command syntax, the brief format
-and `--allow-no-tests` all live in [`SKILL.md`](subagent-delegation/SKILL.md), which is the spec for
-the model; they are not repeated here.
+> Use the subagent-delegation skill to extract the retry logic in `src/parser.py` into a function;
+> acceptance is `pytest -q tests/test_parser.py`; wait for my confirmation before merging.
+
+Multi-round, unattended:
+
+> Use the subagent-delegation skill to review this repository for four consecutive rounds, fixing
+> what you accept each round before starting the next; wait for my confirmation when done.
+
+What you get afterwards is a report: the verdict per round (accepted / rejected / why), the diff and
+test results, and anything that needs your decision. You do not see the subagent's process, and you
+do not need to — the parent freezes the acceptance test before dispatch and re-runs it itself, never
+trusting the subagent's self-report. Command syntax, the brief format and `--allow-no-tests` live in
+[`SKILL.md`](subagent-delegation/SKILL.md), the spec for the model.
 
 ## 🎯 When to use
 
-Dispatch is worth it when three things hold at once:
+Three signals — the more of them hold, the better the fit, but they do not all have to:
 
 1. The deliverable is a **file change** (code, data, config, or a document whose structure can be checked).
-2. Acceptance can be **checked mechanically** — a test or script decides, not a human read.
+2. Acceptance can be **checked mechanically** — a test or script decides, not a human read; for review
+   and report work only the structure can be checked, so this one counts as half.
 3. The change needs **iteration** — the first pass is usually not the last.
 
-Review and report work meets only half of point 2 (the structure can be checked, the conclusion
-cannot), but it is still a file delivery and still worth dispatching — see "Review and document
-work" below.
+If none hold, don't dispatch (checking state, choosing a design, a one-line edit); a large change that
+hits all three is the best case; everything in between is in the table below.
 
 | ✅ Good fit | ❌ Poor fit |
 |---|---|
