@@ -384,14 +384,14 @@ session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 
 | Item | Parent | Subagents |
 |---|---|---|
-| Steps | 2,666 | 1,629 |
-| Turns | 448 (413 human inputs) | 47 sessions |
-| Time | 8 days 13 hours (11-15 → 11-24) | 3.4 hours in total |
-| Uncached input | 2,654,560 tok | 2,014,386 tok |
-| Cache reads | 801,712,000 tok | 94,347,481 tok |
-| Output | 2,128,390 tok | 635,386 tok |
+| Steps | 2,689 | 1,629 |
+| Turns | 449 (415 human inputs) | 47 sessions |
+| Time | 5.7 hours in turns | 3.4 hours in total |
+| Uncached input | 2,665,750 tok | 2,014,386 tok |
+| Cache reads | 804,652,032 tok | 94,347,481 tok |
+| Output | 2,145,825 tok | 635,386 tok |
 | Cache hit rate | 99.67% | 97.91% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | 27,202,360 | 0 (`r = 0`) |
+| Weighted cost (input 1 / cache 0.02 / output 4) | 27,342,091 | 0 (`r = 0`) |
 
 ## 📄 License
 
