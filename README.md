@@ -4,33 +4,50 @@
 
 本技能利用 git 管理父子代理之间的任务交接：**父代理保留自己的上下文，子代理从独立上下文开始、不继承可能存在的偏见与盲区**——每个对话一个独立仓库，父代理冻结 `BASE` 与路径白名单，子代理在 `main` 上提交，父代理用 diff、白名单与测试退出码做机械验收，不通过即回滚、归档 patch。因此交付**可回滚、可审计**，复核也不受父上下文污染；当子代理明显更便宜（`r` 小）且任务够大时，还能**省 token**。
 
-> **Harness 版本**：本技能基于 DeepSeek Harness **v0.2.2** 开发和验证；`--child` 依赖 DSH
-> 子会话日志，是必需项。其他 harness 需要重写该适配器，见[移植到其他 harness](#移植到其他-harness)。
+给人看的说明。给模型读的规范在 [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md)。
 
-给**人**看的说明。给模型读的规范在 [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md)。
-
-
-## 为什么值得用
+## ✨ 为什么值得用
 
 **交付可回滚、可追溯。** `BASE..HEAD` 就是本次改动，不多不少；白名单事后比对；不通过自动丢弃，
 仓库回到派发前；判定和证据落在 `MANIFEST.json` 与 patch 里，事后能复现。
 
 **独立复核有边界。** 子代理不继承父对话，但仓库里可能还留着历史任务与上一轮 `findings.md`，
-真正的独立性取决于你清不清（`preflight --clear findings.md`；历史与 patch 仍是证据）。多轮自举里
-父代理逐条复现后约四成成立——它能发现父代理忽略的不变量，但结论必须自己核对，不能直接当 backlog。
+真正的独立性取决于你清不清（`preflight --clear findings.md`；历史与 patch 仍是证据）。它能发现
+父代理忽略的不变量，但结论必须自己核对，不能直接当 backlog。
 
 **父代理保留上下文，子代理独立判断。** 子代理读的文件、走过的弯路、测试日志都在它自己的会话里；
 父代理先看 `postflight` 的摘要，需要时再看 `git diff --stat` 或净 diff。长会话的开销主要来自
 上下文重读，父上下文不因派发而膨胀，后续每一步都更轻。
 
-代价也要算进去：父代理仍要付简报与验收的编排费（约 2,100）；评审类通常更贵；子代理的复核会漏，
-结论仍要逐条核对；「独立」是上下文独立，不是权限隔离。省 token 的条件见[下一节](#省-token-的条件r)。
+⚠️ **代价也要算进去**：父代理仍要付简报与验收的编排费（约 2,100）；评审类通常更贵；子代理的复核会漏，
+结论仍要逐条核对；「独立」是上下文独立，不是权限隔离。省 token 的条件见下文。
 
-## 快速开始
+## 📦 安装
 
-### 安装
+### 环境要求
 
-技能本体就是 `subagent-delegation/` 目录，拷到 skills 目录即可：
+| 项 | 要求 |
+|---|---|
+| 系统 | Linux · macOS · Windows（Git Bash 或 WSL） |
+| Harness | DeepSeek Harness v0.2.2（子会话日志为 session v4）；`--child` 依赖它，是必需项 |
+| git | ≥ 2.28（2020-07 发布） |
+| 命令 | bash、POSIX 基本工具、`python3`（硬依赖） |
+| 工作区 | 可写；不要求是 git 仓库 |
+
+验收逻辑只用 POSIX 工具和 `python3`（生成 `MANIFEST.json`、解析用量），不依赖 `sort -V`、
+`date -Iseconds`、`sha256sum` 这些 BSD/macOS 上没有的东西；子会话日志的解压用 DSH 自带的
+zstd，它不是独立依赖，`doctor.sh` 也不检查。内容哈希用 `git hash-object`。
+git 侧直接用 2.28 的命令：`git init -b`、`git switch`、`git worktree list`，不再为老版本保留
+兼容分支。
+
+Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或设 `core.autocrlf=false`）；
+路径用 POSIX 风格（`/c/work/...`），不要传 `C:\...`。
+
+换别的 harness 只差子会话适配器：见下文「移植到其他 harness」。
+
+### 复制到 skills 目录
+
+技能本体就是 `subagent-delegation/` 目录，复制到 skills 目录即可：
 
 ```bash
 cp -r subagent-delegation <workspace>/.dsh/skills/   # 仅本工作区
@@ -40,9 +57,17 @@ cp -r subagent-delegation ~/.dsh/skills/             # 本机所有会话（会�
 放好后模型会按 `description` 自动匹配并使用。没有安装时，`skill` 工具里不会出现它——
 这时可以直接读 `SKILL.md`，把文中的 `<本技能目录>` 换成实际路径。
 
-### 跑一次
+### 自检
 
-人只需要开口：说一句「这个任务派发」或「不用派发」，其余由父代理按[下一节](#什么时候用)判断并执行。
+```bash
+bash subagent-delegation/scripts/doctor.sh
+```
+
+缺什么它会直接说。
+
+## 🚀 使用
+
+人只需要开口：说一句「这个任务派发」或「不用派发」，其余由父代理按下一节判断并执行。
 一轮下来你看到的是结论，而不是过程：
 
 ```
@@ -53,17 +78,11 @@ verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deli
 有一点值得知道：验收测试由父代理先写、派发前冻结，子代理只改实现，改测试即为越界——所以「测试通过」不是子代理的自述。
 命令写法、简报格式、`--allow-no-tests` 的用法都在 [`SKILL.md`](subagent-delegation/SKILL.md)，那是给模型读的规范，这里不重复。
 
-## 什么时候用
+## 🎯 什么时候用
 
-用户明确要求派发时，直接派；明确要求不派时，不派。用户没表态时，父模型按下面的条件自主判断，
-不必逐次询问：按前三条决定是否适合派，第 4 条决定这次是否也省 token。
-
-1. 交付是**文件改动**（代码、数据、配置，或结构可校验的文档）；
-2. 验收能**机械核对**（测试或脚本能判对错，不靠人读）；评审/报告类没有机械判据时用
-   `--allow-no-tests` 声明，结论由父代理逐条核对；
-3. 改动要靠**迭代收敛**（一次写不对，要多轮）；
-4. 若目标是省 token：`r` 越低越好；大任务/批量约 `r ≤ 0.3`，`r > 0.38` 通常只为审计、不为省钱。
-   本地部署（`r = 0`）自动满足省钱条件，但单发小改仍可能亏在编排上。
+三个条件同时成立才值得派：交付是**文件改动**（代码、数据、配置，或结构可校验的文档）；验收能
+**机械核对**（测试或脚本能判对错，不靠人读）；改动要靠**迭代收敛**（一次写不对，要多轮）。
+省 token 是另一个维度，见下文「省 token 的条件」。
 
 | ✅ 适合 | ❌ 不适合 |
 |---|---|
@@ -75,24 +94,21 @@ verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deli
 | 第二意见评审（干净上下文的复核，不限于 diff） | 评审只为省 token（结论仍要逐条核对） |
 | | 需要并发（技能本身是串行的） |
 
-**并发与多轮**：技能本身是串行的——一次只派一个子代理，等它提交并验收后再派下一个。可以由
-父代理无人值守地串行驱动多轮修改/审查：每轮仍走 preflight → 派发 → postflight，失败自动回滚；
-不能并发派发。review-12 … review-23 是连续 12 轮的实际记录：每轮留 `BASE`/`HEAD`/patch/
-`MANIFEST`/用量，跨轮可比。
+**串行，但可以多轮。** 一次只派一个子代理，等它提交并验收完再派下一个；父代理可以无人值守地
+串行驱动多轮修改或审查，每轮仍是冻结、派发、验收，失败自动回滚。
 
-**多轮运行时（人在不在场都一样），判定由父代理在轮内做完**：每条发现给级别、证据、结论与理由；
-采纳的落成提交与测试，拒绝的保留子代理原始 `findings.md` 供对照。人回来审的是**记录与抽样**——
-看采纳项的 diff 与测试、抽几条拒绝对照原文，而不是重跑每一轮。判定没有取消，只是从人转移到
-父代理、从过程延迟到结果。
+**判定在轮内完成，人在不在场都一样。** 子代理交回的是发现，不是结论：父代理逐条给级别、证据、
+判定与理由，采纳的落成提交与测试，拒绝的对照原始 `findings.md` 保留。人回来审的是**记录与抽样**——
+看采纳项的 diff 与测试、抽几条拒绝对照原文，不必重跑每一轮。判定没有取消，只是从人转移到父代理、
+从过程延迟到结果。
 
-**评审类**只能机械核对报告的结构与引用（字段、锚点、链接），拦不住错误结论，派发后结论仍要
-父代理逐条核对；没有可检查的结构时用 `--allow-no-tests` 声明并在简报写明人工核对。
-**文档/报告类**同理：可以派，但换来的是第二遍独立阅读，不是省 token。
+⚠️ **评审与文档类**：只能机械核对报告的结构与引用（字段、锚点、链接），拦不住错误结论，结论仍要
+逐条核对。可以派，但换来的是第二遍独立阅读，通常不是省 token。
 
-## 省 token 的条件（r）
+## 💰 省 token 的条件（r）
 
-`r` 是子代理价格与父代理价格之比。实测盈亏平衡 `r*` 落在 26–38%（100 行级任务外推下限约
-17%）：子代理要比父代理便宜 3–4 倍，单发任务才可能省。是否真的省，还取决于任务规模和是否攒批。
+`r` 是子代理价格与父代理价格之比。按成本模型推算，盈亏平衡 `r*` 落在 26–38%（100 行级任务外推
+下限约 17%）：子代理要比父代理便宜 3–4 倍，单发任务才可能省。是否真的省，还取决于任务规模和是否攒批。
 
 | `r` | 可能省 token 的情形 | 外推估计 |
 |---|---|---|
@@ -110,15 +126,14 @@ verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deli
 攒 10 个成一批：每次约 210 → 省 51%
 ```
 
-**省钱靠攒批，不靠换更便宜的模型。** 评审/文档类通常不满足省钱条件（实测 10.9–14.7 万/次），
-换来的是第二遍独立阅读。
+**省钱靠攒批，不靠换更便宜的模型。** 评审/文档类通常不满足省钱条件，换来的是第二遍独立阅读。
 
 **同模型派发（`r ≈ 1`）**不在这张表里——它买不到省钱，只买到独立视角与可回滚。可以这样取舍：
 机械改动、表层问题交给便宜模型；判定逻辑、适配层、审计完整性这些「错了也不报错」的地方用强模型，
 包括派一个同模型子代理。但同模型往往继承父代理的盲点，两条路交回来的结论都要逐条复现；
 多轮无人值守的成本按轮线性叠加，排轮次前先算清楚。
 
-## 工作原理
+## ⚙️ 工作原理
 
 ![协作时序](docs/flow-zh.png)
 
@@ -140,7 +155,7 @@ verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deli
 
 每对话一个仓库，从头到尾只有 `main` 一条分支；任务不建分支，靠 `BASE` 划分。
 
-## 目录结构
+## 🗂️ 目录结构
 
 ```
 <工作区>/
@@ -159,47 +174,7 @@ verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deli
 （工作区是子目录时是 `/子目录/<会话 id>/`）。那是 git 的本地忽略文件：不进版本控制、不改你的
 `.gitignore`、`git status` 也不会多出任何条目。`.git` 不可写时退回在会话目录里放一个 `*`。
 
-仓库清单：
-
-```
-.gitattributes               LF 换行约束（Windows 检出）
-subagent-delegation/SKILL.md        模型读的规范与流程
-subagent-delegation/references/     probe：首次换环境或换模型时的三层探测
-subagent-delegation/scripts/        doctor / envcheck / preflight / postflight
-subagent-delegation/templates/      brief / probe / review / findings
-tests/run.sh                 自检（无需网络或子代理）
-tests/audit_compliance.py    合规审计：派发前有没有先动手（write/edit/apply_patch + 常见 bash 写模式）
-usage_of.sh, usage_stats.sh  用量读取与汇总（不属于技能本体）
-subagent_test.md             实测记录与设计决策
-HISTORY.md                   开发史与角色记录
-docs/flow-zh.png             协作时序图（中文）
-docs/flow-zh.html            同一张图的交互版（自包含单文件）
-docs/flow-multi-zh.png       多轮审查时序（中文）
-docs/flow-multi-zh.html      多轮版交互页（自包含单文件）
-README.en.md                 English version
-```
-
-## 环境要求
-
-| 项 | 要求 |
-|---|---|
-| 系统 | Linux · macOS · Windows（Git Bash 或 WSL） |
-| git | ≥ 2.28（2020-07 发布） |
-| 命令 | bash、POSIX 基本工具、`python3`（硬依赖） |
-| 工作区 | 可写；不要求是 git 仓库 |
-
-验收逻辑只用 POSIX 工具和 `python3`（生成 `MANIFEST.json`、解析用量），不依赖 `sort -V`、
-`date -Iseconds`、`sha256sum` 这些 BSD/macOS 上没有的东西；子会话日志的解压用 DSH 自带的
-zstd。内容哈希用 `git hash-object`。
-git 侧直接用 2.28 的命令：`git init -b`、`git switch`、`git worktree list`，不再为老版本保留
-兼容分支。
-
-Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或设 `core.autocrlf=false`）；
-路径用 POSIX 风格（`/c/work/...`），不要传 `C:\...`。
-
-装好后跑一次 `bash subagent-delegation/scripts/doctor.sh`，缺什么它会直接说。
-
-## 移植到其他 harness
+## 🔌 移植到其他 harness
 
 验收本体（`preflight`/`postflight` 的 diff、白名单、历史、测试、patch、MANIFEST、回滚）只依赖
 git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`DSH_HOME` 两个环境输入的形式出现。换 harness 只需要替换适配器，判定逻辑
@@ -226,9 +201,8 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
   `session.v4.jsonl`；适配器两种都认，只有前者需要解压。zstd 不是独立依赖（DSH 自带），
   `doctor.sh` 不检查它。非 DSH 环境没有 zstd 时，替换解压方式即可。
 
-代价（本机实测，220 个会话）：读一次子日志约 20ms；`--child auto` 扫首行约 0.8s；显式 id 约
-30ms；读父日志的 `subagent/catalog`（另一种 id 来源）约 0.66s。`auto` 的成本在“找 id”，不在
-解析。
+量级上：读一次子日志约 20ms；`--child auto` 扫首行约 0.8s；显式 id 约 30ms；读父日志的
+`subagent/catalog` 约 0.66s。`auto` 的成本在「找 id」，不在解析。
 
 ### 移植清单
 
@@ -252,13 +226,13 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
 
 `--usage` 仅手工；MANIFEST 的 `childSession` 为 `null`。验收逻辑完全不变。
 
-### 测试
+### 在目标 harness 上验证
 
 `tests/run.sh` 里的 postflight 调用都带 `--child test-child`，但没有对应日志，覆盖的正是
 “日志不可读时回退”的路径（有 `--stop` 用它，没有则用默认 `completed`）。要在目标 harness 上
 验证适配器，另造一个最小会话日志 fixture。
 
-## 常见问题
+## ❓ 常见问题
 
 **会动我自己的仓库吗？**
 不会。所有 git 写操作都在 `<工作区>/<会话 id>/repo` 里；你自己的仓库不会被写入跟踪内容
@@ -312,7 +286,7 @@ exit 3——不会退化成父模型。
 按 [`subagent-delegation/references/probe.md`](subagent-delegation/references/probe.md) 跑一次三层探测
 （doctor / envcheck / probe），确认子代理会提交、守白名单、按时结束。技能更新后重跑一次。
 
-## 自检与实测
+## 🧪 测试
 
 ```bash
 bash tests/run.sh                    # 164 项断言，不需要网络或子代理
@@ -330,13 +304,7 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 
 退出码 `0` 合规 · `2` 违规（列出步骤与命令）· `3` 没有派发记录。
 
-实测结论（详见 [`subagent_test.md`](subagent_test.md)）：
-
-- 同一任务派 7 次，子代理走了 11–86 步；成本尾部取决于首版是否写对，编排消不掉；
-- 唯一一次 A/B 是 16 行改动：自己做 213k，派发 671k（含一次失败重派）/ 466k（不含）；
-- 两次真实项目评审：子代理 10.9 万与 14.7 万，19 条发现里 12 条有效，漏掉两个高影响问题。
-
-## 开发成本（本仓库自身）
+## 📊 开发成本（本仓库自身）
 
 本仓库的开发和验证都在同一个父会话里完成。快照（2026-11-24 读取，此后还会增长）：
 
@@ -349,14 +317,11 @@ python3 tests/audit_compliance.py --session <会话日志> --scope code,static
 | 输出 | 2,049,463 tok |
 | 缓存命中率 | 99.67% |
 | 加权成本（输入 1 / 缓存 0.02 / 输出 4） | 26,453,680 |
-| 使用本技能自举（preflight/postflight 跑自己） | **22 次**（self-review-2 … -11、review-12 … -23）；报告 **220** 条，已修 **89** 条、记录 **5** 条，其余为拒绝/意见/功能请求 |
-| 其中子代理审查自身（普通 subagent，未走技能） | 1 次 |
 
-`self-review-N` 与 `review-N` 是同一序列的两种叫法；本表覆盖到 `review-23`。
-`review-19 … -23` 五轮共 52 条报告，15 条落地；其中 `review-23` 用与父代理相同的
-`deepseek-official/deepseek-flash` 派发，也计一次。
+各轮自举与审查的过程记录在 [`HISTORY.md`](HISTORY.md) 与 [`subagent_test.md`](subagent_test.md)，
+这里只留用量。
 
-## License
+## 📄 License
 
 [AGPL-3.0](LICENSE)
 
