@@ -143,13 +143,14 @@ by the parent's context. Token savings are conditional, not the default.**
 - **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
   the fact; a failure is discarded automatically; the verdict and evidence stay in `MANIFEST.json`
   and the patch, so it can be reproduced later.
-- **A second reader without the baggage.** The subagent only gets the frozen brief and `BASE`. It
-  cannot see the assumptions of the previous dozens of turns, so it does not skip a check because
-  "we already decided X". Across multiple self-review rounds, about 40% survived the parent's item-by-item
+- **A second reader without the baggage.** The subagent does not inherit the parent conversation:
+  it gets the frozen brief and a repo snapshot, so it does not skip a check because "we already
+  decided X". The repo itself may still hold previous tasks and last round's `findings.md`; real
+  independence depends on clearing those. Across multiple self-review rounds, about 40% survived the parent's item-by-item
   reproduction: it can find invariants the parent missed, but its findings must be verified, not
   treated as a backlog.
 - **A clean parent context.** Files the subagent read, paths it tried, test logs — all stay in its
-  own session. The parent sees one `postflight` line, the `git diff --stat` of a passing task, and
+  own session. The parent reads the `postflight` summary, the `git diff --stat` of a passing task, and
   the net diff only when a trigger fires. In long sessions most cost is context re-reading, so a
   short parent context is lighter on every later step.
 
@@ -163,7 +164,7 @@ On the same code and brief: the cheap model (llama) produced 7 findings, 2 lande
 superficial; the parent-equivalent model (deepseek-flash) produced 10, 6 landed, including two
 "silent audit failures" (log suffix, `dispatch.env` fail-open), at about 3.2× the weighted cost.
 Use the cheap model for mechanical and surface-level issues, the same model for verdict logic,
-adapters and audit completeness — and re-verify every finding, because the same model shares the
+adapters and audit completeness — and re-verify every finding, because the same model tends to share the
 parent's blind spots.
 
 ## When to use
@@ -257,7 +258,8 @@ paths (`/c/work/...`), not `C:\...`.
 ## Porting to another harness
 
 The acceptance core (`preflight`/`postflight`: diff, whitelist, history, tests, patch, MANIFEST,
-rollback) only needs git + bash + `python3`. DSH appears only in the **child-session adapter**.
+rollback) only needs git + bash + `python3`. DSH appears only as the **child-session adapter** plus
+two environment inputs (`DSH_SESSION_ID`, `DSH_HOME`).
 Porting means replacing that adapter; the verdict logic does not change.
 
 ### What the adapter provides
@@ -347,8 +349,8 @@ Delete the two lines `preflight` appended to `.git/info/exclude` (`# git-task-bu
 and `/<session id>/`); existing session directories will show up in `git status` again.
 
 **The subagent says the tests pass — can I trust it?**
-No. `postflight` runs the acceptance command itself and records the exit code, and the parent runs
-it once more. A self-report is not evidence.
+No. `postflight` runs the acceptance command as the parent and records the exit code. A
+self-report is not evidence.
 
 **What if the subagent dies or runs out of budget?**
 Pass the real stop reason with `--stop` (`aborted` / `error` / `max-tokens` / `refusal`);
