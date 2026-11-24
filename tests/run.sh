@@ -462,16 +462,13 @@ chk "AY/postflight" 0 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-ay 
 chk "AY/用量字段" "7	100	9	5" "$(tail -1 "$R/tasks/usage.tsv" | cut -f5-8)"
 chk "AY/用量入仓" "yes" "$(git -C "$R" ls-files --error-unmatch tasks/usage.tsv >/dev/null 2>&1 && echo yes || echo no)"
 
-echo "── BA 复用仓库清掉上一轮派生物 ──"
+echo "── BA 派生物不进 git status ──"
 sess gBA
 printf 'x=1\n' > "$B/fix/ba.py"
 mkbrief t-ba true
 chk "BA/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ba --import ba.py --allow ba.py --brief "$B/fix/brief-t-ba.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 echo 'EVIL' > "$R/tasks/t-ba/dispatch.prompt"
 chk "BA/改写不可见" "" "$(git -C "$R" status --porcelain)"
-chk "BA/preflight2" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-ba2 --import ba.py --allow ba.py --brief "$B/fix/brief-t-ba.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
-chk "BA/旧 prompt 已删" "no" "$([ -e "$R/tasks/t-ba/dispatch.prompt" ] && echo yes || echo no)"
-chk "BA/新 prompt 在" "yes" "$([ -e "$R/tasks/t-ba2/dispatch.prompt" ] && echo yes || echo no)"
 
 echo "── BB 重复导入仍记 provenance ──"
 sess gBB

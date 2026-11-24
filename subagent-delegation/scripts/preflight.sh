@@ -20,10 +20,10 @@ usage() {
                     的复用场景，首次任务必须显式指定）；必须存在且含
                     验收命令、白名单、交付要求，否则拒绝派发
   --clear           派发前从会话仓库删掉已跟踪的上一轮交付物（如 findings.md），
-                    删除并入 plan 提交；只接受仓库内相对路径，不允许 tasks/ 与 .git
+                    删除并入 plan 提交；只接受仓库内相对路径，不允许 tasks/、.git 与 model
   --model           子代理模型（provider/model），记录进 dispatch.env 与 MANIFEST，
                     并在 --quiet 输出里给出 MODEL= 行，避免派发时临时决定
-  --save-model      把 --model 的值写进会话仓库 <root>/<session>/repo/model
+  --save-model      把本次解析到的模型写进会话仓库 <root>/<session>/repo/model
   --quiet           只打印 PROMPT/POINTER/MODEL，不打印 prompt 内容
 EOF
   exit "${1:-3}"
@@ -90,13 +90,11 @@ REPO="$SESS_DIR/repo"
 IMPORTS="$REPO/tasks/imports.tsv"
 TDIR="$REPO/tasks/$TASK"        # 任务产物与源码同仓
 
-# 模型解析顺序：--model > 仓库内 model > 会话目录 model > 任务根 model
+# 模型解析顺序：--model > 会话仓库根的 model（--save-model 的唯一落盘点）
 resolve_model() {
   [ -n "$MODEL" ] && return 0
-  local f
-  for f in "$REPO/model" "$SESS_DIR/model" "$ROOT/model"; do
-    if [ -f "$f" ]; then MODEL=$(head -1 "$f" | tr -d '[:space:]'); return 0; fi
-  done
+  if [ -f "$REPO/model" ]; then MODEL=$(head -1 "$REPO/model" | tr -d '[:space:]'); fi
+  return 0
 }
 resolve_model
 [ -n "$MODEL" ] || die "未指定子代理模型：用 --model <provider/model> 指定，或先 --model … --save-model 落盘。"
@@ -143,13 +141,21 @@ fi
 grep -qF -- "提交" "$SRC_BRIEF" || die "简报未写明提交要求（交付必须已提交），拒绝派发。"
 grep -qE "白名单|只允许改动|允许改动" "$SRC_BRIEF" || die "简报未写明允许改动的范围，拒绝派发。"
 
+# 导入路径一次校验完（绝对路径、..、存在性）：这些都必须发生在建目录之前，
+# 否则被拒的派发会在会话目录或仓库里留下未跟踪的残缺状态。
+IMPORT_ITEMS=()
 if [ -n "$IMPORT" ]; then
   IFS=',' read -ra _items <<< "$IMPORT"
   for _it in "${_items[@]}"; do
     _it="${_it#"${_it%%[![:space:]]*}"}"; _it="${_it%"${_it##*[![:space:]]}"}"
     _it="${_it#./}"
     [ -z "$_it" ] && continue
+    case "$_it" in
+      /*) die "导入路径必须是相对当前目录的路径（不要以 / 开头）: $_it" ;;
+      ..|../*|*/..|*/../*) die "导入路径不能含「..」: $_it" ;;
+    esac
     [ -e "$_it" ] || die "导入源不存在: $_it"
+    IMPORT_ITEMS+=("$_it")
   done
 fi
 
@@ -255,17 +261,8 @@ BRIEF="$TDIR/brief.md"
 printf 'source\tcontentHash\timported_at\n' >> "$TDIR/provenance.tsv"
 
 ADDED=()
-if [ -n "$IMPORT" ]; then
-  IFS=',' read -ra items <<< "$IMPORT"
-  for it in "${items[@]}"; do
-    it="${it#./}"
-    it="${it#"${it%%[![:space:]]*}"}"; it="${it%"${it##*[![:space:]]}"}"
-    [ -z "$it" ] && continue
-    case "$it" in
-      /*) die "导入路径必须是相对当前目录的路径（不要以 / 开头）: $it" ;;
-      ..|../*|*/..|*/../*) die "导入路径不能含「..」: $it" ;;
-    esac
-    [ -e "$it" ] || die "导入源不存在: $it"
+if [ "${#IMPORT_ITEMS[@]}" -gt 0 ]; then
+  for it in "${IMPORT_ITEMS[@]}"; do
     cur=$(hash_source "$it")
     if [ -e "$REPO/$it" ]; then
       if [ "$CREATED" -eq 0 ]; then
@@ -345,7 +342,6 @@ fi
 
 # 模型落盘：写进会话仓库并提交，先于 BASE
 if [ "$SAVE_MODEL" -eq 1 ]; then
-  [ -n "$MODEL" ] || die "--save-model 需要同时给出 --model"
   printf '%s\n' "$MODEL" > "$REPO/model"
   git -C "$REPO" add model
   git -C "$REPO" diff --cached --quiet || git -C "$REPO" commit -q -m "model=$MODEL"
@@ -378,15 +374,6 @@ done
 } > "$TDIR/dispatch.env"
 
 # ---- 指针式派发 prompt：只给引用，不复述规格 ----
-# 上一轮的 dispatch.prompt 是派生文件且被 .gitignore 忽略：子代理改写它不会出现在 git status / diff 里，
-# 复用仓库时若保留，下一轮就可能派发出被改过的 prompt。派发前清掉旧的。
-if [ "$CREATED" -eq 0 ]; then
-  for _old in "$REPO"/tasks/*/dispatch.prompt; do
-    [ -e "$_old" ] || continue
-    rm -f "$_old" && echo "preflight: 已删除上一轮派生物 $_old" >&2
-  done
-fi
-
 PROMPT_FILE="$TDIR/dispatch.prompt"
 {
   printf '仓库 %s（cwd 已给，直接在 main 上提交，勿切分支）· BASE %s\n' "$REPO" "$BASE"

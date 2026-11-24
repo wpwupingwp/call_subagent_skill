@@ -314,7 +314,7 @@ exit 3——不会退化成父模型。
 ## 🧪 测试
 
 ```bash
-bash tests/run.sh                    # 196 项断言，不需要网络或子代理
+bash tests/run.sh                    # 193 项断言，不需要网络或子代理
 SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 161 项
 # 没有 zstd 时：用量相关断言整段跳过，仍然 156 通过 / 0 失败
 ```

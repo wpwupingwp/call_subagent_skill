@@ -75,10 +75,8 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 **同一仓库的连续多轮评审，先清掉上一轮交付物。** 子代理不继承父对话，但能读到仓库里的所有
 历史文件——白名单只约束写，不约束读。开始下一轮评审前，用 `preflight --clear findings.md` 清掉
 （删除并入 plan 提交；历史与 `deliveries/<task>.patch` 仍是证据），否则上一轮的结论会出现在下一轮的视野里；确实要
-对照上一轮时，保留它并在简报里写明。清理挡的是顺手读到，不是刻意翻 git 历史。
-
-复用一个已有仓库时，`preflight` 会先删掉上一轮留下的 `tasks/*/dispatch.prompt`（派生文件，被 `.gitignore` 忽略，
-子代理改写它不会出现在 `git status` 与 diff 里），再写本次的 prompt。
+对照上一轮时，保留它并在简报里写明。清理挡的是顺手读到，不是刻意翻 git 历史。只接受仓库内相对路径，
+`tasks/`、`.git` 与 `model` 不允许。
 
 ### 2. preflight（父代理执行，一次）
 
@@ -93,8 +91,7 @@ bash "$SKILL/scripts/preflight.sh" \
   --quiet
 ```
 
-`--clear findings.md` 在派发前删掉已跟踪的上一轮交付物：删除并入 plan 提交，`BASE` 不再包含
-它；只接受仓库内相对路径，`tasks/` 与 `.git` 不允许。
+`--clear` 的语法与判据见 §1 末段，不再重复。
 
 `--import` 把源文件复制进仓库并记录内容哈希（源不在版本控制下时用）；源本身是 git 仓库时，
 可自行用 `git worktree` 准备干净源（本脚本不集成）。已存在的导入路径不会被覆盖，只提示源已变；要更新请换新路径或手动同步。
@@ -113,20 +110,14 @@ MODEL=<provider/model>
 ```
 
 `--model` 记录本次使用的模型（写进 `dispatch.env` 与 `MANIFEST.json`），派发时原样填进 `provider` / `model`。
-`--save-model` 只是把本次解析到的值写进会话仓库的 `model`：首次落盘时必须与 `--model` 一起给；
-之后省略 `--model` 时它会沿用仓库里的旧值，要换模型仍须显式给 `--model`。
+解析只有两级：`--model` > 会话仓库根的 `model`。`--save-model` 把本次解析到的值写进后者并提交，
+是它唯一的落盘点；两处都没有时 `preflight` 直接退出 3——派发必须指明子代理模型，不会退化成父模型。
 
 没有验收命令时（`--allow-no-tests`），`MANIFEST.json` 记 `testsRun=false`、`testExitCode=null`，
 `postflight` 的 `testexit=skipped`，判定只剩白名单、历史与工作树三项。
 
-**首次使用要问用户，不是替用户决定**（选择原则见硬规则 5）：
-
-1. 用 `--model <选择> --save-model` 派发一次，选择会写进**会话仓库级配置** `<工作区>/<会话 id>/repo/model` 并提交；
-2. 之后 `--model` 可省略，`preflight` 按此顺序解析：`--model` > 会话仓库级 `<会话 id>/repo/model` > 会话目录级 `<会话 id>/model` > 工作区级 `<工作区>/model`。
-
-四处都没有模型时 `preflight` 直接退出 3：派发必须指明子代理模型，不会退化成父模型。
-
-没有独立的配置仓库：`--save-model` 只写会话仓库根的 `model`，会话目录级与工作区级只作只读回退。
+**首次使用要问用户，不是替用户决定**（选择原则见硬规则 5）：用 `--model <选择> --save-model` 派发一次，
+选择就落进 `<工作区>/<会话 id>/repo/model` 并提交；之后 `--model` 可省略，要换模型仍须显式给。
 
 #### 简报必须通过三项机械校验
 
