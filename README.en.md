@@ -394,25 +394,23 @@ What we measured (details in [`subagent_test.md`](subagent_test.md)):
 
 ## Development cost (this repository)
 
-The development and validation happened in a single parent session. Snapshot (read on 2026-11-23,
+The development and validation happened in a single parent session. Snapshot (read on 2026-11-24,
 still growing):
 
 | Item | Value |
 |---|---|
-| Steps | 1,406 |
-| Turns | 317 (295 human inputs) |
-| Uncached input | 1,911,413 tok |
-| Cache reads | 513,640,320 tok |
-| Output | 1,227,313 tok |
-| Cache hit rate | 99.63% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | 17,093,471 |
-| Self-dispatched tasks on this skill (preflight/postflight) | **10** (self-review-2 … -11, as of this snapshot); **114** reports, **48** valid after reproduction (43 fixed, 5 logged; includes minors/limits) |
+| Steps | 2,120 |
+| Turns | 401 (369 human inputs) |
+| Uncached input | 2,382,990 tok |
+| Cache reads | 699,139,840 tok |
+| Output | 1,815,588 tok |
+| Cache hit rate | 99.66% |
+| Weighted cost (input 1 / cache 0.02 / output 4) | 23,628,139 |
+| Self-dispatched tasks on this skill (preflight/postflight) | **17** (self-review-2 … -11, review-12 … -18); **168** reports, **74** fixed, **5** logged, the rest rejected/opinions/feature requests |
 | Of which: subagent review of this skill (plain subagent, not via the skill) | 1 run |
 
-"Valid" means reproduced as real, including confirmed but unfixed minors/limits; "fixed" excludes logged-only items.
-
-`self-review-N` and `review-N` are two names for the same sequence; this table counts through
-`self-review-11`, and later rounds such as `review-12` are not included.
+`self-review-N` and `review-N` are two names for the same sequence; this table covers through
+`review-18`. The seven rounds `review-12 … -18` produced 54 reports and 31 landings (including docs).
 
 ## License
 
