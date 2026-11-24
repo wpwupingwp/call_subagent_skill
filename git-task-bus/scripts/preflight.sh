@@ -78,8 +78,8 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }  # POSIX date，BSD/GNU 通用
 
 [ -n "$TASK" ] || { echo "preflight: 必须指定 --task" >&2; usage; }
 
-SESSION="${DSH_SESSION_ID:-unknown}"
-[ -n "${DSH_SESSION_ID:-}" ] || echo "preflight: 警告 —— DSH_SESSION_ID 未设置，会话目录退化为 unknown/" >&2
+[ -n "${DSH_SESSION_ID:-}" ] || die "DSH_SESSION_ID 未设置；本技能必须在 DSH 会话里运行"
+SESSION="$DSH_SESSION_ID"
 SESS_DIR="$ROOT/$SESSION"
 REPO="$SESS_DIR/repo"
 IMPORTS="$REPO/tasks/imports.tsv"

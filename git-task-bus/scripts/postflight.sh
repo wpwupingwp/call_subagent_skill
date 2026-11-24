@@ -39,10 +39,9 @@ done
 [ -n "$TASK" ] || { echo "postflight: 必须指定 --task" >&2; usage; }
 [ -n "${CHILD:-}" ] || { echo "postflight: 必须指定 --child <子代理 id|auto>" >&2; usage; }
 
-ROOT="${ROOT_ARG:-$PWD}"
-SESSION="${DSH_SESSION_ID:-unknown}"
-[ -n "${DSH_SESSION_ID:-}" ] || printf 'postflight: 警告 —— DSH_SESSION_ID 未设置，会话目录退化为 unknown/\n' >&2
-REPO="$ROOT/$SESSION/repo"
+[ -n "${DSH_SESSION_ID:-}" ] || { echo "postflight: DSH_SESSION_ID 未设置；本技能必须在 DSH 会话里运行" >&2; exit 3; }
+SESSION="$DSH_SESSION_ID"
+REPO="${ROOT_ARG:-$PWD}/$SESSION/repo"
 TDIR="$REPO/tasks/$TASK"
 
 TMPD="$TDIR/tmp"
@@ -152,11 +151,7 @@ warn_stop_skipped() {
 # 尽量早解析 --child auto：MANIFEST 也要记录解析后的 id
 if [ "$CHILD" = "auto" ]; then
   if ! resolve_child; then
-    if [ -z "${DSH_SESSION_ID:-}" ]; then
-      warn_stop_skipped "DSH_SESSION_ID 未设置，--child auto 无法匹配"
-    else
-      warn_stop_skipped "--child auto 未匹配到子会话"
-    fi
+    warn_stop_skipped "--child auto 未匹配到子会话"
     CHILD=""
   fi
 fi
