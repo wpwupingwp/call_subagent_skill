@@ -149,11 +149,10 @@ warn_stop_skipped() {
 if [ "$CHILD" = "auto" ]; then
   if ! resolve_child; then
     if [ -z "${DSH_SESSION_ID:-}" ]; then
-      printf 'postflight: DSH_SESSION_ID 未设置，--child auto 无法匹配；请显式传 --child <id>\n' >&2
+      warn_stop_skipped "DSH_SESSION_ID 未设置，--child auto 无法匹配"
     else
-      printf 'postflight: --child auto 未匹配到子会话，childSession 记为 null\n' >&2
+      warn_stop_skipped "--child auto 未匹配到子会话"
     fi
-    warn_stop_skipped "子会话日志不可读"
     CHILD=""
   fi
 fi

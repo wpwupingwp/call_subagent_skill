@@ -2,3 +2,5 @@ session-*/
 .dsh/
 test-run/
 .archify/
+__pycache__/
+*.pyc

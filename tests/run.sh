@@ -309,7 +309,7 @@ chk "Z2/preflight" 0 "$(pf --task t-z2 --import calc.py --allow calc.py $(b t-z2
 printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
 OUT_Z2=$(DSH_HOME="$B/nohome" bash $SK/scripts/postflight.sh --root "$B" --task t-z2 --stop completed --child auto --quiet 2>&1); RC_Z2=$?
 chk "Z2/auto 失败仍通过" 0 "$RC_Z2"
-chk "Z2/auto 失败警告" "yes" "$(printf '%s' "$OUT_Z2" | grep -q '日志不可读' && echo yes || echo no)"
+chk "Z2/auto 失败警告" "yes" "$(printf '%s' "$OUT_Z2" | grep -q 'stop 校正已跳过' && echo yes || echo no)"
 chk "Z2/childSession=null" "None" "$(python3 -c "import json;print(json.load(open('$R/tasks/t-z2/MANIFEST.json'))['childSession'])" 2>/dev/null)"
 # AA：不传 --stop 默认 completed
 sess gAA
