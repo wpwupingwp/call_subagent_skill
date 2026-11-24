@@ -389,19 +389,19 @@ Exit codes `0` compliant · `2` violation (lists steps and commands) · `3` no d
 ## 📊 Development cost (this repository)
 
 Development and validation happened in a single parent session; subagent usage is summed from the
-session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
+session logs by `parentSession`. Snapshot (read on 2026-11-24 17:10, still growing):
 
 | Item | Human | Parent | Subagents |
 |---|---|---|---|
-| Input | 436 messages | — | — |
-| Time | 8 days 15 hours | 6.2 hours in 475 turns | 3.9 hours over 52 sessions |
-| Steps | — | 2,995 | 2,296 |
-| Turns | — | 475 | 52 sessions (9 of them same-model) |
-| Uncached input | — | 2,863,403 tok | 2,556,383 tok |
-| Cache reads | — | 866,122,112 tok | 164,004,057 tok |
-| Output | — | 2,329,029 tok | 862,932 tok |
-| Cache hit rate | — | 99.67% | 98.47% |
-| Weighted cost (input 1 / cache 0.02 / output 4) | — | 29,501,961 | 4,339,885 (only the 9 same-model runs: 600,656 + 226,610 + 2,317 + 664,989 + 612,197 + 220,741 + 1,122,749 + 481,069 + 408,557; the other 43 at `r = 0`) |
+| Input | 452 messages | — | — |
+| Time | 8 days 16 hours | 6.6 hours in 491 turns | 3.9 hours over 56 sessions |
+| Steps | — | 3,159 | 2,329 |
+| Turns | — | 491 | 56 sessions (13 of them same-model) |
+| Uncached input | — | 2,922,725 tok | 2,575,494 tok |
+| Cache reads | — | 905,301,120 tok | 164,415,833 tok |
+| Output | — | 2,463,130 tok | 872,866 tok |
+| Cache hit rate | — | 99.68% | 98.46% |
+| Weighted cost (input 1 / cache 0.02 / output 4) | — | 30,881,267 | 4,406,967 (only the 13 same-model runs: 600,656 + 226,610 + 2,317 + 664,989 + 612,197 + 220,741 + 1,122,749 + 481,069 + 408,557 + 16,141 + 12,052 + 20,970 + 17,920; the other 43 at `r = 0`) |
 
 ### Division of labour
 
