@@ -68,7 +68,7 @@ whenToUse: 需要派发会写文件/写代码的子任务，且希望验收不�
 
 简报写清四件事：目标、允许改动的范围、验收命令（与 `--tests` **完全一致**）、交付要求。
 
-简报可以写在任意位置，用 `--brief <路径>` 传给 `preflight`；它会被拷进仓库的 `tasks/<task>/brief.md` 并提交，成为唯一来源。
+简报可以写在任意位置，用 `--brief <路径>` 传给 `preflight`；它会被拷进仓库的 `tasks/<task>/brief.md` 并提交，成为唯一来源。模板：`templates/brief.md`。
 
 ### 2. preflight（父代理执行，一次）
 

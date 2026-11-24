@@ -67,7 +67,7 @@ fi
 
 # 2. 依赖命令
 MISSING=""
-for c in sed grep cp tar date tr dirname basename head tail awk python3; do
+for c in sed grep cp tar date tr dirname basename head tail awk find mktemp python3; do
   command -v "$c" >/dev/null 2>&1 || MISSING="$MISSING $c"
 done
 if [ -z "$MISSING" ]; then ok "依赖命令齐全（POSIX 基本工具 + python3）"
