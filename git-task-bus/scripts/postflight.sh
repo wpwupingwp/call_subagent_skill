@@ -13,8 +13,8 @@ usage() {
 判定不通过时自动丢弃：归档 patch → 还原工作区（丢弃前的 patch 存为 deliveries/<task>.abandoned.patch）。
 
 说明:
-  --stop         子代理的 stopReason，默认 completed。子代理非正常结束时必须显式传入
-                   （aborted/error/max-tokens/refusal），否则按 completed 处理。
+  --stop         子代理的 stopReason。子代理非正常结束时请显式传入
+                 （aborted/error/max-tokens/refusal）；日志不可读且未传时按 completed 处理。
   --root         工作区根目录（默认当前目录），用于定位 <root>/<session>/repo。
   --child        子代理会话 id（或 auto）。必填；从 DSH 会话日志读取 stop 与用量。
   --usage        手工指定用量（覆盖 --child 的自动读取）。
@@ -141,7 +141,13 @@ fi
 
 CHILD_META_OK=0; CHILD_STOP=""; CHILD_USAGE=""
 if [ -n "${CHILD:-}" ]; then
-  read_child_meta || true
+  if ! read_child_meta; then
+    if [ -n "${STOP_GIVEN:-}" ]; then
+      printf 'postflight: 子会话日志不可读，stop 校正已跳过；按 --stop=%s 判定\n' "$STOP" >&2
+    else
+      printf 'postflight: 子会话日志不可读，stop 校正已跳过；按默认 completed 判定（非正常结束请显式传 --stop）\n' >&2
+    fi
+  fi
 fi
 
 # 用子会话日志的结束原因校正 --stop：日志是事实，命令行是转述
@@ -155,7 +161,7 @@ if [ "$CHILD_META_OK" -eq 1 ] && [ -n "$CHILD_STOP" ]; then
   fi
 fi
 
-# 读子会话最后一个 turn/end 的结束原因，用于校验 --stop
+# now_utc：usage.tsv 时间戳
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 count_lines() {

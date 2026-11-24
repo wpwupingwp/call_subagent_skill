@@ -253,9 +253,9 @@ Porting means replacing that adapter; the verdict logic does not change.
 
 - **stop is a verdict latch**: anything other than `completed` fails, so a truncated delivery cannot
   pass just because tests happen to be green.
-- **unreadable logs fall back semi-silently**: with an explicit `--child` whose log is missing,
-  `postflight` only warns that usage cannot be read, skips stop correction, and uses `--stop` as
-  given (or `completed` if omitted). Pass the correct `--stop` explicitly if you need a trustworthy
+- **unreadable logs fall back to `--stop`**: with an explicit `--child` whose log is missing,
+  `postflight` warns that the log is unreadable, skips stop correction, and uses `--stop` as given
+  (or `completed` if omitted). Pass the correct `--stop` explicitly if you need a trustworthy
   verdict.
 - **usage is audit-only**: it lands in `tasks/usage.tsv` (MANIFEST records only `childSession` and
   `stopReason`) and does not affect the verdict; use `usage_of.sh` or explicit `--usage` when

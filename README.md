@@ -229,8 +229,8 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 | usage | `assistant/message.usage` 的 `inputTokens` / `outputTokens` / `cacheReadTokens`，按步累加 | 不记录；`--usage` 可手填 |
 
 - **stop 是判定闩锁**：非 `completed` 一律 fail，避免被截断的交付因为测试碰巧通过而被接受。
-- **日志读不到时是半静默回退**：显式 `--child` 但对应日志缺失时，`postflight` 只提示用量无法读取，
-  stop 校正整段跳过，`--stop` 按原样判定（未传则 `completed`）；此时要保证判定可信，必须显式传对
+- **日志读不到时回退到 `--stop`**：显式 `--child` 但对应日志缺失时，`postflight` 会提示日志不可读、
+  stop 校正跳过，按 `--stop` 判定（未传则 `completed`）；此时要保证判定可信，必须显式传对
   `--stop`。
 - **usage 只用于审计**：写进 `tasks/usage.tsv`（MANIFEST 只记 `childSession` 和 `stopReason`），
   不参与判定；要算 `r` 时用 `usage_of.sh` 或显式 `--usage`。
