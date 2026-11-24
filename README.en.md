@@ -44,14 +44,6 @@ our measurements); reviews usually cost more; the subagent's review can miss thi
 still need item-by-item checking; and "independent" means independent context, not a permission
 boundary. Token savings depend on `r`, task size and batching — see [the section on `r`](#when-token-savings-are-possible-r).
 
-**Dispatching the same model (`r ≈ 1`)** keeps the independent check and the isolation, and loses only the savings.
-On the same code and brief: the cheap model (llama) produced 7 findings, 2 landed, mostly
-superficial; the parent-equivalent model (deepseek-flash) produced 10, 6 landed, including two
-"silent audit failures" (log suffix, `dispatch.env` fail-open), at about 3.2× the weighted cost.
-Use the cheap model for mechanical and surface-level issues, the same model for verdict logic,
-adapters and audit completeness — and re-verify every finding, because the same model tends to share the
-parent's blind spots.
-
 ## Quick start
 
 ### Install
@@ -184,8 +176,13 @@ batch ten of them:                  about 210 each → saves 51%
 
 **Batching is what pays, not a cheaper model.** Review/document work usually fails the savings
 test (measured 109k–147k per run); what you get is a second independent read.
-With the same model (`r ≈ 1`) you buy audit and isolation only; across unattended rounds the cost
-adds up linearly, so budget the rounds before starting.
+
+**Dispatching the same model (`r ≈ 1`)** is not in that table — it buys no savings, only an independent
+pair of eyes and a rollbackable delivery. A workable split: hand mechanical and surface-level changes
+to the cheap model, and keep verdict logic, adapters and audit completeness — the places where a
+mistake stays silent — for a stronger model, including a same-model subagent. Either way the same
+model tends to inherit the parent's blind spots, so verify findings item by item; and across
+unattended rounds the cost adds up linearly, so budget the rounds before starting.
 
 ## How it works
 
