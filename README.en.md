@@ -263,9 +263,10 @@ Porting means replacing that adapter; the verdict logic does not change.
 - **The DSH settlement notice is not a substitute**: the parent gets prose (`finished`, `was stopped
   before it finished`, `ran out of room`), the text carries no id, and the exact `stopReason` lives
   only in metadata no script can read. The adapter reads the log for the exact enum and `childSession`.
-- **zstd is not a separate dependency**: logs are
-  `<DSH_HOME>/sessions/<slug>/<id>/session.v4.jsonl.zstd` and DSH ships zstd; `doctor.sh` does not
-  check it. On a harness without zstd, replace the decompression.
+- **The log suffix follows DSH config**: `session.v4.jsonl.zstd` with `compression: zstd`,
+  `session.v4.jsonl` with `none`; the adapter accepts both and only decompresses the former. zstd is
+  not a separate dependency (DSH ships it) and `doctor.sh` does not check it; on a harness without
+  zstd, replace the decompression.
 
 Cost (measured here, 220 sessions): one child-log read ~20ms; `--child auto` scans first lines in
 ~0.8s; explicit id ~30ms; reading the parent log's `subagent/catalog` (the other id source) ~0.66s.
@@ -367,8 +368,8 @@ turn. Re-run it after updating the skill.
 ## Tests and measurements
 
 ```bash
-bash tests/run.sh                    # 139 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 104 total
+bash tests/run.sh                    # 154 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 119 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

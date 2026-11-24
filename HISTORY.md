@@ -577,6 +577,10 @@ review-21（同日）：usage_of.sh 的用法行同步“显式 id 优先，--la
 
 review-22（同日）：postflight 在 `source` 前用 `bash -n` 校验 `dispatch.env`，损坏（如未闭合引号）时按既有的环境错误 `exit 3`，不再让 source 中途终止脚本、既无判定也不回滚；audit_compliance 的 sed 解析补上“`-i` 写在脚本之后”（`sed -e 's/a/b/' -i x`）。断言 134/99 → 139/104。
 
+review-23（同日，同模型派发：`deepseek-official/deepseek-flash`）：落地 6 处。`--child` 适配器与 `usage_of.sh` 接受 `session.v4.jsonl`（DSH `compression: none`），此前会静默跳过 stop 校正、把 aborted 子代理判成 pass；postflight 加 EXIT trap，未完成判定却以 0 退出（如 `dispatch.env` 被追加 `exit 0`）改判环境错误，并校验 `BASE`/`ALLOW` 键；`--import` 与 doctor `--src` 的逗号列表统一去空白；测试在仓库留下未提交改动时给出警告；SKILL 的 quiet 行数与输出描述、doctor 依赖清单、`subagent_test.md` 的断言数同步修正。断言 139/104 → 154/119。
+
+未改（记录）：符号链接 `--root` 时 exclude 模式落到逻辑路径（子代理给出 macOS `/tmp` 复现，父代理未复现，属边界）；会话仓库 `.gitignore` 只列 Python 产物——有意不自动忽略未知产物，其他语言的构建产物请自行加忽略或放到仓库外。
+
 ## 自举小结：review-12 … review-18（2026-11-24）
 
 | 轮次 | 报告 | 落地 | 本轮主题 |

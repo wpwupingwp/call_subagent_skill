@@ -39,27 +39,33 @@ import os, sys
 root = sys.argv[1]
 best, newest = "", -1.0
 for dp, _, files in os.walk(root):
-    if "session.v4.jsonl.zstd" not in files:
-        continue
-    p = os.path.join(dp, "session.v4.jsonl.zstd")
-    try:
-        m = os.path.getmtime(p)
-    except OSError:
-        continue
-    if m > newest:
-        newest, best = m, p
+    for name in ("session.v4.jsonl.zstd", "session.v4.jsonl"):
+        if name not in files:
+            continue
+        p = os.path.join(dp, name)
+        try:
+            m = os.path.getmtime(p)
+        except OSError:
+            continue
+        if m > newest:
+            newest, best = m, p
 print(best)
 PY
 )
 else
   [ "$LATEST" -eq 1 ] && echo "usage_of: 同时给了 id 与 --latest，按 id 处理" >&2
-  LOG=$(find "$SESS_ROOT" -type f -path "*/$ID/session.v4.jsonl.zstd" 2>/dev/null | head -1)
+  # 日志后缀取决于 DSH 的 compression 配置（zstd 或 none），两种都要认
+  LOG=$(find "$SESS_ROOT" -type f \( -path "*/$ID/session.v4.jsonl" -o -path "*/$ID/session.v4.jsonl.zstd" \) 2>/dev/null | head -1)
 fi
 
 [ -n "${LOG:-}" ] || { echo "usage_of: 找不到会话日志（id=$ID）" >&2; exit 3; }
-command -v zstd >/dev/null 2>&1 || { echo "usage_of: 需要 zstd 解压会话日志" >&2; exit 3; }
+DECOMP=(cat)
+case "$LOG" in
+  *.zstd) command -v zstd >/dev/null 2>&1 || { echo "usage_of: 需要 zstd 解压会话日志" >&2; exit 3; }
+          DECOMP=(zstd -dc) ;;
+esac
 
-zstd -dc "$LOG" 2>/dev/null | python3 -c '
+"${DECOMP[@]}" "$LOG" 2>/dev/null | python3 -c '
 import json, sys
 steps = tin = tout = tcache = 0
 for line in sys.stdin:

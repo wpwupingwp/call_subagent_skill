@@ -45,6 +45,13 @@ REPO="${ROOT_ARG:-$PWD}/$SESSION/repo"
 TDIR="$REPO/tasks/$TASK"
 
 TMPD="$TDIR/tmp"
+# dispatch.env 在子代理可写的工作树里，一行提前 exit（或未闭合引号）就能让脚本
+# 在判定前终止。语法先查；执行后的正常出口会置 DONE=1，未判定却以 0 退出即判环境错误。
+DONE=0
+trap 'rc=$?; if [ "$rc" -eq 0 ] && [ "$DONE" -ne 1 ]; then
+        echo "postflight: 未完成判定就以 0 退出（dispatch.env 可能含提前 exit），仓库未还原；检查后重跑" >&2
+        exit 3
+      fi' EXIT
 [ -f "$TDIR/dispatch.env" ] || { echo "postflight: 缺少 $TDIR/dispatch.env，先跑 preflight.sh" >&2; exit 3; }
 # 文件损坏（如未闭合引号）会让 source 中途终止整个脚本，判定与回滚都不执行；
 # 先做语法检查，归入与「文件缺失」相同的环境错误。
@@ -54,6 +61,9 @@ if ! bash -n "$TDIR/dispatch.env" 2>/dev/null; then
 fi
 # shellcheck disable=SC1090
 . "$TDIR/dispatch.env"
+# 缺键（如文件被截断）会让后面的 ${BASE} 在 set -u 下直接中止，仍没有判定与回滚。
+[ -n "${BASE:-}" ]  || { echo "postflight: dispatch.env 缺少 BASE" >&2; exit 3; }
+[ -n "${ALLOW:-}" ] || { echo "postflight: dispatch.env 缺少 ALLOW" >&2; exit 3; }
 
 # 兼容旧 dispatch.env 里的相对路径：先归一化，再 cd；之后的输出路径都是绝对的。
 REPO_RAW="$REPO"
@@ -85,10 +95,22 @@ if git cat-file -e "HEAD:tasks/$TASK/MANIFEST.json" 2>/dev/null; then
   exit 3
 fi
 
-# --child 读 DSH 会话日志；压缩工具由 DSH 环境保证。
+# --child 读 DSH 会话日志。日志后缀由 DSH 的 compression 配置决定（zstd 或 none），
+# 两种都要认；只有 .zstd 才需要 zstd 解压。
 child_log() {
-  local id="$1"
-  find "${DSH_HOME:-$HOME/.dsh}/sessions" -type f -path "*/$id/session.v4.jsonl.zstd" 2>/dev/null | head -1
+  local id="$1" name f
+  for name in session.v4.jsonl.zstd session.v4.jsonl; do
+    f=$(find "${DSH_HOME:-$HOME/.dsh}/sessions" -type f -path "*/$id/$name" 2>/dev/null | head -1)
+    [ -n "$f" ] && { printf '%s\n' "$f"; return 0; }
+  done
+}
+
+# 解密/直读统一入口：read_child_meta 与 resolve_child 都靠它。
+log_read() {
+  case "$1" in
+    *.zstd) zstd -dc "$1" 2>/dev/null ;;
+    *) cat "$1" 2>/dev/null ;;
+  esac
 }
 
 # --child auto：按 parentSession + createdAt 找本次派发的子会话
@@ -107,11 +129,11 @@ except Exception:
   while IFS= read -r f; do
     local first t
     # head 读到首行就关闭管道；sed -n 1p 会把整份日志读完，成本高一个数量级。
-    first=$(zstd -dc "$f" 2>/dev/null | head -n 1 || true)
+    first=$(log_read "$f" | head -n 1 || true)
     case "$first" in *"\"parentSession\":\"$parent\""*) ;; *) continue ;; esac
     t=$(printf '%s' "$first" | sed -n 's/.*"createdAt":\([0-9]*\).*/\1/p')
     [ -n "$t" ] && [ "$t" -ge "$since" ] && [ "$t" -gt "$best_t" ] && { best_t=$t; best=$f; }
-  done < <(find "$home/sessions" -type f -name 'session.v4.jsonl.zstd' 2>/dev/null)
+  done < <(find "$home/sessions" -type f \( -name 'session.v4.jsonl.zstd' -o -name 'session.v4.jsonl' \) 2>/dev/null)
   [ -n "$best" ] || return 1
   CHILD=$(basename "$(dirname "$best")")
   echo "postflight: 自动匹配到子代理会话 $CHILD" >&2
@@ -123,7 +145,7 @@ read_child_meta() {
   local log out
   log=$(child_log "$CHILD")
   [ -n "$log" ] || return 1
-  out=$(zstd -dc "$log" 2>/dev/null | python3 -c '
+  out=$(log_read "$log" | python3 -c '
 import json, sys
 steps=ti=to=tc=0
 kind=""
@@ -251,6 +273,12 @@ else
   printf '（未配置验收命令：判定只覆盖白名单、历史与工作树）\n' > "$TDIR/test.log"
 fi
 TEST_DISPLAY="${TEST_EXIT:-skipped}"
+
+# 验收命令可能留下产物或改动文件；改动清单在测试前已定格，这里只把风险说出来。
+DIRTY_AFTER=$(git status --porcelain 2>/dev/null | grep -c . || true)
+if [ "${DIRTY_AFTER:-0}" -gt 0 ]; then
+  printf 'postflight: 测试在仓库留下 %s 项未提交改动（不计入本次判定）；先清理，否则下一次 preflight 会拒绝派发\n' "$DIRTY_AFTER" >&2
+fi
 
 # ---- 7. 判定 ----
 VERDICT="pass"; EXIT=0
@@ -453,7 +481,7 @@ if [ "$QUIET" -eq 1 ]; then
     printf 'verdict=%s stop=%s changed=%s violations=%s history=%s dirty=%s testexit=%s patch=%s\n' \
       "$VERDICT" "$STOP" "$CHANGED_COUNT" "$VIOLATION_COUNT" "$REWRITTEN" "$DIRTY_COUNT" "$TEST_DISPLAY" "$PATCH"
   fi
-  exit "$EXIT"
+  DONE=1; exit "$EXIT"
 fi
 
 echo "──────── postflight: $TASK ────────"
@@ -474,4 +502,4 @@ if [ "$VIOLATION_COUNT" -gt 0 ]; then
   sed 's/^/  /' "$TMPD/violations.txt"
 fi
 echo "────────────────────────────────────"
-exit "$EXIT"
+DONE=1; exit "$EXIT"

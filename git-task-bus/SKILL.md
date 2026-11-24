@@ -91,7 +91,7 @@ bash "$SKILL/scripts/preflight.sh" \
 
 **仓库由 `preflight` 创建**（见硬规则 3）：每个对话一个，从头到尾只有 `main` 一条分支；任务不单独建仓、不建分支。
 
-`--quiet` 让 stdout 只剩两行；给了 `--model` 则三行（诊断信息走 stderr）：
+`--quiet` 让 stdout 只剩三行（模型必填，诊断信息走 stderr）：
 
 ```
 PROMPT=<会话仓库>/tasks/<task>/dispatch.prompt
@@ -153,8 +153,8 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 
 不要为了看细节重跑 `postflight`；需要细节时在第一次运行时去掉 `--quiet`。同一任务 id 只能判定一次，重判请换新任务 id。
 
-非 quiet 依次输出：`git status` 快照、越界违规清单、测试日志、`deliveries/<task>.patch`、
-`MANIFEST.json`（BASE、head、contentHash、测试退出码、verdict）。
+非 quiet 输出一屏摘要：BASE、HEAD、stop、变更与违规计数、测试退出码、patch 路径、verdict；
+有越界时附文件清单。完整的 `git status` 快照、test.log、`MANIFEST.json` 只落盘，需要时自己 `cat`。
 
 退出码：`0` 通过 · `1` 测试失败或 stopReason 异常 · `2` 违规（越界/改写历史/未提交交付）· `3` 配置或环境错误（含 MANIFEST 生成失败）。
 

@@ -9,9 +9,9 @@ usage() {
 
 检查项：
   git 是否可用、版本是否 >= 2.28
-  依赖命令：sed grep cp tar date tr dirname basename head tail awk python3
-  （除 python3 外都是 POSIX 基本工具；awk 用于 --import 的路径校验，python3 用于生成
-  MANIFEST.json 与解析用量）
+  依赖命令：git sed grep cp tar date tr dirname basename head tail awk find mktemp python3
+  （除 python3 外都是 POSIX 基本工具；awk 用于查 imports.tsv 旧哈希与 envcheck 的首词，
+  python3 用于生成 MANIFEST.json 与解析用量）
   任务根目录是否可创建、可写（默认当前目录；沙箱下请用 --root 指向可写工作区）
   --src 列出的源路径是否可读
 
@@ -90,6 +90,7 @@ fi
 if [ -n "$SRC" ]; then
   IFS=',' read -ra items <<< "$SRC"
   for it in "${items[@]}"; do
+    it="${it#"${it%%[![:space:]]*}"}"; it="${it%"${it##*[![:space:]]}"}"
     it="${it#./}"
     [ -z "$it" ] && continue
     if [ -r "$it" ]; then ok "源路径可读: $it"; else bad "源路径不可读: $it"; fi

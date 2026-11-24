@@ -237,8 +237,9 @@ git + bash + `python3`；DSH 只出现在**子会话适配器**里。换 harness
 - **DSH 的完成通知不是替代品**：父代理收到的是自然语言（`finished`、`was stopped before it
   finished`、`ran out of room`），正文里没有 id，精确 `stopReason` 只在元数据里；脚本读不到，
   也无法据此核对 `--stop`。所以适配器读日志，拿精确枚举和 `childSession`。
-- **zstd 不是独立依赖**：日志是 `<DSH_HOME>/sessions/<slug>/<id>/session.v4.jsonl.zstd`，由
-  DSH 环境自带 zstd；`doctor.sh` 不检查它。非 DSH 环境没有 zstd 时，替换解压方式即可。
+- **日志后缀随 DSH 配置变**：`compression: zstd` 时是 `session.v4.jsonl.zstd`，`none` 时是
+  `session.v4.jsonl`；适配器两种都认，只有前者需要解压。zstd 不是独立依赖（DSH 自带），
+  `doctor.sh` 不检查它。非 DSH 环境没有 zstd 时，替换解压方式即可。
 
 代价（本机实测，220 个会话）：读一次子日志约 20ms；`--child auto` 扫首行约 0.8s；显式 id 约
 30ms；读父日志的 `subagent/catalog`（另一种 id 来源）约 0.66s。`auto` 的成本在“找 id”，不在
@@ -327,8 +328,8 @@ exit 3——不会退化成父模型。
 ## 自检与实测
 
 ```bash
-bash tests/run.sh                    # 139 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 104 项
+bash tests/run.sh                    # 154 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 119 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、

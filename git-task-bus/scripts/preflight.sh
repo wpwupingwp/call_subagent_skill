@@ -141,6 +141,7 @@ grep -qE "白名单|只允许改动|允许改动" "$SRC_BRIEF" || die "简报未
 if [ -n "$IMPORT" ]; then
   IFS=',' read -ra _items <<< "$IMPORT"
   for _it in "${_items[@]}"; do
+    _it="${_it#"${_it%%[![:space:]]*}"}"; _it="${_it%"${_it##*[![:space:]]}"}"
     _it="${_it#./}"
     [ -z "$_it" ] && continue
     [ -e "$_it" ] || die "导入源不存在: $_it"

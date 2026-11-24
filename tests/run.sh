@@ -66,6 +66,25 @@ sess gF
 chk "F/preflight" 0 "$(pf --task t-f --import calc.py --allow calc.py $(b t-f) --tests true)"
 chk "F/应 1" 1 "$(po t-f max-tokens)"
 
+echo "── PL 明文会话日志（compression: none） ──"
+sess gPL
+chk "PL/preflight" 0 "$(pf --task t-pl --import calc.py --allow calc.py $(b t-pl) --tests true)"
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
+FHPL="$B/fhpl"; DPL="$FHPL/sessions/p/sid-plain"; mkdir -p "$DPL"
+{ printf '{"type":"session","id":"sid-plain","createdAt":%s,"parentSession":"%s","origin":"subagent"}\n' "$(date +%s)000" "$DSH_SESSION_ID"
+  printf '{"type":"assistant/message","data":{"usage":{"inputTokens":4,"outputTokens":5,"cacheReadTokens":6}}}\n'
+  printf '{"type":"turn/end","data":{"reason":{"kind":"aborted"}}}\n'
+} > "$DPL/session.v4.jsonl"
+chk "PL/明文日志 stop=aborted" 1 "$(DSH_HOME="$FHPL" bash "$SK/scripts/postflight.sh" --root "$B" --task t-pl --child sid-plain --quiet >/dev/null 2>&1; echo $?)"
+chk "PL/明文日志记用量" "t-pl	test/model	fail	1	4	5	6" "$(tail -1 "$R/tasks/usage.tsv" | cut -f2-8)"
+
+echo "── DT 测试留产物 ──"
+sess gDT
+chk "DT/preflight" 0 "$(pf --task t-dt --import calc.py --allow calc.py $(b t-dt) --tests 'touch residue.txt')"
+printf 'x\n' >> "$R/calc.py"; git -C "$R" commit -qam child
+chk "DT/postflight 仍通过" 0 "$(po t-dt)"
+chk "DT/提示未提交改动" "yes" "$(grep -q '测试在仓库留下' "$B/t-dt.out" && echo yes || echo no)"
+
 echo "── J 漏提交 ──"
 sess gJ
 chk "J/preflight" 0 "$(pf --task t-j --import calc.py --allow calc.py $(b t-j) --tests true)"
@@ -175,6 +194,13 @@ chk "AE/索引已记录" "yes" "$([ -f "$R/tasks/imports.tsv" ] && echo yes || e
 chk "AE/审查目录在仓库外" "yes" "$([ -d "$B/gAE/reviews" ] && echo yes || echo no)"
 chk "AE/仓库内无 reviews" "no" "$([ -d "$R/tasks/t-ae1/reviews" ] && echo yes || echo no)"
 
+echo "── IM 导入列表去空白 ──"
+sess gIM
+printf 'x=1\n' > "$B/fix/im2.py"
+mkbrief t-im true
+chk "IM/逗号后空格" 0 "$(bash "$SK/scripts/preflight.sh" --model test/model --root "$B" --task t-im --import 'calc.py, im2.py' --allow calc.py,im2.py --brief "$B/fix/brief-t-im.md" --tests true >/dev/null 2>&1; echo $?)"
+chk "IM/两个文件都已导入" "yes" "$([ -f "$R/im2.py" ] && [ -f "$R/calc.py" ] && echo yes || echo no)"
+
 echo "── AH 仓库锁 ──"
 sess gAH
 chk "AH/preflight" 0 "$(pf --task t-ah --import calc.py --allow calc.py $(b t-ah) --tests true)"
@@ -253,6 +279,21 @@ printf 'x="\n' >> "$R/tasks/t-be/dispatch.env"
 chk "BE/应 3" 3 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-be --child test-child --quiet >"$B/be.out" 2>&1; echo $?)"
 chk "BE/提示语法损坏" "yes" "$(grep -q '语法损坏' "$B/be.out" && echo yes || echo no)"
 chk "BE/未产生判定提交" "yes" "$(git -C "$R" log -1 --format=%s | grep -q 'plan' && echo yes || echo no)"
+
+echo "── B2 dispatch.env 提前 exit ──"
+sess gB2
+chk "B2/preflight" 0 "$(pf --task t-b2 --import calc.py --allow calc.py $(b t-b2) --tests true)"
+printf 'exit 0\n' >> "$R/tasks/t-b2/dispatch.env"
+chk "B2/应 3" 3 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-b2 --child test-child --quiet >"$B/b2.out" 2>&1; echo $?)"
+chk "B2/提示未完成判定" "yes" "$(grep -q '未完成判定' "$B/b2.out" && echo yes || echo no)"
+chk "B2/未产生判定提交" "yes" "$(git -C "$R" log -1 --format=%s | grep -q 'plan' && echo yes || echo no)"
+
+echo "── B3 dispatch.env 缺键 ──"
+sess gB3
+chk "B3/preflight" 0 "$(pf --task t-b3 --import calc.py --allow calc.py $(b t-b3) --tests true)"
+sed -i '/^BASE=/d' "$R/tasks/t-b3/dispatch.env"
+chk "B3/应 3" 3 "$(bash "$SK/scripts/postflight.sh" --root "$B" --task t-b3 --child test-child --quiet >"$B/b3.out" 2>&1; echo $?)"
+chk "B3/提示缺少 BASE" "yes" "$(grep -q '缺少 BASE' "$B/b3.out" && echo yes || echo no)"
 
 if [ "${SKIP_USAGE_TESTS:-0}" != 1 ] && command -v zstd >/dev/null 2>&1; then
 echo "── AF 子会话结束原因校验 ──"
