@@ -4,3 +4,4 @@ test-run/
 .archify/
 __pycache__/
 *.pyc
+src[0-9]*/
