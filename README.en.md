@@ -193,11 +193,15 @@ each time: the first three decide fit, and the fourth decides whether this is al
 **Concurrency and multiple rounds.** The skill is serial: dispatch one subagent, wait for its
 commit and acceptance, then dispatch the next. The parent can drive unattended multi-round edits or
 reviews this way, still running preflight → dispatch → postflight per round, with automatic rollback
-on failure. It cannot dispatch concurrently, and it does not decide whether a review's conclusions
-are correct.
-review-12 … review-23 are twelve consecutive recorded rounds: each keeps `BASE`/`HEAD`, patch,
-`MANIFEST` and usage, so rounds are comparable; the audit chain and the token bill both grow with
-the number of rounds — unattended saves human time, not the item-by-item verification.
+on failure. It cannot dispatch concurrently. review-12 … review-23 are twelve consecutive recorded
+rounds: each keeps `BASE`/`HEAD`, patch, `MANIFEST` and usage, so rounds are comparable.
+
+**Unattended: the parent judges each round and records the verdict.** Every finding gets a level,
+evidence, a verdict (accepted / rejected / opinion) and a reason; accepted ones land as commits and
+tests, rejected ones stay comparable against the subagent's original `findings.md`. What the human
+reviews afterwards is the **record plus spot checks** — the diff and tests of accepted items, and a
+few rejections against the original — not a re-run. The judgment is not skipped; it moves from the
+human to the parent and from process time to result time.
 
 **Review-style work** can only be checked for structure and references (fields, anchors, links); it
 cannot catch a wrong conclusion, and when there is nothing structural to check it needs
