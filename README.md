@@ -42,51 +42,16 @@ cp -r subagent-delegation ~/.dsh/skills/             # 本机所有会话（会�
 
 ### 跑一次
 
-```bash
-SKILL=/path/to/subagent-delegation
-
-# 1. 每台机器一次：确认 git、权限、依赖命令
-bash "$SKILL/scripts/doctor.sh"
-
-# 2. 写简报 tasks/t1/brief.md（目标、允许改动的范围、验收命令、交付要求）
-#    写完用 "$SKILL/scripts/envcheck.sh" --tests '<命令>' 确认命令能跑：
-#    0 或 1 都正常（基线红是预期的），3 表示命令根本不存在
-
-# 3. 建仓库、冻结 BASE 与白名单
-bash "$SKILL/scripts/preflight.sh" \
-  --task t1 \
-  --import src,test_src.py \
-  --allow src \
-  --tests 'python3 -m pytest -q test_src.py' \
-  --model llama/LLaMA --quiet
-```
+人只需要开口：说一句「这个任务派发」或「不用派发」，其余由父代理按[下一节](#什么时候用)判断并执行。
+一轮下来你看到的是结论，而不是过程：
 
 ```
-PROMPT=.../repo/tasks/t1/dispatch.prompt
-POINTER=读 .../repo/tasks/t1/dispatch.prompt 并按其执行
-MODEL=llama/LLaMA
+verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deliveries/t1.patch
 ```
 
-这里的测试由父代理先写、派发前冻结：验收命令写进简报，测试文件用 `--import` 拷进仓库，但
-**不要放进 `--allow`**——子代理只能改实现，改了测试就是越界。`postflight` 最后以父代理身份
-重跑同一条命令，不采信子代理的自述。修 bug 时基线测试可以是红的（`envcheck` 返回 1），
-派发后必须转绿。
-
-评审/文档类如果没有可机械检查的结构，用 `--allow-no-tests` 显式声明，并在简报里写「人工核对」；
-否则 `preflight` 以 exit 3 拒绝。这样“没有验收命令”会成为 MANIFEST 里可见的状态（`testsRun=false`），
-而不是静默通过。
-
-4. 把 `POINTER` 那一行原样交给子代理（`cwd` = 仓库路径），然后结束回合。
-5. 子代理提交后验收：
-
-```bash
-bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --quiet
-# verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=.../deliveries/t1.patch
-```
-
-通过就把 `deliveries/t1.patch` 合回主树；不通过时仓库已经回到 `BASE`，改动存为
-`deliveries/t1.abandoned.patch` 供事后查看。判定降级为 `error` 时 patch 存为
-`deliveries/<task>.error.patch`，并写一份兜底 `MANIFEST.json`。
+通过就把 `deliveries/t1.patch` 合回工作树；不通过时仓库已回到 `BASE`，改动留作 `*.abandoned.patch` 供事后查看。
+有一点值得知道：验收测试由父代理先写、派发前冻结，子代理只改实现，改测试即为越界——所以「测试通过」不是子代理的自述。
+命令写法、简报格式、`--allow-no-tests` 的用法都在 [`SKILL.md`](subagent-delegation/SKILL.md)，那是给模型读的规范，这里不重复。
 
 ## 什么时候用
 
@@ -231,6 +196,8 @@ git 侧直接用 2.28 的命令：`git init -b`、`git switch`、`git worktree l
 
 Windows 上注意两点：脚本必须是 LF 换行（加 `.gitattributes` 或设 `core.autocrlf=false`）；
 路径用 POSIX 风格（`/c/work/...`），不要传 `C:\...`。
+
+装好后跑一次 `bash subagent-delegation/scripts/doctor.sh`，缺什么它会直接说。
 
 ## 移植到其他 harness
 

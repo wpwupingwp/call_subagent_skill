@@ -60,54 +60,20 @@ you can still read `SKILL.md` directly and replace `<skill dir>` with its real p
 
 ### One run
 
-```bash
-SKILL=/path/to/subagent-delegation
-
-# 1. once per machine: check git, permissions and dependencies
-bash "$SKILL/scripts/doctor.sh"
-
-# 2. write the brief at tasks/t1/brief.md (goal, allowed paths, acceptance command, delivery rules)
-#    then confirm the command itself runs:
-#    "$SKILL/scripts/envcheck.sh" --tests '<command>'
-#    0 or 1 is fine (a red baseline is expected); 3 means the command does not exist
-
-# 3. create the repo and freeze BASE + whitelist
-bash "$SKILL/scripts/preflight.sh" \
-  --task t1 \
-  --import src,test_src.py \
-  --allow src \
-  --tests 'python3 -m pytest -q test_src.py' \
-  --model llama/LLaMA --quiet
-```
+The human only has to say it: "dispatch this one" or "don't dispatch", and the parent judges from
+[the next section](#when-to-use) and runs the round. What you see afterwards is the verdict, not the
+process:
 
 ```
-PROMPT=.../repo/tasks/t1/dispatch.prompt
-POINTER=read .../repo/tasks/t1/dispatch.prompt and follow it
-MODEL=llama/LLaMA
+verdict=pass changed=3 violations=0 history=no dirty=0 testexit=0 patch=.../deliveries/t1.patch
 ```
 
-4. Pass the `POINTER` line verbatim to the subagent (`cwd` = the repo), then end the turn.
-
-The tests are written by the parent and frozen before dispatch: the acceptance command goes into
-the brief, and test files are copied in with `--import` but **not** placed in `--allow` — the
-subagent may change the implementation, not the tests. `postflight` re-runs the same command as
-the parent and does not trust the subagent's own report. For a bug fix the baseline test may be red
-(`envcheck` returns 1); after the dispatch it has to turn green.
-
-5. After it commits, run acceptance:
-
-```bash
-bash "$SKILL/scripts/postflight.sh" --task t1 --child auto --stop completed --quiet
-# verdict=pass changed=1 violations=0 history=no dirty=0 testexit=0 patch=.../deliveries/t1.patch
-```
-
-Merge `deliveries/t1.patch` back if it passes. If it fails, the repo has already returned to
-`BASE` and the changes are kept as `deliveries/t1.abandoned.patch`. If the verdict degrades to
-`error`, the patch is kept as `deliveries/<task>.error.patch` and a fallback `MANIFEST.json` is written.
-
-Review or document tasks with nothing structural to check must pass `--allow-no-tests` and state
-the manual review in the brief; `preflight` otherwise exits 3. The manifest then records
-`testsRun=false` and `testExitCode=null` instead of a silent pass.
+Merge `deliveries/t1.patch` back if it passes; if it fails, the repo is back at `BASE` and the changes
+are kept as `*.abandoned.patch` for later inspection. One thing worth knowing: the acceptance tests
+are written by the parent and frozen before dispatch, so the subagent can change the implementation
+but not the tests — "tests pass" is never the subagent's own word. Command syntax, the brief format
+and `--allow-no-tests` all live in [`SKILL.md`](subagent-delegation/SKILL.md), which is the spec for
+the model; they are not repeated here.
 
 ## When to use
 
@@ -268,6 +234,8 @@ no compatibility branches for older releases.
 
 On Windows: scripts must be LF (add `.gitattributes` or set `core.autocrlf=false`), and pass POSIX
 paths (`/c/work/...`), not `C:\...`.
+
+After installing, run `bash subagent-delegation/scripts/doctor.sh` once; it names anything missing.
 
 ## Porting to another harness
 
