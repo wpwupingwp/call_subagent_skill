@@ -14,6 +14,9 @@ tokens**.
 This document is the user-facing guide; the model-facing spec is
 [`subagent-delegation/SKILL.md`](subagent-delegation/SKILL.md).
 
+> ⚠️ **Serial, no concurrency**: one subagent at a time — dispatch, wait for the commit and
+> acceptance, then dispatch the next; multiple rounds can be driven unattended.
+
 ## ✨ Why use it
 
 - **Rollback and traceability.** `BASE..HEAD` is exactly this task; the whitelist is compared after
@@ -113,13 +116,13 @@ hits all three is the best case; everything in between is in the table below.
 
 | ✅ Good fit | ❌ Poor fit |
 |---|---|
+| — | **Needs concurrency (the skill is serial)** |
 | New implementation of 100+ lines, a single-file refactor | Checking state, reading files, one command |
 | A 30–50 line change, or ten 10-line changes batched | A one-line change (orchestration costs about 2,100) |
 | Bug fixes with a repro test | Model choice, copy, architecture trade-offs, research |
 | Bulk mechanical edits (rename, migrate, format) | Tasks that need steering mid-flight |
 | Unattended batch work, or serial multi-round edits/reviews | Interactive debugging (serial + async is slow) |
 | A second opinion (clean-context review, diff or not) | Reviews purely to save tokens |
-| | Needs concurrency (the skill is serial) |
 
 ### Serial, but multi-round
 
