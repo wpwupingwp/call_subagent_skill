@@ -379,22 +379,19 @@ Exit codes `0` compliant · `2` violation (lists steps and commands) · `3` no d
 
 ## 📊 Development cost (this repository)
 
-Development and validation happened in a single parent session; subagent usage is recorded
-separately in the session repo's `tasks/usage.tsv`. Snapshot (read on 2026-11-24, still growing):
+Development and validation happened in a single parent session; subagent usage is summed from the
+session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 
 | Item | Parent | Subagents |
 |---|---|---|
-| Steps | 2,666 | 830 |
-| Turns | 448 (413 human inputs) | 13 dispatches |
-| Uncached input | 2,654,560 tok | 1,178,187 tok |
-| Cache reads | 801,712,000 tok | 61,962,594 tok |
-| Output | 2,128,390 tok | 313,070 tok |
-| Cache hit rate | 99.67% | 98.13% |
+| Steps | 2,666 | 1,629 |
+| Turns | 448 (413 human inputs) | 47 sessions |
+| Time | 8 days 13 hours (11-15 → 11-24) | 3.4 hours in total |
+| Uncached input | 2,654,560 tok | 2,014,386 tok |
+| Cache reads | 801,712,000 tok | 94,347,481 tok |
+| Output | 2,128,390 tok | 635,386 tok |
+| Cache hit rate | 99.67% | 97.91% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | 27,202,360 | 0 (`r = 0`) |
-
-Subagents are priced at `r = 0`: the tokens handed out cost nothing, so the development cost is the
-parent column. Listing them separately shows how much work the flow actually moved off the parent.
-Earlier rounds lived in session repos that have since been deleted, so their usage is not included.
 
 ## 📄 License
 
