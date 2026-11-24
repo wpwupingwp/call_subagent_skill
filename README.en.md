@@ -82,17 +82,16 @@ It names anything missing.
 
 ## 🚀 Usage
 
-One sentence is enough: the skill, the target, the acceptance, and when to stop.
+One sentence is enough: the skill, the target, what to do, and when to stop.
 
 Single dispatch:
 
-> Use the subagent-delegation skill to extract the retry logic in `src/parser.py` into a function;
-> acceptance is `pytest -q tests/test_parser.py`; wait for my confirmation before merging.
+> Use the subagent-delegation skill to <do something> to <the target>. Wait for my confirmation when done.
 
 Multi-round, unattended:
 
-> Use the subagent-delegation skill to review this repository for four consecutive rounds, fixing
-> what you accept each round before starting the next; wait for my confirmation when done.
+> Use the subagent-delegation skill to <do something> to <the target> for <N> consecutive rounds.
+> Wait for my confirmation when done.
 
 What you get afterwards is a report: the verdict per round (accepted / rejected / why), the diff and
 test results, and anything that needs your decision. You do not see the subagent's process, and you
