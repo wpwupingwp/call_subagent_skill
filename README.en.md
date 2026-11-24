@@ -385,7 +385,7 @@ session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 | Item | Human | Parent | Subagents |
 |---|---|---|---|
 | Input | 415 messages | — | — |
-| Time | 8 days 13 hours (wall clock) | 5.7 hours in 449 turns | 3.4 hours over 47 sessions |
+| Time | 8 days 13 hours | 5.7 hours in 449 turns | 3.4 hours over 47 sessions |
 | Steps | — | 2,689 | 1,629 |
 | Turns | — | 449 | 47 sessions |
 | Uncached input | — | 2,665,750 tok | 2,014,386 tok |
@@ -393,6 +393,15 @@ session logs by `parentSession`. Snapshot (read on 2026-11-24, still growing):
 | Output | — | 2,145,825 tok | 635,386 tok |
 | Cache hit rate | — | 99.67% | 97.91% |
 | Weighted cost (input 1 / cache 0.02 / output 4) | — | 27,342,091 | 0 (`r = 0`) |
+
+### Division of labour
+
+- **The human**: sets the principles and acceptance criteria, corrects errors, makes the calls
+  (fix / don't dispatch / push), and asks for a measurement first; rarely says how to implement,
+  usually just "this is wrong" or "measure it".
+- **The parent agent**: implements, designs controlled experiments, digs facts out of session logs,
+  writes the docs, runs the self-checks. Typical failures: drifting definitions (a changed multiplier
+  that is not recomputed) and treating assumptions as conclusions.
 
 ## 📄 License
 
