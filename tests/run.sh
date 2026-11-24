@@ -213,8 +213,8 @@ printf 'round two\n' > "$R/findings.md"; git -C "$R" add findings.md; git -C "$R
 chk "CL/diff 只含交付物" "findings.md" "$(git -C "$R" diff --name-only "$(sed -n 's/^BASE=//p' "$R/tasks/t-cl1/dispatch.env")" HEAD)"
 chk "CL/postflight" 0 "$(po t-cl1)"
 sess gCL2
-chk "CL/新仓库被拒" 3 "$(pf --task t-cl2 --import calc.py --allow findings.md $(b t-cl2) --tests true --clear findings.md)"
-chk "CL/未跟踪被拒" 3 "$(pf --task t-cl3 --import calc.py --allow calc.py $(b t-cl3) --tests true --clear nope.txt)"
+chk "CL/新仓库忽略 --clear" 0 "$(pf --task t-cl2 --import calc.py --allow findings.md $(b t-cl2) --tests true --clear findings.md)"
+chk "CL/未跟踪跳过" 0 "$(pf --task t-cl3 --import calc.py --allow calc.py $(b t-cl3) --tests true --clear nope.txt)"
 chk "CL/审计目录被拒" 3 "$(pf --task t-cl4 --import calc.py --allow calc.py $(b t-cl4) --tests true --clear tasks/t-cl2/brief.md)"
 
 echo "── AH 仓库锁 ──"
@@ -511,6 +511,42 @@ git -C "$R" branch -q -D main
 RC_BE=$(bash $SK/scripts/preflight.sh --model test/model --task t-be2 --import be.py --allow be.py --brief "$B/fix/brief-t-be.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)
 chk "BE/非 main 被拒" 3 "$RC_BE"
 chk "BE/无未跟踪残留" "" "$(git -C "$R" status --porcelain)"
+
+echo "── BF 先越界后撤销仍判越界 ──"
+sess gBF
+printf 'x=1\n' > "$B/fix/bf.txt"
+mkbrief t-bf true
+chk "BF/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bf --import bf.txt --allow bf.txt --brief "$B/fix/brief-t-bf.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+printf 'y\n' >> "$R/bf.txt"; git -C "$R" commit -qam ok
+mkdir -p "$R/tasks"; echo leak > "$R/tasks/leak.txt"; git -C "$R" add -f tasks/leak.txt; git -C "$R" commit -qm leak
+git -C "$R" rm -q tasks/leak.txt; git -C "$R" commit -qm unleak
+chk "BF/判越界" 2 "$(bash $SK/scripts/postflight.sh --root "$B" --task t-bf --child test-child --stop completed --quiet >/dev/null 2>&1; echo $?)"
+
+echo "── BG --clear 对不存在的交付物不报错 ──"
+sess gBG
+printf 'x=1\n' > "$B/fix/bg.txt"
+mkbrief t-bg true
+chk "BG/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bg --import bg.txt --allow bg.txt --clear findings.md --brief "$B/fix/brief-t-bg.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+chk "BG/preflight2" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bg2 --import bg.txt --allow bg.txt --clear findings.md --brief "$B/fix/brief-t-bg.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+
+echo "── BH 导入路径不许含 .. ──"
+sess gBH
+chk "BH/.. 被拒" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bh --import ../calc.py --allow calc.py --brief "$B/fix/brief-t-bh.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+
+echo "── BI 会话仓库 .git 丢失时拒绝重建 ──"
+sess gBI
+printf 'x=1\n' > "$B/fix/bi.txt"
+mkbrief t-bi true
+chk "BI/preflight" 0 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bi --import bi.txt --allow bi.txt --brief "$B/fix/brief-t-bi.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+rm -rf "$R/.git"
+chk "BI/拒绝重建" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bi2 --import bi.txt --allow bi.txt --brief "$B/fix/brief-t-bi.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
+
+echo "── BJ 会话仓库是工作树时拒绝 ──"
+sess gBJ
+mkdir -p "$R"
+printf 'gitdir: /tmp/nope\n' > "$R/.git"
+mkbrief t-bj true
+chk "BJ/工作树被拒" 3 "$(bash $SK/scripts/preflight.sh --model test/model --task t-bj --import calc.py --allow calc.py --brief "$B/fix/brief-t-bj.md" --tests true --root "$B" >/dev/null 2>&1; echo $?)"
 
 echo
 echo "结果: $pass 通过 / $fail 失败"

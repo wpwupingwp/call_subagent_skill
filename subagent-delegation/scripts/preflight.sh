@@ -179,7 +179,14 @@ if [ -n "$TOP" ]; then
 fi
 
 CREATED=0
+if [ -f "$REPO/.git" ]; then
+  die "会话仓库 $REPO 是 git 工作树（.git 是文件）：丢弃时的 reset --hard 会影响到外层仓库。请换一个独立目录当工作区。"
+fi
 if [ ! -d "$REPO/.git" ]; then
+  # .git 不见了但目录里已有运行态产物：这是损坏的会话仓库，不能当新仓库重建（会覆盖历史）
+  if [ -d "$REPO/tasks" ] || [ -f "$REPO/model" ]; then
+    die "会话仓库 $REPO 缺少 .git，但已有 tasks/ 或 model：拒绝重建（历史会丢）。请人工检查后清理该目录。"
+  fi
   CREATED=1
   mkdir -p "$REPO"
 else
@@ -232,6 +239,7 @@ if [ -n "$IMPORT" ]; then
     [ -z "$it" ] && continue
     case "$it" in
       /*) die "导入路径必须是相对当前目录的路径（不要以 / 开头）: $it" ;;
+      ..|../*|*/..|*/../*) die "导入路径不能含「..」: $it" ;;
     esac
     [ -e "$it" ] || die "导入源不存在: $it"
     cur=$(hash_source "$it")
@@ -278,7 +286,10 @@ fi
 # 白名单只约束写，不约束读；清掉工作树副本挡的是顺手读到，git 历史里仍有原文。
 CLEARED=""
 if [ -n "$CLEAR" ]; then
-  [ "$CREATED" -eq 0 ] || die "--clear 只用于已存在的会话仓库（新仓库没有可清理的交付物）"
+  if [ "$CREATED" -eq 1 ]; then
+    echo "preflight: 提示 —— 新建的会话仓库没有可清理的交付物，忽略 --clear" >&2
+    CLEAR=""
+  fi
   IFS=',' read -ra _clear_items <<< "$CLEAR"
   _clear_paths=()
   for _c in "${_clear_items[@]}"; do
@@ -295,12 +306,15 @@ if [ -n "$CLEAR" ]; then
     case "$_c" in
       tasks|tasks/*|.git|.git/*) die "--clear 不能清理审计目录: $_c" ;;
     esac
-    [ -n "$(git -C "$REPO" ls-files -- "$_c" 2>/dev/null)" ] \
-      || die "--clear 路径不是仓库里已跟踪的文件: $_c"
+    if [ -z "$(git -C "$REPO" ls-files -- "$_c" 2>/dev/null)" ]; then
+      # 上一轮被丢弃（reject/fail）时交付物已经不在了：这不是错误，跳过即可，否则多轮评审第二轮就派不出去
+      echo "preflight: 提示 —— $_c 不在仓库里（上一轮没留下它），跳过清理" >&2
+      continue
+    fi
     _clear_paths+=("$_c")
   done
-  [ "${#_clear_paths[@]}" -gt 0 ] || die "--clear 的路径列表为空"
-  git -C "$REPO" rm -r -q -- "${_clear_paths[@]}" || die "清理失败: $CLEAR"
+  [ "${#_clear_paths[@]}" -gt 0 ] || echo "preflight: 提示 —— --clear 没有可清理的路径" >&2
+  [ "${#_clear_paths[@]}" -eq 0 ] || git -C "$REPO" rm -r -q -- "${_clear_paths[@]}" || die "清理失败: $CLEAR"
   CLEARED=$(IFS=,; printf '%s' "${_clear_paths[*]}")
   echo "preflight: 已清理上一轮交付物: $CLEARED" >&2
 fi

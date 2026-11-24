@@ -104,7 +104,7 @@ bash "$SKILL/scripts/preflight.sh" \
 
 **仓库由 `preflight` 创建**（见硬规则 3）：每个对话一个，从头到尾只有 `main` 一条分支；任务不单独建仓、不建分支。
 
-`--quiet` 让 stdout 只剩三行（模型必填，诊断信息走 stderr）：
+`--quiet` 让 stdout 最多三行（模型必填；被拒绝时不打印，诊断信息走 stderr）：
 
 ```
 PROMPT=<会话仓库>/tasks/<task>/dispatch.prompt
@@ -193,6 +193,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 ### 6. 交付
 
 `tasks/<task>/deliveries/<task>.patch` 与 `MANIFEST.json` 交给用户，由用户合并回主树。父代理不自动回写源文件。
+只有 `pass` 才有 `<task>.patch`；`fail`/`reject` 的改动存为 `<task>.abandoned.patch`，记录生成失败时存为 `<task>.error.patch`。
 
 **父代理不提交任务代码**：简报由 `preflight` 拷进仓库并提交，审查记录写在 `<会话目录>/reviews/`（仓库之外）。`BASE..HEAD` 就是本次任务；下一个任务从新的 `HEAD` 起步（`BASE` 重新取值），已验收的提交就是 `main` 的最新状态，不需要合并动作。
 
@@ -221,7 +222,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
         brief.md             # 规格唯一来源，preflight 校验并提交
         provenance.tsv       # 导入来源与 contentHash
         MANIFEST.json        # 判定与证据
-        deliveries/<task>.patch
+        deliveries/<task>.patch          # 仅 pass；失败是 <task>.abandoned.patch，出错是 <task>.error.patch
         dispatch.env  dispatch.prompt  test.log  tmp/   # 派生文件，.gitignore
 ```
 
@@ -251,7 +252,7 @@ verdict=fail stop=max-tokens changed=0 violations=0 history=no dirty=0 testexit=
 | 情况 | 默认 |
 |---|---|
 | 会改文件、验收能机械核对、且需要迭代 | 派 |
-| 评审（含只读 review，被审代码不改） | 要第二意见就派：交付 `findings.md`，用 `--allow-no-tests`，结论由父代理逐条核对；只为省 token 不派 |
+| 评审（含只读 review，被审代码不改） | 要第二意见就派：交付 `findings.md`；有结构检查脚本就带 `--tests`，没有才用 `--allow-no-tests`，结论都由父代理逐条核对；只为省 token 不派 |
 | 高风险改动，或审查判定/适配/审计逻辑（`r ≈ 1`） | 派，但用显式指定的同模型子代理：买独立视角与可回滚，不省 token |
 | 查状态、读文件、跑一条命令看输出、网络探测 | 自己做 |
 | 改一行、改配置、加个常量 | 自己做 |

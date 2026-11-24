@@ -167,11 +167,12 @@ bash subagent-delegation/scripts/doctor.sh
 ![多轮审查时序](docs/flow-multi-zh.png)
 
 多轮版画的是循环：每轮 `preflight` 冻结 `BASE` 与白名单、派发、子代理提交 `findings.md`、
-`postflight` 判定；下一轮开始前先用 `--clear findings.md` 清掉上一轮交付物，再冻结新的 `BASE`。
+`postflight` 判定；下一轮开始前先用 `--clear findings.md` 清掉上一轮交付物（上一轮被判失败、文件已被丢弃时它直接跳过），再冻结新的 `BASE`。
 父代理在轮内逐条判定（采纳/拒绝/理由）并落地修复，人只在最后看 patch 与审查记录、抽样复核，
 不重跑每一轮。[交互版](docs/flow-multi-zh.html)。
 
-每对话一个仓库，从头到尾只有 `main` 一条分支；任务不建分支，靠 `BASE` 划分。
+每对话一个仓库，只使用 `main` 一条分支；任务不建分支，靠 `BASE` 划分。`preflight` 每次都切回 `main`，
+仓库里若有别的分支，它们不参与派发与验收（也不会被删）。
 
 ## 🗂️ 目录结构
 
@@ -185,7 +186,7 @@ bash subagent-delegation/scripts/doctor.sh
         └── tasks/<task>/
             ├── brief.md        # 规格唯一来源，preflight 提交
             ├── MANIFEST.json   # 判定与证据
-            └── deliveries/<task>.patch
+            └── deliveries/<task>.patch   # 仅 pass；失败留 .abandoned.patch，出错留 .error.patch
 ```
 
 工作区在别的 git 仓库内时，`preflight` 把 `/<会话 id>/` 追加进该仓库的 `.git/info/exclude`
@@ -209,7 +210,8 @@ git + bash + `python3`；DSH 只以**子会话适配器**和 `DSH_SESSION_ID`/`D
 - **stop 是判定闩锁**：非 `completed` 一律 fail，避免被截断的交付因为测试碰巧通过而被接受。
 - **`--child` 日志不可用时回退到 `--stop`**：显式 id 的日志缺失、`auto` 未匹配到子会话，或日志里
   没有 `turn/end` 时，`postflight` 都会提示「stop 校正已跳过」，按 `--stop` 判定（未传则
-  `completed`）；此时要保证判定可信，必须显式传对 `--stop`。
+  `completed`）；此时要保证判定可信，必须显式传对 `--stop`。复用一个子代理续聊时，日志里会有多段
+  `turn/end`，取的是最后一段，续聊后再判定请显式传 `--stop`。
 - **usage 只用于审计**：写进 `tasks/usage.tsv`（MANIFEST 只记 `childSession` 和 `stopReason`），
   不参与判定；要算 `r` 时用 `usage_of.sh` 或显式 `--usage`。
 - **DSH 的完成通知不是替代品**：父代理收到的是自然语言（`finished`、`was stopped before it
@@ -309,8 +311,8 @@ exit 3——不会退化成父模型。
 ## 🧪 测试
 
 ```bash
-bash tests/run.sh                    # 182 项断言，不需要网络或子代理
-SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 147 项
+bash tests/run.sh                    # 190 项断言，不需要网络或子代理
+SKIP_USAGE_TESTS=1 bash tests/run.sh # 跳过用量相关断言，只跑 155 项
 ```
 
 覆盖建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、可移植性、

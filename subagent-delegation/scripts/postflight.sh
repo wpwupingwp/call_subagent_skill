@@ -37,6 +37,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$TASK" ] || { echo "postflight: 必须指定 --task" >&2; usage; }
+case "${TASK:-}" in
+  ""|*[!A-Za-z0-9._-]*) { echo "postflight: --task 只允许字母、数字、点、下划线、连字符: ${TASK:-}" >&2; exit 3; } ;;
+esac
+
 [ -n "${CHILD:-}" ] || { echo "postflight: 必须指定 --child <子代理 id|auto>" >&2; usage; }
 
 [ -n "${DSH_SESSION_ID:-}" ] || { echo "postflight: DSH_SESSION_ID 未设置；本技能必须在 DSH 会话里运行" >&2; exit 3; }
@@ -246,6 +250,11 @@ HEAD_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 git diff --no-renames --name-only "$BASE" "$HEAD_SHA" > "$TMPD/changed.txt"
 CHANGED_COUNT=$(count_lines "$TMPD/changed.txt")
 
+# 越界核对要看「所有提交里出现过什么」，不是净 diff：先写越界、后撤掉的路径在 BASE..HEAD 的净 diff 里消失。
+# 交付内容仍是净 diff（patch 同源），但白名单核对用中间提交的并集。
+git log --no-renames --name-only --pretty=format: "$BASE..$HEAD_SHA" 2>/dev/null \
+  | grep -v '^$' | sort -u > "$TMPD/touched.txt"
+
 # ---- 3. 历史是否被改写：BASE 必须是 HEAD 的祖先 ----
 REWRITTEN=no
 if [ "$HEAD_SHA" != "$BASE" ]; then
@@ -257,7 +266,7 @@ fi
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   is_allowed "$f" || printf '%s\n' "$f" >> "$TMPD/violations.txt"
-done < "$TMPD/changed.txt"
+done < "$TMPD/touched.txt"
 VIOLATION_COUNT=$(count_lines "$TMPD/violations.txt")
 
 # ---- 5. 附加可疑线索（不直接判违规，但要看得见）----

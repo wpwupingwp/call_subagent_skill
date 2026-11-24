@@ -118,7 +118,7 @@ hits all three is the best case; everything in between is in the table below.
 |---|---|
 | — | **Needs concurrency (the skill is serial)** |
 | New implementation of 100+ lines, a single-file refactor | Checking state, reading files, one command |
-| A 30–50 line change, or ten 10-line changes batched | A one-line change (orchestration costs about 2,100) |
+| A 30–50 line change, or ten 10-line changes batched | A one-line change or a new constant (orchestration costs about 2,100) |
 | Bug fixes with a repro test | Model choice, copy, architecture trade-offs, research |
 | Bulk mechanical edits (rename, migrate, format) | Tasks that need steering mid-flight |
 | Unattended batch work, or serial multi-round edits/reviews | Interactive debugging (serial + async is slow) |
@@ -201,12 +201,14 @@ GitHub Pages in the repository settings to view it online.
 
 The multi-round version draws the loop: each round freezes `BASE` and the whitelist, dispatches,
 the subagent commits `findings.md`, and `postflight` judges it; the next round starts with
-`--clear findings.md`, dropping the previous artifact before freezing a new `BASE`. The parent
+`--clear findings.md`, dropping the previous artifact before freezing a new `BASE` (if the last
+round failed and the file is already gone, it is skipped). The parent
 accepts or rejects every finding with a reason and lands the fixes in-round; the human only reads
 the patches and review record at the end and spot-checks. [Interactive](docs/flow-multi-en.html).
 
-There is one repository per conversation, with a single `main` branch; tasks are delimited by
-`BASE` rather than by branches.
+There is one repository per conversation, using only the `main` branch; tasks are delimited by
+`BASE` rather than by branches. `preflight` checks out `main` every time; any other branch in the
+repo takes no part in dispatch or acceptance (and is not deleted).
 
 ## 🗂️ Repository layout
 
@@ -248,7 +250,8 @@ Porting means replacing that adapter; the verdict logic does not change.
 - **unreadable `--child` logs fall back to `--stop`**: when the explicit id has no log, `auto` matches
   no child session, or the log has no `turn/end`, `postflight` warns that stop correction was
   skipped and uses `--stop` as given (or `completed` if omitted). Pass the correct `--stop`
-  explicitly if you need a trustworthy verdict.
+  explicitly if you need a trustworthy verdict. If the child session is reused for later chat, its log
+  holds several `turn/end` events and the last one wins — pass `--stop` explicitly in that case.
 - **usage is audit-only**: it lands in `tasks/usage.tsv` (MANIFEST records only `childSession` and
   `stopReason`) and does not affect the verdict; use `usage_of.sh` or explicit `--usage` when
   measuring `r`.
@@ -363,8 +366,8 @@ turn. Re-run it after updating the skill.
 ## 🧪 Tests
 
 ```bash
-bash tests/run.sh                    # 182 assertions, no network or subagent needed
-SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 147 total
+bash tests/run.sh                    # 190 assertions, no network or subagent needed
+SKIP_USAGE_TESTS=1 bash tests/run.sh # skip usage assertions, 155 total
 ```
 
 Covers repo creation and commits, out-of-scope rejection, rollback on test failure, history-rewrite

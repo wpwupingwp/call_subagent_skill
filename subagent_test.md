@@ -23,7 +23,7 @@
 | 文件 | 用途 |
 |---|---|
 | `/tmp/tok.py` | 从会话日志汇总 token：`tok.py <session-id> [--since ms] [--until ms]` |
-| `tests/run.sh` | skill 的 182 项断言；跳过用量断言时 147 项（建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、可移植性、`--child auto` 与用量记录、`--stop` 默认值、重跑守卫、patch 路径） |
+| `tests/run.sh` | skill 的 190 项断言；跳过用量断言时 155 项（建仓与提交、越界拒绝、测试失败回滚、历史改写检测、丢弃与归档、简报校验、最小模式、可移植性、`--child auto` 与用量记录、`--stop` 默认值、重跑守卫、patch 路径） |
 | `/tmp/exp*`、`/tmp/gtb` | 各轮任务的仓库与产物 |
 
 重跑：`bash tests/run.sh`（不需要网络，不需要子代理）。
